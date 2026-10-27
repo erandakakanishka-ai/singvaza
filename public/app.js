@@ -86,6 +86,8 @@ const App = (() => {
     cachedMixUrl: '',
     renderSeq: 0,
     userLoadedBacking: false,
+    backingDecodePending: false,
+    backingLoadSeq: 0,
     uploadedMediaUrl: '',
     uploadedIsVideo: false,
     uploadedFileName: '',
@@ -228,6 +230,7 @@ const App = (() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
 
     if (view === 'mix') {
+      updateVocalRemoverUI();
       requestAnimationFrame(() => {
         drawSpectrum();
         drawTimeline();
@@ -236,6 +239,38 @@ const App = (() => {
     } else if (view === 'library') {
       refreshServerState();
     }
+  }
+
+  function openVocalRemover() {
+    if (state.isRecording || state.waitingForYtTap) stopActiveRecordingNow();
+    else pauseYoutubeStage();
+    switchView('mix');
+    updateVocalRemoverUI();
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('vocalRemoverPanel');
+      if (!panel) return;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try { panel.focus({ preventScroll: true }); } catch (_) { panel.focus(); }
+    });
+  }
+
+  function updateVocalRemoverUI(message = '') {
+    const button = document.getElementById('btnKaraokeCut');
+    const status = document.getElementById('vocalRemoverStatus');
+    if (!button || !status) return;
+    const hasTrack = Boolean(state.originalBackingBuffer && state.userLoadedBacking && !state.isDemoSession);
+    const isStereo = hasTrack && state.originalBackingBuffer.numberOfChannels >= 2;
+    const effectActive = Boolean(isStereo && state.karaokeCutActive && !state.backingDecodePending);
+    button.disabled = state.backingDecodePending || !isStereo;
+    button.textContent = effectActive ? 'Restore original' : 'Reduce vocals';
+    button.setAttribute('aria-pressed', String(effectActive));
+    button.classList.toggle('btn-amber', !effectActive);
+    if (message) status.textContent = message;
+    else if (state.backingDecodePending) status.textContent = 'Preparing your audio…';
+    else if (!hasTrack) status.textContent = 'Choose a stereo song to begin.';
+    else if (!isStereo) status.textContent = 'This track is mono. Choose a stereo file for vocal reduction.';
+    else if (effectActive) status.textContent = 'Vocal reduction is on. Use Play Mix below to listen, or restore the original.';
+    else status.textContent = `Ready: ${state.uploadedFileName || 'your song'}. Reduce vocals, then use Play Mix below to listen.`;
   }
 
   function setStageMode() {
@@ -248,6 +283,7 @@ const App = (() => {
       return { backBuf: state.backingBuffer, vocBuf: state.rawVocalBuffer };
     }
     if (demoLoadPromise) return demoLoadPromise;
+    const loadSeq = state.backingLoadSeq;
     demoLoadPromise = (async () => {
       const ctx = ensureAudioCtx();
       const [backRes, vocRes] = await Promise.all([
@@ -262,6 +298,12 @@ const App = (() => {
         ctx.decodeAudioData(backArr),
         ctx.decodeAudioData(vocArr),
       ]);
+      // A newer user-selected track takes precedence over an in-flight demo preload.
+      if (loadSeq !== state.backingLoadSeq || !state.isDemoSession) {
+        demoLoadPromise = null;
+        suspendIdleWebAudio();
+        return { backBuf, vocBuf };
+      }
 
       state.originalBackingBuffer = backBuf;
       state.backingBuffer = backBuf;
@@ -270,6 +312,7 @@ const App = (() => {
       state.backingPeaks = SingVazaDSP.computeWaveformPeaks(backBuf, 220);
       state.vocalPeaks = SingVazaDSP.computeWaveformPeaks(vocBuf, 220);
       state.isDemoSession = true;
+      updateVocalRemoverUI();
       suspendIdleWebAudio();
       if (state.view === 'mix') drawTimeline();
 
@@ -338,8 +381,11 @@ const App = (() => {
     state.demoEdited = false;
     state.mixDirty = false;
     state.userLoadedBacking = false;
+    state.backingDecodePending = false;
+    state.backingLoadSeq += 1;
     state.transposeSemitones = 0;
     state.karaokeCutActive = false;
+    updateVocalRemoverUI();
     initLightweightDemoEnvelope();
     document.getElementById('projectTitleInput').value = 'Slow Motion Dream — Studio Mix';
     applyPreset('crystal_hd', false);
@@ -991,22 +1037,24 @@ const App = (() => {
   }
 
   async function applyKaraokeVocalCut() {
-    if (!state.originalBackingBuffer && state.isDemoSession) {
-      await preloadRealDemoAssets();
+    if (state.backingDecodePending || !state.originalBackingBuffer || !state.userLoadedBacking || state.isDemoSession) {
+      showToast('Choose a stereo audio or video file first');
+      return;
     }
-    if (!state.originalBackingBuffer) {
-      showToast('Upload or load a stereo song first');
+    if (state.originalBackingBuffer.numberOfChannels < 2) {
+      updateVocalRemoverUI();
+      showToast('Vocal reduction needs a stereo track');
       return;
     }
     const ctx = ensureAudioCtx();
     state.karaokeCutActive = !state.karaokeCutActive;
-    document.getElementById('btnKaraokeCut').className = state.karaokeCutActive ? 'btn btn-sm btn-amber' : 'btn btn-sm';
     state.backingBuffer = state.karaokeCutActive
       ? SingVazaDSP.centerCutKaraokeBuffer(ctx, state.originalBackingBuffer)
       : state.originalBackingBuffer;
     suspendIdleWebAudio();
     state.backingPeaks = SingVazaDSP.computeWaveformPeaks(state.backingBuffer, 220);
     markMixDirty();
+    updateVocalRemoverUI();
     drawTimeline();
     if (state.isPlaying) startPlayback(getCurrentPlayhead());
     showToast(state.karaokeCutActive ? 'Center lead vocals reduced!' : 'Original stereo track restored');
@@ -1340,9 +1388,13 @@ const App = (() => {
     state.uploadedIsVideo = false;
     state.uploadedFileName = '';
     state.userLoadedBacking = false;
+    state.backingDecodePending = false;
+    state.backingLoadSeq += 1;
+    state.karaokeCutActive = false;
     state.backingBuffer = null;
     state.originalBackingBuffer = null;
     state.backingPeaks = null;
+    updateVocalRemoverUI();
     markMixDirty();
 
     const clearBtn = document.getElementById('btnClearStageTrack');
@@ -1379,7 +1431,13 @@ const App = (() => {
     state.uploadedFileName = file.name;
     state.isDemoSession = false;
     state.userLoadedBacking = true;
+    state.backingDecodePending = true;
+    const loadSeq = ++state.backingLoadSeq;
+    state.karaokeCutActive = false;
     state.transposeSemitones = 0;
+    const transposeLabel = document.getElementById('transposeLabel');
+    if (transposeLabel) transposeLabel.textContent = '0 st';
+    updateVocalRemoverUI();
 
     // 1. Immediately mount visible playable Video or Audio player inside #stageVideoWrap (0ms wait!)
     renderUploadedStageMedia(file.name, objUrl, isVideo);
@@ -1401,20 +1459,26 @@ const App = (() => {
     try {
       const ctx = ensureAudioCtx();
       const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+      if (loadSeq !== state.backingLoadSeq) return;
       suspendIdleWebAudio();
+      state.backingDecodePending = false;
       state.originalBackingBuffer = buf;
       state.backingBuffer = buf;
       state.backingPeaks = SingVazaDSP.computeWaveformPeaks(buf, 220);
+      updateVocalRemoverUI();
       markMixDirty();
       if (state.view === 'mix') {
         drawTimeline(0);
         if (state.isPlaying) startPlayback(0);
       }
     } catch (_) {
+      if (loadSeq !== state.backingLoadSeq) return;
       suspendIdleWebAudio();
+      state.backingDecodePending = false;
       state.originalBackingBuffer = null;
       state.backingBuffer = null;
       state.backingPeaks = null;
+      updateVocalRemoverUI('This browser could not read the audio in that file. Try a stereo MP3, WAV or M4A.');
       markMixDirty();
       if (state.view === 'mix') drawTimeline(0);
     }
@@ -3011,7 +3075,11 @@ const App = (() => {
     state.backingBuffer = null;
     state.backingPeaks = null;
     state.userLoadedBacking = false;
+    state.backingDecodePending = false;
+    state.backingLoadSeq += 1;
+    state.karaokeCutActive = false;
     state.isDemoSession = false;
+    updateVocalRemoverUI();
 
     const mediaEl = document.getElementById('stageUploadedMedia');
     if (mediaEl) { try { mediaEl.pause(); } catch (_) {} }
@@ -3055,6 +3123,7 @@ const App = (() => {
     renderBlogList();
     syncSlidersFromParams();
     updateFxButtonsUI();
+    updateVocalRemoverUI();
     initTimelinePointerInteractions();
     if (window.location.hash === '#blog') {
       switchView('blog');
@@ -3140,7 +3209,7 @@ const App = (() => {
       currentTime: state.ytPlayer?.getCurrentTime?.(),
       isMuted: state.ytPlayer?.isMuted?.(),
     }),
-    toggleHeroDemo, openMixWithRealDemo, loadRealSingerDemo, loadInstrumentalDemoForSing,
+    toggleHeroDemo, openMixWithRealDemo, openVocalRemover, loadRealSingerDemo, loadInstrumentalDemoForSing,
     togglePlayback, stopAndRewind, toggleBypassFx, toggleSoloVocal,
     scrubPlayhead, updateCropSlider, markCropAtPlayhead, applyAudioCrop, undoAudioCrop,
     applyPreset, setClarityMacro, setFilterCut, updateParam, setMasterProfile, setVocalOffset, nudgeVocalOffset, autoAlignTracks, runSmartVoiceMatch,

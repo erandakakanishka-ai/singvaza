@@ -8,8 +8,8 @@
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute karomix-db --local --file=./schema.sql",
     "db:remote": "wrangler d1 execute karomix-db --remote --file=./schema.sql",
-    "test": "node --test tests/security.test.mjs",
-    "test:e2e": "node --test tests/browser.test.mjs"
+    "test": "node --test tests/security.test.mjs tests/seo.test.mjs",
+    "test:e2e": "node --test tests/browser.test.mjs tests/vocal-remover.test.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",

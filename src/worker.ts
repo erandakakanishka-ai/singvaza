@@ -962,7 +962,7 @@ export default {
             custom_ad_code: s.custom_ad_code || '',
             ads_enabled: s.ads_enabled === 'true',
             seo_home_title: s.seo_home_title || 'SingVaza — Free Online Karaoke Player, Vocal Recorder & Audio Mastering Studio',
-            seo_home_description: s.seo_home_description || 'SingVaza (Sing Vaza) is a free online karaoke player, vocal recorder, pitch changer, vocal remover, and stereo MP3 audio mastering studio in your browser.',
+            seo_home_description: s.seo_home_description || 'SingVaza is a free online karaoke maker and recorder. Reduce vocals in stereo songs, sing with lyrics, and mix and export your recording in your browser.',
             seo_home_tags: s.seo_home_tags || 'SingVaza, Sing Vaza, SingViza, online karaoke player, free vocal recorder, karaoke with lyrics, vocal remover online, pitch changer, audio mastering studio, Sinhala karaoke, MP3 vocal mixer',
             notice_banner: s.notice_banner || '',
             daily_free_limit: Number(s.daily_free_limit || DAILY_FREE_LIMIT),

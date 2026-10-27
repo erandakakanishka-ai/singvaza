@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>SingVaza — Free Online Karaoke Player, Vocal Recorder & Audio Mastering Studio</title>
-  <meta name="description" content="SingVaza (Sing Vaza) is a free online karaoke player, vocal recorder, pitch changer, vocal remover, and stereo MP3 audio mastering studio that works directly in your mobile or desktop browser." />
+  <meta name="description" content="SingVaza is a free online karaoke maker and recorder. Reduce vocals in stereo songs, sing with lyrics, and mix and export your recording in your browser." />
   <meta name="keywords" content="SingVaza, Sing Vaza, SingViza, online karaoke player, free vocal recorder, karaoke lyrics, vocal remover online, pitch changer, audio mastering studio, Sinhala karaoke lyrics, MP3 vocal mixer" />
   <meta name="author" content="SingVaza" />
   <meta name="application-name" content="SingVaza" />
@@ -18,14 +18,14 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="SingVaza" />
   <meta property="og:title" content="SingVaza — Sing, Mix & Master Online" />
-  <meta property="og:description" content="Sing any karaoke song and master your voice directly in your browser with Concert Hall Reverb, EQ, Pitch Correction & Compact MP3 export." />
+  <meta property="og:description" content="Make karaoke, reduce lead vocals in stereo songs, record your voice and mix your sound directly in your browser." />
   <meta property="og:url" content="https://singvaza.pages.dev/" />
   <meta property="og:image" content="https://singvaza.pages.dev/assets/hero-singer.jpg" />
 
   <!-- Twitter / X Large Summary Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="SingVaza — Sing, Mix & Master Online" />
-  <meta name="twitter:description" content="Record clean vocals, fix timing lag, apply Concert Hall Reverb, and export compact stereo MP3 files right in your browser." />
+  <meta name="twitter:description" content="Make karaoke, reduce lead vocals, record your voice and mix your sound right in your browser." />
   <meta name="twitter:image" content="https://singvaza.pages.dev/assets/hero-singer.jpg" />
 
   <!-- Google Official Site Name Schema (Replaces 'Cloudflare' with 'SingVaza' in Google Search!) -->
@@ -58,7 +58,7 @@
         "name": "Can I remove vocals, shift song key, and align mic delay on SingVaza?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. SingVaza includes a built-in stereo Vocal Remover, Key Pitch Shifter, Low/High Cut Studio EQ, Concert Hall Reverb, and a precision millisecond Vocal Delay Aligner (-1500ms to +1500ms) for perfectly synced stereo MP3 exports."
+          "text": "Yes. SingVaza includes a stereo vocal reduction effect, key pitch shifting, studio EQ, reverb, and vocal timing controls. Vocal reduction results vary and can affect other centered sounds."
         }
       }
     ]
@@ -75,7 +75,7 @@
     "url": "https://singvaza.pages.dev/",
     "applicationCategory": "MultimediaApplication",
     "operatingSystem": "Android, iOS, Windows, macOS, Web",
-    "description": "Online vocal recording, karaoke lyrics display, pitch correction, concert hall reverb, audio crop, and stereo MP3 mastering studio.",
+    "description": "A browser-based karaoke maker and recorder with stereo vocal reduction, lyrics, vocal effects and MP3 export.",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -561,6 +561,82 @@ input[type="range"]::-moz-range-thumb {
   gap: 10px;
   margin-top: 12px;
   flex-wrap: wrap;
+}
+
+/* Clear access to the existing Vocal Remover, without narrowing the wider tools brand. */
+.hero-tool-shortcut {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  margin: 0 0 16px;
+  padding: 11px 13px;
+  border: 1px solid rgba(56, 189, 248, .36);
+  border-radius: 14px;
+  background: linear-gradient(110deg, rgba(24, 56, 77, .65), rgba(16, 20, 32, .96));
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.hero-tool-shortcut:hover { border-color: rgba(125, 211, 252, .78); background: #142638; }
+.hero-tool-shortcut:focus-visible, .featured-tool-btn:focus-visible, .vocal-remover-panel :focus-visible { outline: 3px solid #7dd3fc; outline-offset: 3px; }
+.hero-tool-icon, .vocal-remover-mark {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(56, 189, 248, .28);
+  border-radius: 11px;
+  background: rgba(56, 189, 248, .1);
+  color: #7dd3fc;
+}
+.hero-tool-icon svg, .vocal-remover-mark svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.hero-tool-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 1px; }
+.hero-tool-copy strong { font-size: 14px; line-height: 1.25; }
+.hero-tool-copy small { color: #b6c6d9; font-size: 12px; line-height: 1.35; }
+.hero-tool-arrow { color: #7dd3fc; font-size: 21px; line-height: 1; }
+.featured-tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(0, .94fr);
+  overflow: hidden;
+  margin: 0 0 24px;
+  border: 1px solid rgba(125, 211, 252, .2);
+  border-radius: 20px;
+  background: radial-gradient(circle at 5% 10%, rgba(56, 189, 248, .11), transparent 45%), #111725;
+}
+.featured-tool-copy { align-self: center; padding: clamp(22px, 3vw, 34px); }
+.featured-tool-kicker, .vocal-remover-kicker { display: block; margin-bottom: 9px; color: #7dd3fc; font-size: 10.5px; font-weight: 800; letter-spacing: .1em; }
+.featured-tool h2 { margin: 0 0 9px; color: #f8fafc; font-size: clamp(23px, 2.7vw, 32px); line-height: 1.17; }
+.featured-tool p { max-width: 480px; margin: 0 0 17px; color: #c1cddd; font-size: 13.5px; line-height: 1.55; }
+.featured-tool-btn { min-height: 42px; }
+.featured-tool-note { display: block; margin-top: 11px; color: #9aabbe; font-size: 11.5px; line-height: 1.45; }
+.featured-tool-image { min-height: 235px; overflow: hidden; background: #09121b; }
+.featured-tool-image img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 58% 45%; }
+.vocal-remover-panel.card {
+  scroll-margin-top: 90px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(56, 189, 248, .3);
+  background: radial-gradient(circle at 98% 2%, rgba(56, 189, 248, .12), transparent 45%), #101927;
+}
+.vocal-remover-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.vocal-remover-heading h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.2; }
+.vocal-remover-heading p { max-width: 640px; margin: 0; color: #c4d1df; font-size: 13px; line-height: 1.55; }
+.vocal-remover-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.vocal-remover-actions .btn { min-height: 43px; }
+.vocal-upload-btn { border-color: rgba(125, 211, 252, .4); background: rgba(56, 189, 248, .12); color: #d5f3ff; cursor: pointer; }
+.vocal-remover-status { margin: 12px 0 0; color: #d4e3f0; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.vocal-remover-note { margin: 7px 0 0; color: #98a9ba; font-size: 11.5px; line-height: 1.5; }
+@media (max-width: 650px) {
+  .featured-tool { grid-template-columns: 1fr; }
+  .featured-tool-image { order: -1; height: 170px; min-height: 0; }
+  .featured-tool-copy { padding: 21px; }
+}
+@media (max-width: 420px) {
+  .vocal-remover-actions .btn { width: 100%; }
+  .vocal-remover-mark { flex-basis: 36px; width: 36px; height: 36px; }
 }
 
 /* 3-Step Visual Guide Cards */
@@ -1062,8 +1138,16 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           <span class="step-badge">SINGVAZA • KARAOKE & VOCAL MASTERING</span>
           <h1 class="hero-title">Sing online karaoke. Sound like a record.</h1>
           <p class="hero-sub">
-            <strong>SingVaza</strong> lets you search any song for instant HD karaoke lyrics, sing into your phone mic, and master your vocals with Concert Hall Reverb, Vocal Sync & MP3 export.
+            Make karaoke, record your voice and bring your sound to life. Explore vocal tools, studio effects, lyrics and helpful guides—all in your browser.
           </p>
+
+          <button type="button" class="hero-tool-shortcut" id="homeVocalRemover" onclick="App.openVocalRemover()" aria-label="Open the Vocal Remover in Mix Studio">
+            <span class="hero-tool-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>
+            </span>
+            <span class="hero-tool-copy"><strong>Vocal Remover</strong><small>Reduce lead vocals in a stereo song</small></span>
+            <span class="hero-tool-arrow" aria-hidden="true">→</span>
+          </button>
 
           <!-- Clean Song Search -->
           <form class="search-pill-box" onsubmit="App.heroSearchSubmit(event)">
@@ -1112,6 +1196,18 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         </div>
       </div>
 
+      <!-- Featured tool: a clear entry point that can sit alongside future tools and guides. -->
+      <section class="featured-tool" aria-labelledby="featuredVocalTitle">
+        <div class="featured-tool-copy">
+          <span class="featured-tool-kicker">FEATURED TOOL <span aria-hidden="true">•</span> VOCAL REMOVER</span>
+          <h2 id="featuredVocalTitle">Make a track your own.</h2>
+          <p>Bring a compatible stereo song and reduce its center-panned lead vocals to create a karaoke-style backing track.</p>
+          <button type="button" class="btn btn-amber featured-tool-btn" onclick="App.openVocalRemover()">Open Vocal Remover <span aria-hidden="true">→</span></button>
+          <span class="featured-tool-note">Results vary; some centered instruments may also be affected.</span>
+        </div>
+        <div class="featured-tool-image"><img src="/assets/vocal-remover-studio.jpg" alt="Music creator using a phone in a recording studio" loading="lazy" /></div>
+      </section>
+
       <!-- Clean 3-Step Visual Flow -->
       <div class="steps-grid">
         <div class="step-card" onclick="App.switchView('sing')">
@@ -1154,7 +1250,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         <details class="card pro-drawer" style="margin-bottom:0;">
           <summary style="font-size:13.5px;"><span>Can I upload my own MP3 or MP4 backing track and remove vocals?</span><span>+</span></summary>
           <p style="margin-top:10px;font-size:13px;color:var(--text-secondary);line-height:1.65;">
-            Yes — upload any MP3, M4A, WAV, or MP4 backing track directly from your phone or PC, remove center vocals, shift key pitch up or down, display Sinhala or English lyrics, and export your finished mix.
+            You can upload a compatible stereo audio or video file from your phone or computer and reduce center-panned vocals in Mix Studio. Results vary by song, and some instruments may also be affected.
           </p>
         </details>
       </div>
@@ -1282,6 +1378,28 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <div id="mixProcessingBanner" style="display:none;background:rgba(245,158,11,0.14);border:1px solid rgba(251,191,36,0.45);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;font-weight:700;color:var(--amber-bright);">
         ⏳ Mastering your recorded vocal take into Mix Studio — one moment...
       </div>
+      <!-- Existing stereo vocal reduction, now easy to find without opening the Pro rack. -->
+      <section class="vocal-remover-panel card" id="vocalRemoverPanel" aria-labelledby="vocalRemoverTitle" tabindex="-1">
+        <div class="vocal-remover-heading">
+          <div>
+            <span class="vocal-remover-kicker">FEATURED TOOL <span aria-hidden="true">•</span> MIX STUDIO</span>
+            <h2 id="vocalRemoverTitle">Vocal Remover</h2>
+            <p>Choose a stereo audio or supported video file, then reduce center-panned lead vocals for a karaoke-style backing track.</p>
+          </div>
+          <span class="vocal-remover-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span>
+        </div>
+        <div class="vocal-remover-actions">
+          <label class="btn vocal-upload-btn" for="vocalRemoverFileInput">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            Choose audio or video
+            <input type="file" id="vocalRemoverFileInput" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv,.mov" hidden onchange="App.handleBackingUpload(event)" />
+          </label>
+          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Reduce vocals</button>
+        </div>
+        <p class="vocal-remover-status" id="vocalRemoverStatus" role="status" aria-live="polite">Choose a stereo song to begin.</p>
+        <p class="vocal-remover-note">Current method: stereo center reduction, not AI separation. Results vary and some instruments may be affected. Video support depends on your browser.</p>
+      </section>
+
       <!-- Card 1: Clean Master Player + Smooth Timeline -->
       <div class="card">
         <div class="player-bar-top">
@@ -1445,7 +1563,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <!-- Card 4: Clean Collapsible Pro Controls (Hidden until needed = ZERO clutter!) -->
       <details class="card pro-drawer">
         <summary>
-          <span>Pro Studio Rack (Auto-Tune, Key Shift, Vocal Remover & EQ)</span>
+          <span>Pro Studio Rack (Auto-Tune, Key Shift & EQ)</span>
           <span class="btn btn-sm">Expand ▾</span>
         </summary>
 
@@ -1477,7 +1595,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
             </div>
 
             <div class="fader-item">
-              <label><span>Song Key & Vocal Remover</span><span class="mono" id="transposeLabel">0 st</span></label>
+              <label><span>Song Key</span><span class="mono" id="transposeLabel">0 st</span></label>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
                 <select id="keySelect" onchange="if(Number(document.getElementById('atStrength').value)>0)App.applyWorkerAutoTune()">
                   <option value="0">Key C</option><option value="2">Key D</option><option value="4">Key E</option>
@@ -1485,7 +1603,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
                 </select>
                 <button class="btn btn-sm" onclick="App.shiftBackingKey(-1)">Key -1</button>
                 <button class="btn btn-sm" onclick="App.shiftBackingKey(1)">Key +1</button>
-                <button class="btn btn-sm" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()">Remove Song Vocals</button>
+
               </div>
             </div>
           </div>
@@ -1640,6 +1758,6 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 
   <script src="/vendor/confetti.min.js?v=21.2"></script>
   <script src="/dsp-engine.js?v=21.2"></script>
-  <script src="/app.js?v=22.1"></script>
+  <script src="/app.js?v=22.2"></script>
 </body>
 </html>
