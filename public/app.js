@@ -107,6 +107,18 @@ const App = (() => {
     uncroppedBackup: null,
 
     karaokeCutActive: false,
+    karaokeBuffer: null,
+    karaokeWavUrl: '',
+    karaokeInfo: null,
+    karaokeDirty: false,
+    karaokeBusy: false,
+    karaokeJobSeq: 0,
+    karaokeWorker: null,
+    karaokeWorkerReject: null,
+    stageKaraokeActive: false,
+    karaokeUnlocking: false,
+    stageKaraokeAudio: null,
+    stageKaraokeCleanup: null,
     transposeSemitones: 0,
     karaokeResults: [],
     karaokeIndex: 0,
@@ -259,18 +271,247 @@ const App = (() => {
     const status = document.getElementById('vocalRemoverStatus');
     if (!button || !status) return;
     const hasTrack = Boolean(state.originalBackingBuffer && state.userLoadedBacking && !state.isDemoSession);
-    const isStereo = hasTrack && state.originalBackingBuffer.numberOfChannels >= 2;
+    const channels = hasTrack ? state.originalBackingBuffer.numberOfChannels : 0;
+    const isStereo = channels === 2;
     const effectActive = Boolean(isStereo && state.karaokeCutActive && !state.backingDecodePending);
-    button.disabled = state.backingDecodePending || !isStereo;
+    button.disabled = state.karaokeBusy || state.backingDecodePending || !isStereo;
     button.textContent = effectActive ? 'Restore original' : 'Reduce vocals';
     button.setAttribute('aria-pressed', String(effectActive));
     button.classList.toggle('btn-amber', !effectActive);
+    const update = document.getElementById('btnUpdateKaraoke');
+    if (update) { update.hidden = !effectActive || !state.karaokeDirty; update.disabled = state.karaokeBusy; }
+    const cancel = document.getElementById('btnCancelKaraoke');
+    if (cancel) cancel.hidden = !state.karaokeBusy;
+    const use = document.getElementById('btnUseKaraoke');
+    if (use) { use.hidden = !effectActive || !state.karaokeWavUrl; use.disabled = state.karaokeBusy || state.karaokeDirty; }
+    const compare = document.getElementById('karaokeCompare');
+    if (compare) compare.hidden = !effectActive || !state.karaokeWavUrl;
+    const progress = document.getElementById('karaokeProgress');
+    if (progress) { progress.hidden = !state.karaokeBusy; if (state.karaokeBusy && !progress.value) progress.value = 0; }
+    for (const id of ['karaokeStrength', 'karaokeIntro', 'karaokePresetMusic', 'karaokePresetBalanced', 'karaokePresetStrong']) {
+      const el = document.getElementById(id); if (el) el.disabled = state.karaokeBusy;
+    }
     if (message) status.textContent = message;
     else if (state.backingDecodePending) status.textContent = 'Preparing your audio…';
     else if (!hasTrack) status.textContent = 'Choose a stereo song to begin.';
-    else if (!isStereo) status.textContent = 'This track is mono. Choose a stereo file for vocal reduction.';
-    else if (effectActive) status.textContent = 'Vocal reduction is on. Use Play Mix below to listen, or restore the original.';
-    else status.textContent = `Ready: ${state.uploadedFileName || 'your song'}. Reduce vocals, then use Play Mix below to listen.`;
+    else if (channels === 1) status.textContent = 'This track is mono. Choose a stereo file for vocal reduction.';
+    else if (!isStereo) status.textContent = 'Please choose a two-channel stereo file; multichannel audio is not supported.';
+    else if (effectActive && state.karaokeDirty) status.textContent = 'Settings changed. Tap Update karaoke to apply them.';
+    else if (effectActive) status.textContent = 'Vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
+    else status.textContent = `Ready: ${state.uploadedFileName || 'your song'}. Choose settings and tap Reduce vocals.`;
+  }
+
+  // Browser-local vocal reduction. The worker uses private transferred copies,
+  // while native media elements continue to handle playback on older phones.
+  function cancelKaraokeJob() {
+    state.karaokeJobSeq += 1;
+    if (state.karaokeWorker) {
+      state.karaokeWorker.terminate();
+      state.karaokeWorker = null;
+    }
+    if (state.karaokeWorkerReject) {
+      const reject = state.karaokeWorkerReject;
+      state.karaokeWorkerReject = null;
+      reject(Object.assign(new Error('Processing cancelled.'), { name: 'AbortError' }));
+    }
+    state.karaokeBusy = false;
+  }
+
+  function runKaraokeWorker(type, buffer, options) {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try { worker = new Worker('/karaoke-worker.js?v=1.0'); }
+      catch (_) { reject(new Error('This browser could not start audio processing.')); return; }
+      state.karaokeWorker = worker;
+      state.karaokeWorkerReject = reject;
+      const finish = () => {
+        worker.terminate();
+        if (state.karaokeWorker === worker) state.karaokeWorker = null;
+        if (state.karaokeWorkerReject === reject) state.karaokeWorkerReject = null;
+      };
+      worker.onmessage = (event) => {
+        const data = event.data || {};
+        if (data.type === 'progress') {
+          const bar = document.getElementById('karaokeProgress');
+          if (bar) bar.value = Math.round(Math.max(0, Math.min(1, data.progress)) * 100);
+        } else if (data.type === 'result') { finish(); resolve(data); }
+        else if (data.type === 'error') { finish(); reject(new Error(data.message || 'Audio processing failed.')); }
+      };
+      worker.onerror = () => { finish(); reject(new Error('Could not process this track. Try a shorter file or another browser.')); };
+      try {
+        const left = new Float32Array(buffer.getChannelData(0));
+        const right = new Float32Array(buffer.getChannelData(1));
+        worker.postMessage({ type, left: left.buffer, right: right.buffer, sampleRate: buffer.sampleRate, options }, [left.buffer, right.buffer]);
+      } catch (err) { finish(); reject(err); }
+    });
+  }
+
+  function deactivateStageKaraoke() {
+    const media = document.getElementById('stageUploadedMedia');
+    if (state.stageKaraokeCleanup) {
+      state.stageKaraokeCleanup();
+      state.stageKaraokeCleanup = null;
+    }
+    if (state.stageKaraokeActive && media) {
+      try {
+        media.pause();
+        if (!state.uploadedIsVideo && state.uploadedMediaUrl) { media.src = state.uploadedMediaUrl; media.load(); }
+        media.muted = false;
+      } catch (_) {}
+    }
+    state.stageKaraokeActive = false;
+    state.stageKaraokeAudio = null;
+    const label = document.getElementById('stageKaraokeLabel');
+    if (label) { label.hidden = true; label.textContent = ''; }
+  }
+
+  function releaseKaraokeResult() {
+    deactivateStageKaraoke();
+    const player = document.getElementById('karaokeComparePlayer');
+    if (player) { try { player.pause(); player.removeAttribute('src'); player.load(); } catch (_) {} }
+    if (state.karaokeWavUrl) { try { URL.revokeObjectURL(state.karaokeWavUrl); } catch (_) {} }
+    state.karaokeWavUrl = '';
+    state.karaokeBuffer = null;
+    state.karaokeInfo = null;
+    state.karaokeDirty = false;
+    state.karaokeCutActive = false;
+  }
+
+  function resetKaraoke() {
+    cancelKaraokeJob();
+    releaseKaraokeResult();
+  }
+
+  function karaokeSettingsChanged() {
+    const strength = Number(document.getElementById('karaokeStrength')?.value || 0);
+    const value = document.getElementById('karaokeStrengthValue');
+    if (value) value.textContent = `${strength}%`;
+    for (const [id, n] of [['karaokePresetMusic', 65], ['karaokePresetBalanced', 85], ['karaokePresetStrong', 100]]) {
+      document.getElementById(id)?.setAttribute('aria-pressed', String(strength === n));
+    }
+    if (state.karaokeCutActive) {
+      state.karaokeDirty = true;
+      if (state.stageKaraokeActive) {
+        deactivateStageKaraoke();
+        const label = document.getElementById('stageKaraokeLabel');
+        if (label) { label.hidden = false; label.textContent = 'Settings changed: this stage is playing the original until you update karaoke and select it again.'; }
+      }
+    }
+    updateVocalRemoverUI(state.karaokeCutActive ? 'Settings changed. The previous version is still active; tap Update karaoke to apply them.' : '');
+  }
+
+  function setKaraokePreset(value) {
+    const input = document.getElementById('karaokeStrength');
+    if (input) input.value = String(value);
+    karaokeSettingsChanged();
+  }
+
+  function markKaraokeIntro() {
+    if (state.karaokeBusy) return;
+    const player = document.getElementById('karaokeComparePlayer');
+    const sec = player && Number.isFinite(player.currentTime) && player.currentTime > 0 ? player.currentTime : getCurrentPlayhead();
+    document.getElementById('karaokeIntro').value = String(Math.max(0, Math.round(sec * 10) / 10));
+    karaokeSettingsChanged();
+    showToast(sec > 0 ? `Intro end set to ${fmtTime(sec)}` : 'Play or seek first, then tap Use playhead');
+  }
+
+  function cancelKaraokeProcessing() {
+    cancelKaraokeJob();
+    updateVocalRemoverUI('Processing cancelled. Your previous audio is unchanged.');
+  }
+
+  function compareKaraoke(which) {
+    if (!state.karaokeWavUrl || !state.uploadedMediaUrl) return;
+    const player = document.getElementById('karaokeComparePlayer');
+    if (!player) return;
+    const position = Number.isFinite(player.currentTime) ? player.currentTime : 0;
+    const wasPlaying = !player.paused;
+    stopPlaybackInternal();
+    const karaoke = which !== 'original';
+    document.getElementById('compareOriginal')?.setAttribute('aria-pressed', String(!karaoke));
+    document.getElementById('compareKaraoke')?.setAttribute('aria-pressed', String(karaoke));
+    player.src = karaoke ? state.karaokeWavUrl : state.uploadedMediaUrl;
+    const seek = () => { try { if (Number.isFinite(player.duration)) player.currentTime = Math.min(position, player.duration); } catch (_) {} };
+    player.addEventListener('loadedmetadata', seek, { once: true });
+    if (wasPlaying) player.play().catch(() => showToast('Tap play to compare this version.'));
+  }
+
+  function useKaraokeForSing() {
+    if (!state.karaokeCutActive || state.karaokeDirty || !state.karaokeWavUrl || state.karaokeBusy) {
+      showToast('Apply the latest karaoke settings first.'); return;
+    }
+    if (state.uncroppedBackup) {
+      showToast('Undo the Mix crop before using this track in Sing, so the stage stays in sync.'); return;
+    }
+    const media = document.getElementById('stageUploadedMedia');
+    if (!media) { showToast('Upload your audio or video again to use the Sing stage.'); return; }
+    deactivateStageKaraoke();
+    try { document.getElementById('karaokeComparePlayer')?.pause(); } catch (_) {}
+    stopPlaybackInternal();
+    media.pause();
+    try { media.currentTime = 0; } catch (_) {}
+    if (!state.uploadedIsVideo) {
+      media.src = state.karaokeWavUrl;
+      media.muted = false;
+      media.load();
+    } else {
+      // Keep native video rendering; its original soundtrack must stay muted.
+      // A second native audio element plays the processed WAV in sync.
+      const audio = createHardwareAudioEl('stageKaraokeAudio');
+      audio.src = state.karaokeWavUrl;
+      audio.preload = 'auto';
+      document.getElementById('stageVideoWrap')?.appendChild(audio);
+      state.stageKaraokeAudio = audio;
+      media.muted = true;
+      let lastCorrection = 0;
+      let disposed = false;
+      const sync = (force = false) => {
+        if (disposed) return;
+        const now = Date.now();
+        if (force || (now - lastCorrection > 500 && Math.abs(audio.currentTime - media.currentTime) > 0.25)) {
+          try { audio.currentTime = media.currentTime; } catch (_) {}
+          lastCorrection = now;
+        }
+        audio.playbackRate = media.playbackRate;
+      };
+      const play = () => {
+        if (disposed || media.paused || !state.stageKaraokeActive || state.karaokeUnlocking) return;
+        media.muted = true;
+        sync(true);
+        audio.muted = false;
+        const promise = audio.play();
+        if (promise && promise.catch) promise.catch(() => {
+          if (disposed) return;
+          media.pause();
+          if (state.isRecording) stopActiveRecordingNow();
+          showToast('Karaoke audio could not play. Tap play on the video to try again.');
+        });
+      };
+      const pause = () => { try { audio.pause(); } catch (_) {} };
+      const seeking = () => { pause(); sync(true); };
+      const seeked = () => { sync(true); if (!media.paused) play(); };
+      const timeupdate = () => sync(false);
+      const rate = () => { audio.playbackRate = media.playbackRate; };
+      const volume = () => { if (state.stageKaraokeActive && !media.muted) media.muted = true; };
+      const handlers = { play, pause, seeking, seeked, timeupdate, ratechange: rate, volumechange: volume, ended: pause };
+      for (const [name, fn] of Object.entries(handlers)) media.addEventListener(name, fn);
+      state.stageKaraokeCleanup = () => {
+        disposed = true;
+        for (const [name, fn] of Object.entries(handlers)) media.removeEventListener(name, fn);
+        try { audio.pause(); audio.removeAttribute('src'); audio.load(); audio.remove(); } catch (_) {}
+      };
+    }
+    state.stageKaraokeActive = true;
+    const label = document.getElementById('stageKaraokeLabel');
+    if (label) {
+      label.hidden = false;
+      label.textContent = state.uploadedIsVideo
+        ? 'Karaoke backing selected. The original video audio is muted; the reduced-vocal audio plays with the video. Wear headphones when recording.'
+        : 'Karaoke backing selected for playback and recording. Wear headphones to avoid recording the speakers.';
+    }
+    switchView('sing');
+    requestAnimationFrame(() => document.getElementById('stageKaraokeLabel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    showToast('Karaoke backing is ready in Sing & Record.');
   }
 
   function setStageMode() {
@@ -353,6 +594,9 @@ const App = (() => {
       return;
     }
     if (!state.isDemoSession) {
+      resetKaraoke();
+      state.backingLoadSeq += 1;
+      state.backingDecodePending = false;
       state.isDemoSession = true;
       state.demoEdited = false;
       state.pausePositionSec = 0;
@@ -361,6 +605,9 @@ const App = (() => {
   }
 
   async function openMixWithRealDemo() {
+    resetKaraoke();
+    state.backingLoadSeq += 1;
+    state.backingDecodePending = false;
     unlockMobileAudioSync();
     state.isDemoSession = true;
     state.demoEdited = false;
@@ -375,6 +622,7 @@ const App = (() => {
   }
 
   async function loadRealSingerDemo(autoPlay = true) {
+    resetKaraoke();
     unlockMobileAudioSync();
     stopPlaybackInternal();
     state.isDemoSession = true;
@@ -1017,18 +1265,24 @@ const App = (() => {
   }
 
   async function shiftBackingKey(delta) {
+    if (state.karaokeBusy) { showToast('Wait for karaoke processing to finish.'); return; }
     if (!state.originalBackingBuffer) await preloadRealDemoAssets();
     const next = Math.max(-6, Math.min(6, state.transposeSemitones + delta));
     state.transposeSemitones = next;
     document.getElementById('transposeLabel').textContent = `${next > 0 ? '+' : ''}${next} st`;
     showToast(next === 0 ? 'Restored original song key' : `Shifting music key (${next > 0 ? '+' : ''}${next} st)...`);
-
     const ctx = ensureAudioCtx();
-    const base = state.karaokeCutActive
-      ? SingVazaDSP.centerCutKaraokeBuffer(ctx, state.originalBackingBuffer)
-      : state.originalBackingBuffer;
-
-    state.backingBuffer = next === 0 ? base : await SingVazaDSP.transposeBufferAsync(ctx, base, next);
+    const base = state.karaokeCutActive && state.karaokeBuffer ? state.karaokeBuffer : state.originalBackingBuffer;
+    const loadSeq = state.backingLoadSeq;
+    const keySeq = ++state.karaokeJobSeq;
+    if (state.karaokeCutActive) {
+      deactivateStageKaraoke();
+      state.karaokeDirty = true;
+      updateVocalRemoverUI('Key changed. Tap Update karaoke to refresh the comparison and Sing backing.');
+    }
+    const shifted = next === 0 ? base : await SingVazaDSP.transposeBufferAsync(ctx, base, next);
+    if (loadSeq !== state.backingLoadSeq || keySeq !== state.karaokeJobSeq) return;
+    state.backingBuffer = shifted;
     suspendIdleWebAudio();
     state.backingPeaks = SingVazaDSP.computeWaveformPeaks(state.backingBuffer, 220);
     markMixDirty();
@@ -1036,28 +1290,105 @@ const App = (() => {
     if (state.isPlaying) startPlayback(getCurrentPlayhead());
   }
 
+  async function updateKaraokeVocalCut() {
+    if (state.karaokeBusy || state.backingDecodePending || !state.originalBackingBuffer || !state.userLoadedBacking || state.isDemoSession) {
+      showToast('Choose a stereo audio or video file first.'); return;
+    }
+    const source = state.originalBackingBuffer;
+    if (state.uncroppedBackup) { updateVocalRemoverUI('Undo the Mix crop before updating the karaoke version.'); return; }
+    if (source.numberOfChannels !== 2) { updateVocalRemoverUI(); showToast('Vocal reduction needs a stereo track.'); return; }
+    const strength = Number(document.getElementById('karaokeStrength').value) / 100;
+    const introInput = document.getElementById('karaokeIntro');
+    const introSeconds = Number(introInput.value);
+    if (!Number.isFinite(introSeconds) || introSeconds < 0 || introSeconds >= source.duration - 0.01) {
+      updateVocalRemoverUI('Choose an intro time from 0 to less than the track duration.');
+      introInput.focus(); return;
+    }
+    const loadSeq = state.backingLoadSeq;
+    const jobSeq = ++state.karaokeJobSeq;
+    const key = state.transposeSemitones;
+    state.karaokeBusy = true;
+    const progress = document.getElementById('karaokeProgress');
+    if (progress) progress.value = 0;
+    updateVocalRemoverUI('Reducing center vocals locally… your file stays on this device.');
+    try {
+      const processed = await runKaraokeWorker('process', source, { strength, introSeconds });
+      if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
+      const ctx = ensureAudioCtx();
+      const effectBuffer = ctx.createBuffer(2, source.length, source.sampleRate);
+      effectBuffer.copyToChannel(new Float32Array(processed.left), 0);
+      effectBuffer.copyToChannel(new Float32Array(processed.right), 1);
+      let backing = effectBuffer;
+      let wav = processed.wav;
+      if (key !== 0) {
+        updateVocalRemoverUI('Applying the selected song key…');
+        backing = await SingVazaDSP.transposeBufferAsync(ctx, effectBuffer, key);
+        if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
+        updateVocalRemoverUI('Preparing karaoke playback…');
+        const encoded = await runKaraokeWorker('encode', backing);
+        if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
+        wav = encoded.wav;
+      }
+      // Commit only after processing and encoding both succeed.
+      releaseKaraokeResult();
+      state.karaokeBuffer = effectBuffer;
+      state.backingBuffer = backing;
+      state.karaokeWavUrl = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+      state.karaokeInfo = processed.info || {};
+      state.karaokeCutActive = true;
+      state.karaokeDirty = false;
+      state.karaokeBusy = false;
+      state.backingPeaks = SingVazaDSP.computeWaveformPeaks(backing, 220);
+      markMixDirty();
+      const player = document.getElementById('karaokeComparePlayer');
+      if (player) player.src = state.karaokeWavUrl;
+      document.getElementById('compareOriginal')?.setAttribute('aria-pressed', 'false');
+      document.getElementById('compareKaraoke')?.setAttribute('aria-pressed', 'true');
+      let message = 'Vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
+      if (processed.info?.nearMono) message += ' This track has very little stereo separation; the music may sound weak.';
+      if (processed.info?.safetyGain < 1) message += ' Overall level was lowered slightly to prevent clipping.';
+      updateVocalRemoverUI(message);
+      suspendIdleWebAudio();
+      drawTimeline();
+      if (state.isPlaying) startPlayback(getCurrentPlayhead());
+      showToast('Karaoke backing ready to compare.');
+    } catch (err) {
+      if (jobSeq !== state.karaokeJobSeq) return;
+      state.karaokeBusy = false;
+      suspendIdleWebAudio();
+      updateVocalRemoverUI(err?.name === 'AbortError' ? 'Processing cancelled. Your previous audio is unchanged.' : (err?.message || 'Could not process this track. Try another file.'));
+    }
+  }
+
   async function applyKaraokeVocalCut() {
-    if (state.backingDecodePending || !state.originalBackingBuffer || !state.userLoadedBacking || state.isDemoSession) {
-      showToast('Choose a stereo audio or video file first');
-      return;
+    if (state.karaokeBusy) return;
+    if (!state.karaokeCutActive) return updateKaraokeVocalCut();
+    const source = state.originalBackingBuffer;
+    if (!source) return;
+    const loadSeq = state.backingLoadSeq;
+    const jobSeq = ++state.karaokeJobSeq;
+    const key = state.transposeSemitones;
+    state.karaokeBusy = true;
+    updateVocalRemoverUI('Restoring the original backing…');
+    try {
+      const ctx = ensureAudioCtx();
+      const backing = key === 0 ? source : await SingVazaDSP.transposeBufferAsync(ctx, source, key);
+      if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
+      releaseKaraokeResult();
+      state.backingBuffer = backing;
+      state.karaokeBusy = false;
+      state.backingPeaks = SingVazaDSP.computeWaveformPeaks(backing, 220);
+      markMixDirty();
+      updateVocalRemoverUI('Original stereo backing restored.');
+      suspendIdleWebAudio();
+      drawTimeline();
+      if (state.isPlaying) startPlayback(getCurrentPlayhead());
+      showToast('Original stereo track restored.');
+    } catch (err) {
+      if (jobSeq !== state.karaokeJobSeq) return;
+      state.karaokeBusy = false;
+      updateVocalRemoverUI(err?.message || 'Could not restore the original track.');
     }
-    if (state.originalBackingBuffer.numberOfChannels < 2) {
-      updateVocalRemoverUI();
-      showToast('Vocal reduction needs a stereo track');
-      return;
-    }
-    const ctx = ensureAudioCtx();
-    state.karaokeCutActive = !state.karaokeCutActive;
-    state.backingBuffer = state.karaokeCutActive
-      ? SingVazaDSP.centerCutKaraokeBuffer(ctx, state.originalBackingBuffer)
-      : state.originalBackingBuffer;
-    suspendIdleWebAudio();
-    state.backingPeaks = SingVazaDSP.computeWaveformPeaks(state.backingBuffer, 220);
-    markMixDirty();
-    updateVocalRemoverUI();
-    drawTimeline();
-    if (state.isPlaying) startPlayback(getCurrentPlayhead());
-    showToast(state.karaokeCutActive ? 'Center lead vocals reduced!' : 'Original stereo track restored');
   }
 
   // ==================== INSTANT SONG-NAME KARAOKE VIDEO + LRC LYRICS ====================
@@ -1100,6 +1431,9 @@ const App = (() => {
   }
 
   function renderYoutubeEmbed(videoId, title = '') {
+    resetKaraoke();
+    state.backingLoadSeq += 1;
+    state.backingDecodePending = false;
     if (state.uploadedMediaUrl) {
       try { URL.revokeObjectURL(state.uploadedMediaUrl); } catch (_) {}
       state.uploadedMediaUrl = '';
@@ -1107,6 +1441,7 @@ const App = (() => {
       state.uploadedFileName = '';
       state.userLoadedBacking = false;
     }
+    updateVocalRemoverUI();
     const clearBtn = document.getElementById('btnClearStageTrack');
     if (clearBtn) clearBtn.style.display = 'none';
     const upLyrForm = document.getElementById('uploadLyricsSearchForm');
@@ -1379,6 +1714,8 @@ const App = (() => {
   }
 
   function clearUploadedStageTrack() {
+    resetKaraoke();
+    state.uncroppedBackup = null;
     const mediaEl = document.getElementById('stageUploadedMedia');
     if (mediaEl) { try { mediaEl.pause(); } catch (_) {} }
     if (state.uploadedMediaUrl) {
@@ -1419,6 +1756,10 @@ const App = (() => {
     const file = e.target.files?.[0];
     if (e.target) e.target.value = '';
     if (!file) return;
+    resetKaraoke();
+    state.uncroppedBackup = null;
+    const undoCrop = document.getElementById('btnUndoCrop');
+    if (undoCrop) undoCrop.style.display = 'none';
     unlockMobileAudioSync();
 
     if (state.uploadedMediaUrl) {
@@ -1832,10 +2173,17 @@ const App = (() => {
     const stageMedia = document.getElementById('stageUploadedMedia');
     if (stageMedia) {
       try {
-        stageMedia.muted = false;
+        stageMedia.muted = Boolean(state.stageKaraokeActive && state.uploadedIsVideo);
         stageMedia.volume = 1;
         stageMedia.currentTime = 0;
-        stageMedia.play().catch(() => {});
+        state.karaokeUnlocking = false;
+        const start = stageMedia.play();
+        if (start && start.catch) start.catch(() => {
+          if (state.stageKaraokeActive && state.isRecording) {
+            stopActiveRecordingNow();
+            showToast('Karaoke playback was blocked. Tap play and try recording again.');
+          }
+        });
       } catch (_) {}
     } else if (state.backingBuffer && state.userLoadedBacking) {
       SingVazaDSP.renderMasterWav({ backing: state.backingBuffer, rawVocal: null, tunedVocal: null }, { ...state.params, vocalPocket: false }, true)
@@ -1869,19 +2217,34 @@ const App = (() => {
     // Gesture-unlock uploaded <video>/<audio> synchronously right on tap so mobile Firefox/Chrome allow play() after countdown!
     if (stageMedia) {
       try {
+        state.karaokeUnlocking = true;
         stageMedia.pause();
         stageMedia.muted = true;
+        // Unlock the processed video soundtrack on the same user gesture, silently.
+        const stageAudio = state.stageKaraokeAudio;
+        if (stageAudio) {
+          stageAudio.muted = true;
+          const ap = stageAudio.play();
+          if (ap && ap.then) ap.then(() => {
+            if (!state.isRecording) { stageAudio.pause(); stageAudio.currentTime = 0; }
+            stageAudio.muted = false;
+          }).catch(() => { stageAudio.muted = false; });
+        }
         const p = stageMedia.play();
         if (p && p.then) {
           p.then(() => {
             if (!state.isRecording) {
               stageMedia.pause();
               stageMedia.currentTime = 0;
-              stageMedia.muted = false;
             }
-          }).catch(() => { stageMedia.muted = false; });
-        }
-      } catch (_) {}
+            stageMedia.muted = Boolean(state.stageKaraokeActive && state.uploadedIsVideo);
+            state.karaokeUnlocking = false;
+          }).catch(() => {
+            stageMedia.muted = Boolean(state.stageKaraokeActive && state.uploadedIsVideo);
+            state.karaokeUnlocking = false;
+          });
+        } else { state.karaokeUnlocking = false; }
+      } catch (_) { state.karaokeUnlocking = false; }
     }
 
     if (window.AndroidNativeStudio && typeof window.AndroidNativeStudio.canCaptureInternalAudio === 'function') {
@@ -1949,6 +2312,8 @@ const App = (() => {
       return ctx.decodeAudioData(bytes.buffer);
     };
     if (backingBase64) {
+      resetKaraoke();
+      state.backingLoadSeq += 1;
       const bBuf = await toBuf(backingBase64);
       state.originalBackingBuffer = bBuf;
       state.backingBuffer = bBuf;
@@ -2049,6 +2414,8 @@ const App = (() => {
       state.uncroppedBackup = {
         originalBackingBuffer: state.originalBackingBuffer,
         backingBuffer: state.backingBuffer,
+        karaokeBuffer: state.karaokeBuffer,
+        karaokeCutActive: state.karaokeCutActive,
         rawVocalBuffer: state.rawVocalBuffer,
         tunedVocalBuffer: state.tunedVocalBuffer,
         isDemoSession: state.isDemoSession,
@@ -2056,6 +2423,15 @@ const App = (() => {
     }
 
     const ctx = ensureAudioCtx();
+    if (state.karaokeCutActive) {
+      deactivateStageKaraoke();
+      const preview = document.getElementById('karaokeComparePlayer');
+      if (preview) { preview.pause(); preview.removeAttribute('src'); preview.load(); }
+      if (state.karaokeWavUrl) URL.revokeObjectURL(state.karaokeWavUrl);
+      state.karaokeWavUrl = '';
+      state.karaokeDirty = true;
+      if (state.karaokeBuffer) state.karaokeBuffer = SingVazaDSP.sliceAudioBuffer(ctx, state.karaokeBuffer, startSec, endSec);
+    }
     if (state.originalBackingBuffer) {
       state.originalBackingBuffer = SingVazaDSP.sliceAudioBuffer(ctx, state.originalBackingBuffer, startSec, endSec);
     }
@@ -2082,6 +2458,7 @@ const App = (() => {
     drawTimeline(0);
     updateCropLabels();
     document.getElementById('transportTime').textContent = `00:00 / ${fmtTime(endSec - startSec)}`;
+    updateVocalRemoverUI(state.karaokeCutActive ? 'Mix cropped. Undo crop before refreshing comparison or using the Sing stage.' : '');
     showToast(`Cropped cleanly to ${fmtTime(endSec - startSec)}!`);
   }
 
@@ -2091,6 +2468,9 @@ const App = (() => {
     const b = state.uncroppedBackup;
     state.originalBackingBuffer = b.originalBackingBuffer;
     state.backingBuffer = b.backingBuffer;
+    state.karaokeBuffer = b.karaokeBuffer || null;
+    state.karaokeCutActive = Boolean(b.karaokeCutActive);
+    state.karaokeDirty = state.karaokeCutActive;
     state.rawVocalBuffer = b.rawVocalBuffer;
     state.tunedVocalBuffer = b.tunedVocalBuffer;
     state.isDemoSession = b.isDemoSession;
@@ -2103,6 +2483,7 @@ const App = (() => {
     document.getElementById('btnUndoCrop').style.display = 'none';
     drawTimeline(0);
     updateCropLabels();
+    updateVocalRemoverUI(state.karaokeCutActive ? 'Crop undone. Tap Update karaoke to refresh comparison and Sing.' : '');
     showToast('Restored full original audio!');
   }
 
@@ -3068,6 +3449,7 @@ const App = (() => {
     }
 
     // mode === 'all'
+    resetKaraoke();
     state.rawVocalBuffer = null;
     state.tunedVocalBuffer = null;
     state.vocalPeaks = null;
@@ -3180,6 +3562,7 @@ const App = (() => {
 
   return {
     switchView: (v) => {
+      if (v !== 'mix') { try { document.getElementById('karaokeComparePlayer')?.pause(); } catch (_) {} }
       if (v !== 'sing') {
         if (state.isRecording || state.waitingForYtTap) {
           stopActiveRecordingNow();
@@ -3213,7 +3596,8 @@ const App = (() => {
     togglePlayback, stopAndRewind, toggleBypassFx, toggleSoloVocal,
     scrubPlayhead, updateCropSlider, markCropAtPlayhead, applyAudioCrop, undoAudioCrop,
     applyPreset, setClarityMacro, setFilterCut, updateParam, setMasterProfile, setVocalOffset, nudgeVocalOffset, autoAlignTracks, runSmartVoiceMatch,
-    applyWorkerAutoTune, shiftBackingKey, applyKaraokeVocalCut,
+    applyWorkerAutoTune, shiftBackingKey, applyKaraokeVocalCut, updateKaraokeVocalCut,
+    karaokeSettingsChanged, setKaraokePreset, markKaraokeIntro, cancelKaraokeProcessing, compareKaraoke, useKaraokeForSing,
     heroSearchSubmit, quickSingSong, searchOrLoadKaraoke, selectKaraokeVideo, nextKaraokeResult, seekToLyric,
     searchLyricsOnly, clearUploadedStageTrack,
     toggleCustomLyricsEditor, saveCustomLyrics,
