@@ -65,6 +65,7 @@ const mono = { name: 'mono-test.wav', mimeType: 'audio/wav', buffer: wav(1) };
 async function openRemover(page) {
   await page.locator('#homeVocalRemover').click();
   await page.locator('#vocalRemoverPanel').waitFor({ state: 'visible' });
+  await page.waitForFunction(() => document.getElementById('vocalRemoverPanel').contains(document.activeElement));
   assert.equal(await page.locator('#vocalRemoverPanel').evaluate((el) => el.contains(document.activeElement)), true);
 }
 
@@ -74,9 +75,11 @@ test('the homepage shortcut and focused tool panel work on phone, tablet and des
     try {
       const shortcut = page.locator('#homeVocalRemover');
       assert.equal(await shortcut.isVisible(), true, `${width}: homepage shortcut`);
-      assert.equal(await page.locator('.featured-tool img').count(), 1);
+      assert.equal(await page.locator('#homeRecorder').isVisible(), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}: homepage overflow`);
       await openRemover(page);
+      assert.match(page.url(), /\/studio\/vocal-remover$/);
+      assert.equal(await page.locator('#view-mix #vocalRemoverPanel').count(), 0);
       assert.equal(await page.locator('#btnKaraokeCut').isDisabled(), true);
       assert.match(await page.locator('#vocalRemoverPanel').innerText(), /not AI separation/i);
       assert.equal(await page.locator('#karaokePresetBalanced').getAttribute('aria-pressed'), 'true');
@@ -124,9 +127,11 @@ test('stereo upload is processed in a worker, compared, played in Mix and used f
     assert.notEqual(await page.locator('#karaokeComparePlayer').evaluate(el => el.src), processedUrl);
     await page.locator('#compareKaraoke').click();
     assert.equal(await page.locator('#karaokeComparePlayer').evaluate(el => el.src), processedUrl);
+    await page.evaluate(() => App.switchView('mix'));
     await page.locator('#btnPlayPause').click();
     await page.waitForFunction(() => window.__playedProcessed === true);
     await page.locator('#btnStopRewind').click();
+    await page.evaluate(() => App.openVocalRemover());
     await page.locator('#btnUseKaraoke').click();
     await page.locator('#stageKaraokeLabel').waitFor({ state: 'visible' });
     assert.match(await page.locator('#stageKaraokeLabel').innerText(), /selected for playback and recording/i);
@@ -142,7 +147,7 @@ test('stereo upload is processed in a worker, compared, played in Mix and used f
     assert.equal(await page.locator('#stageUploadedMedia').evaluate(el => el.src), processedUrl, 'the backing stays processed throughout recording');
     await page.locator('#btnRecordVocal').click();
     await page.waitForFunction(() => document.getElementById('view-mix').classList.contains('active'));
-    await page.evaluate(() => App.switchView('mix'));
+    await page.evaluate(() => App.openVocalRemover());
     await cut.click();
     await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'false');
     assert.notEqual(await page.locator('#stageUploadedMedia').evaluate(el => el.src), processedUrl, 'restoring also restores stage original');
@@ -208,7 +213,8 @@ test('switching to the demo does not leave a stale active remover toggle', async
     await page.locator('#btnKaraokeCut').click();
     await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
     await page.evaluate(() => App.switchView('home'));
-    await page.getByRole('button', { name: 'Open Mix Studio' }).click();
+    await page.evaluate(() => App.openMixWithRealDemo());
+    await page.evaluate(() => App.openVocalRemover());
     await page.locator('#vocalRemoverPanel').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#btnKaraokeCut').isDisabled(), true);
     assert.equal(await page.locator('#btnKaraokeCut').getAttribute('aria-pressed'), 'false');
@@ -385,12 +391,16 @@ test('key changes and crop/undo cannot leave a stale karaoke stage preview', asy
     await page.locator('#btnUpdateKaraoke').click();
     await page.waitForFunction(old => !document.getElementById('btnUseKaraoke').disabled && document.getElementById('karaokeComparePlayer').src !== old, old);
     assert.equal(await page.locator('#transposeLabel').textContent(), '+1 st');
+    await page.evaluate(() => App.switchView('mix'));
     await page.evaluate(() => App.updateCropSlider('start', 200));
     await page.locator('#btnApplyCrop').click();
+    await page.evaluate(() => App.openVocalRemover());
     assert.equal(await page.locator('#karaokeCompare').isHidden(), true);
     await page.locator('#btnUpdateKaraoke').click();
     assert.match(await page.locator('#vocalRemoverStatus').innerText(), /undo the mix crop/i);
+    await page.evaluate(() => App.switchView('mix'));
     await page.locator('#btnUndoCrop').click();
+    await page.evaluate(() => App.openVocalRemover());
     await page.locator('#btnUpdateKaraoke').click();
     await page.waitForFunction(() => !document.getElementById('btnUseKaraoke').disabled);
     assert.equal(await page.locator('#karaokeCompare').isVisible(), true);

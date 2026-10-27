@@ -5,7 +5,7 @@
 
   // Increase this version whenever /terms is materially updated; returning
   // visitors will then be asked to accept the updated terms again.
-  const TERMS_VERSION = '2026-10-22';
+  const TERMS_VERSION = '2026-10-27';
   const TERMS_STORAGE_KEY = 'singvaza_terms_accepted';
   const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
   let termsAcceptedInMemory = false;

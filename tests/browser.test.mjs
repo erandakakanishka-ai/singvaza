@@ -69,7 +69,7 @@ test('entry requires both explicit agreement and verification, and remembers ter
     await page.locator('#svEntryContinue').click();
     await page.waitForFunction(() => document.getElementById('svEntryGate')?.hidden === true);
     const stored = JSON.parse(await page.evaluate(() => localStorage.getItem('singvaza_terms_accepted')));
-    assert.equal(stored.version, '2026-10-22');
+    assert.equal(stored.version, '2026-10-27');
     assert.ok(stored.acceptedAt);
     assert.ok((await context.cookies()).some((cookie) => cookie.name === '__Host-sv_entry' && cookie.httpOnly && cookie.secure));
 
@@ -90,7 +90,7 @@ test('entry requires both explicit agreement and verification, and remembers ter
     await page.locator('#svTermsAgree').check();
     await page.locator('#svEntryContinue').click();
     await page.waitForFunction(() => document.getElementById('svEntryGate')?.hidden === true);
-    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('singvaza_terms_accepted'))).version, '2026-10-22');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('singvaza_terms_accepted'))).version, '2026-10-27');
   } finally { await context.close(); }
 });
 

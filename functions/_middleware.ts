@@ -1,3 +1,4 @@
+import { builtinPage, builtinResponse } from '../src/builtin-pages';
 import worker from './api/_worker_core';
 
 export const onRequest: PagesFunction<any> = async (context) => {
@@ -6,6 +7,12 @@ export const onRequest: PagesFunction<any> = async (context) => {
   try {
     cleanPath = decodeURIComponent(url.pathname).replace(/^\/\s+/, '/').replace(/\s+$/, '');
   } catch (_) {}
+
+  if ((context.request.method === 'GET' || context.request.method === 'HEAD') && builtinPage(cleanPath)) {
+    const rewritten = new Request(new URL('/', url).toString(), context.request);
+    const response = await context.next(rewritten);
+    return builtinResponse(response, context.request);
+  }
 
   if (
     cleanPath === '/sitemap.xml' ||

@@ -636,7 +636,7 @@
         <div class="page-head">
           <div>
             <h1>HTML Web Tools Manager</h1>
-            <p>Upload any standalone <code>.html</code> tool (calculators, converters, generators, utilities) to publish instantly at <code>/tools/your-tool</code>.</p>
+            <p>Publish a standalone <code>.html</code> tool at <code>/tools/your-tool</code>; it will appear automatically in the Tools directory. Only upload HTML you trust: its scripts run on the SingVaza site origin.</p>
           </div>
           <a class="btn btn-sm" href="/tools" target="_blank">Open /tools Hub ↗</a>
         </div>
@@ -837,8 +837,8 @@
               <textarea id="setCustomAdCode" class="input code-box" style="min-height:95px;" placeholder="Paste safe banner script here instead of inside individual HTML files so you can remove it globally in 1 click anytime..."></textarea>
             </div>
             <div class="field" style="max-width:260px;">
-              <label>Daily Free MP3 Download Limit (Per User)</label>
-              <input id="setDailyLimit" type="number" min="1" max="100" class="input" value="2" />
+              <label>Daily Free Downloads — Shared by Karaoke & Recorder</label>
+              <input id="setDailyLimit" type="number" min="1" max="100" class="input" value="9" />
             </div>
           </div>
 
@@ -1419,7 +1419,7 @@
         document.getElementById('setAdsenseId').value = s.adsense_client_id || '';
         document.getElementById('setCustomAdCode').value = s.custom_ad_code || '';
         document.getElementById('setAdsEnabled').checked = Boolean(s.ads_enabled);
-        document.getElementById('setDailyLimit').value = s.daily_free_limit || 2;
+        document.getElementById('setDailyLimit').value = s.daily_free_limit || 9;
       }
 
       async function saveSettings() {
