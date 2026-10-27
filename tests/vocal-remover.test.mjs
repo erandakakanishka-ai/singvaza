@@ -28,7 +28,7 @@ const dummyWidget = `
   })();
 `;
 let browser;
-before(async () => { browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] }); });
+before(async () => { browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }); });
 after(async () => { await browser?.close(); });
 
 async function newPage(width, height) {
@@ -79,24 +79,32 @@ test('the homepage shortcut and focused tool panel work on phone, tablet and des
       await openRemover(page);
       assert.equal(await page.locator('#btnKaraokeCut').isDisabled(), true);
       assert.match(await page.locator('#vocalRemoverPanel').innerText(), /not AI separation/i);
+      assert.equal(await page.locator('#karaokePresetBalanced').getAttribute('aria-pressed'), 'true');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}: mixer overflow`);
     } finally { await context.close(); }
   }
 });
 
-test('a real stereo upload reaches the existing DSP and the processed buffer reaches Mix playback', async () => {
+test('stereo upload is processed in a worker, compared, played in Mix and used for Sing', async () => {
   const { context, page } = await newPage(390, 844);
   try {
     await openRemover(page);
     await page.evaluate(() => {
-      const originalCut = window.SingVazaDSP.centerCutKaraokeBuffer;
-      const originalRender = window.SingVazaDSP.renderWindowWav;
-      window.__cutCalls = 0; window.__processedBuffer = null; window.__playedProcessed = false;
-      window.SingVazaDSP.centerCutKaraokeBuffer = (...args) => {
-        window.__cutCalls++; window.__processedBuffer = originalCut(...args); return window.__processedBuffer;
+      const WorkerOriginal = window.Worker;
+      window.Worker = class extends WorkerOriginal {
+        constructor(url, ...rest) {
+          super(url, ...rest);
+          if (String(url).includes('karaoke-worker')) this.addEventListener('message', e => {
+            if (e.data.type === 'result' && e.data.left) window.__processedLeft = new Float32Array(e.data.left);
+          });
+        }
       };
+      const originalRender = window.SingVazaDSP.renderWindowWav;
+      window.__playedProcessed = false;
       window.SingVazaDSP.renderWindowWav = (buffers, ...args) => {
-        window.__playedProcessed = buffers.backing === window.__processedBuffer;
+        const actual = buffers.backing?.getChannelData(0);
+        const expected = window.__processedLeft;
+        window.__playedProcessed = Boolean(actual && expected && actual.length === expected.length && Math.abs(actual[1000] - expected[1000]) < 1e-6);
         return originalRender(buffers, ...args);
       };
     });
@@ -104,18 +112,66 @@ test('a real stereo upload reaches the existing DSP and the processed buffer rea
     await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
     const cut = page.locator('#btnKaraokeCut');
     assert.equal(await cut.isEnabled(), true);
-    assert.equal(await cut.getAttribute('aria-pressed'), 'false');
     await cut.click();
-    assert.equal(await cut.getAttribute('aria-pressed'), 'true');
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
     assert.match(await cut.innerText(), /restore original/i);
-    assert.equal(await page.evaluate(() => window.__cutCalls), 1);
     assert.match(await page.locator('#vocalRemoverStatus').innerText(), /reduction is on/i);
+    assert.equal(await page.locator('#karaokeCompare').isVisible(), true);
+    assert.equal(await page.locator('#btnUseKaraoke').isVisible(), true);
+    const processedUrl = await page.locator('#karaokeComparePlayer').evaluate(el => el.src);
+    await page.locator('#compareOriginal').click();
+    assert.equal(await page.locator('#compareOriginal').getAttribute('aria-pressed'), 'true');
+    assert.notEqual(await page.locator('#karaokeComparePlayer').evaluate(el => el.src), processedUrl);
+    await page.locator('#compareKaraoke').click();
+    assert.equal(await page.locator('#karaokeComparePlayer').evaluate(el => el.src), processedUrl);
     await page.locator('#btnPlayPause').click();
     await page.waitForFunction(() => window.__playedProcessed === true);
     await page.locator('#btnStopRewind').click();
+    await page.locator('#btnUseKaraoke').click();
+    await page.locator('#stageKaraokeLabel').waitFor({ state: 'visible' });
+    assert.match(await page.locator('#stageKaraokeLabel').innerText(), /selected for playback and recording/i);
+    assert.equal(await page.locator('#stageUploadedMedia').evaluate(el => el.src), processedUrl, 'native stage audio is the processed backing');
+    await page.locator('#stageUploadedMedia').evaluate(el => el.play());
+    await page.waitForFunction(() => document.getElementById('stageUploadedMedia').currentTime > .1);
+    await page.locator('#stageUploadedMedia').evaluate(el => el.pause());
+    await context.grantPermissions(['microphone']);
+    await page.locator('#useCountdown').uncheck();
+    await page.locator('#btnRecordVocal').click();
+    await page.waitForFunction(() => document.getElementById('recBtnLabel').textContent.includes('Stop & Mix'));
+    await page.waitForFunction(() => !document.getElementById('stageUploadedMedia').paused && document.getElementById('stageUploadedMedia').currentTime > .15);
+    assert.equal(await page.locator('#stageUploadedMedia').evaluate(el => el.src), processedUrl, 'the backing stays processed throughout recording');
+    await page.locator('#btnRecordVocal').click();
+    await page.waitForFunction(() => document.getElementById('view-mix').classList.contains('active'));
+    await page.evaluate(() => App.switchView('mix'));
     await cut.click();
-    assert.equal(await cut.getAttribute('aria-pressed'), 'false');
-    assert.equal(await page.evaluate(() => window.__cutCalls), 1, 'restoring uses the original, not another cut');
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'false');
+    assert.notEqual(await page.locator('#stageUploadedMedia').evaluate(el => el.src), processedUrl, 'restoring also restores stage original');
+    assert.equal(await page.locator('#stageKaraokeLabel').isHidden(), true);
+  } finally { await context.close(); }
+});
+
+test('presets and intro mark settings dirty and update only after confirmation', async () => {
+  const { context, page } = await newPage(390, 844);
+  try {
+    await openRemover(page);
+    await page.locator('#vocalRemoverFileInput').setInputFiles(stereo);
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
+    await page.locator('#karaokePresetMusic').click();
+    assert.equal(await page.locator('#karaokeStrength').inputValue(), '65');
+    await page.locator('#karaokeIntro').fill('0.5');
+    await page.locator('#btnKaraokeCut').click();
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
+    const previous = await page.locator('#karaokeComparePlayer').evaluate(el => el.src);
+    await page.locator('#karaokePresetStrong').click();
+    assert.equal(await page.locator('#btnUseKaraoke').isDisabled(), true);
+    assert.equal(await page.locator('#btnUpdateKaraoke').isVisible(), true);
+    await page.locator('#btnUpdateKaraoke').click();
+    await page.waitForFunction(old => !document.getElementById('btnUseKaraoke').disabled && document.getElementById('karaokeComparePlayer').src !== old, previous);
+    assert.equal(await page.locator('#karaokePresetStrong').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#btnUpdateKaraoke').isHidden(), true);
+    await page.locator('#karaokeIntro').fill('99');
+    await page.locator('#btnUpdateKaraoke').click();
+    assert.match(await page.locator('#vocalRemoverStatus').innerText(), /less than the track duration/i);
   } finally { await context.close(); }
 });
 
@@ -128,7 +184,7 @@ test('replacing a song resets the toggle; mono and unreadable files do not claim
     await input.setInputFiles(stereo);
     await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
     await cut.click();
-    assert.equal(await cut.getAttribute('aria-pressed'), 'true');
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
     await input.setInputFiles({ ...stereo, name: 'new-song.wav' });
     await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.includes('new-song.wav'));
     assert.equal(await cut.getAttribute('aria-pressed'), 'false');
@@ -150,7 +206,7 @@ test('switching to the demo does not leave a stale active remover toggle', async
     await page.locator('#vocalRemoverFileInput').setInputFiles(stereo);
     await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
     await page.locator('#btnKaraokeCut').click();
-    assert.equal(await page.locator('#btnKaraokeCut').getAttribute('aria-pressed'), 'true');
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
     await page.evaluate(() => App.switchView('home'));
     await page.getByRole('button', { name: 'Open Mix Studio' }).click();
     await page.locator('#vocalRemoverPanel').waitFor({ state: 'visible' });
@@ -183,4 +239,228 @@ test('a slow demo preload cannot replace a newer selected track', async () => {
     assert.match(await page.locator('#vocalRemoverStatus').innerText(), /stereo-test\.wav/);
     assert.equal(await page.locator('#btnKaraokeCut').isEnabled(), true);
   } finally { release(); await context.close(); }
+});
+
+
+test('supported video keeps original muted and processed audio synchronized during playback and microphone recording', async () => {
+  const { context, page } = await newPage(768, 1024);
+  try {
+    await context.grantPermissions(['microphone']);
+    // Create a real browser-encoded stereo WebM video with two independent tones.
+    const bytes = await page.evaluate(async () => {
+      const canvas = document.createElement('canvas'); canvas.width = 120; canvas.height = 80;
+      const c = canvas.getContext('2d'); c.fillStyle = '#2868a4'; c.fillRect(0, 0, 120, 80);
+      const stream = canvas.captureStream(12);
+      const ac = new AudioContext(); await ac.resume();
+      const dest = ac.createMediaStreamDestination();
+      const merger = ac.createChannelMerger(2); merger.connect(dest);
+      const center = ac.createOscillator(); center.frequency.value = 440;
+      const side = ac.createOscillator(); side.frequency.value = 710;
+      const cg = ac.createGain(); cg.gain.value = .22; center.connect(cg);
+      cg.connect(merger, 0, 0); cg.connect(merger, 0, 1);
+      const sl = ac.createGain(); sl.gain.value = .15; side.connect(sl); sl.connect(merger, 0, 0);
+      const sr = ac.createGain(); sr.gain.value = -.15; side.connect(sr); sr.connect(merger, 0, 1);
+      stream.addTrack(dest.stream.getAudioTracks()[0]);
+      const rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+      const chunks = []; rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+      const done = new Promise(resolve => rec.onstop = resolve);
+      center.start(); side.start(); rec.start();
+      await new Promise(resolve => setTimeout(resolve, 2700));
+      rec.stop(); await done; center.stop(); side.stop(); stream.getTracks().forEach(t => t.stop()); await ac.close();
+      return Array.from(new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer()));
+    });
+    await openRemover(page);
+    await page.locator('#vocalRemoverFileInput').setInputFiles({ name: 'stereo-video.webm', mimeType: 'video/webm', buffer: Buffer.from(bytes) });
+    await page.waitForFunction(() => /Ready:|could not read/i.test(document.getElementById('vocalRemoverStatus').textContent));
+    assert.match(await page.locator('#vocalRemoverStatus').innerText(), /Ready:/, 'browser decoded video audio');
+    await page.locator('#btnKaraokeCut').click();
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
+    await page.locator('#compareOriginal').click();
+    await page.locator('#karaokeComparePlayer').evaluate(el => el.play());
+    await page.waitForFunction(() => document.getElementById('karaokeComparePlayer').currentTime > .3);
+    const positionBefore = await page.locator('#karaokeComparePlayer').evaluate(el => el.currentTime);
+    await page.locator('#compareKaraoke').click();
+    await page.waitForFunction(() => document.getElementById('karaokeComparePlayer').currentTime > .25);
+    const positionAfter = await page.locator('#karaokeComparePlayer').evaluate(el => el.currentTime);
+    assert.ok(Math.abs(positionAfter - positionBefore) < .5, `A/B position ${positionBefore} -> ${positionAfter}`);
+    await page.locator('#btnUseKaraoke').click();
+    const video = page.locator('#stageUploadedMedia');
+    assert.equal(await video.evaluate(el => el.tagName), 'VIDEO');
+    assert.equal(await video.evaluate(el => el.muted), true);
+    await video.evaluate(el => el.play());
+    await page.waitForFunction(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return v.currentTime > .4 && a && !a.paused && a.currentTime > .25;
+    });
+    let sync = await page.evaluate(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return { muted: v.muted, diff: Math.abs(v.currentTime - a.currentTime), same: v.src === a.src };
+    });
+    assert.equal(sync.muted, true); assert.equal(sync.same, false); assert.ok(sync.diff < .35, `playback sync ${sync.diff}`);
+    await video.evaluate(el => { el.muted = false; });
+    await page.waitForFunction(() => document.getElementById('stageUploadedMedia').muted);
+    await video.evaluate(el => { el.pause(); el.currentTime = .9; });
+    await page.waitForFunction(() => Math.abs(document.getElementById('stageKaraokeAudio').currentTime - .9) < .15);
+    assert.equal(await page.locator('#stageKaraokeAudio').evaluate(el => el.paused), true);
+    await video.evaluate(el => el.play());
+    await page.waitForFunction(() => !document.getElementById('stageKaraokeAudio').paused);
+    await video.evaluate(el => { el.currentTime = 1.4; });
+    await page.waitForFunction(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return !v.seeking && !a.paused && Math.abs(v.currentTime - a.currentTime) < .25;
+    });
+    await video.evaluate(el => el.pause());
+    await page.locator('#useCountdown').uncheck();
+    await page.locator('#btnRecordVocal').click();
+    await page.waitForFunction(() => document.getElementById('recBtnLabel').textContent.includes('Stop & Mix'));
+    await page.waitForFunction(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return v && a && !v.paused && !a.paused && v.currentTime > .2;
+    });
+    sync = await page.evaluate(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return { muted: v.muted, diff: Math.abs(v.currentTime - a.currentTime) };
+    });
+    assert.equal(sync.muted, true, 'original video audio remains muted throughout recording');
+    assert.ok(sync.diff < .35, `recording sync ${sync.diff}`);
+    await page.locator('#btnRecordVocal').click();
+    await page.waitForFunction(() => !document.getElementById('stageUploadedMedia') || document.getElementById('stageUploadedMedia').paused);
+  } finally { await context.close(); }
+});
+
+
+test('a stereo-encoded dual-mono file fails safely without claiming vocal reduction', async () => {
+  const { context, page } = await newPage(390, 844);
+  try {
+    await openRemover(page);
+    const bytes = wav(2);
+    for (let i = 44; i < bytes.length; i += 4) bytes.writeInt16LE(bytes.readInt16LE(i), i + 2);
+    await page.locator('#vocalRemoverFileInput').setInputFiles({ name: 'dual-mono.wav', mimeType: 'audio/wav', buffer: bytes });
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
+    await page.locator('#btnKaraokeCut').click();
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.includes('dual mono'));
+    assert.equal(await page.locator('#btnKaraokeCut').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.locator('#karaokeCompare').isHidden(), true);
+  } finally { await context.close(); }
+});
+
+test('a newer upload cancels a pending reduction and prevents stale results', async () => {
+  const { context, page } = await newPage(390, 844);
+  try {
+    await openRemover(page);
+    await page.evaluate(() => {
+      const RealWorker = window.Worker;
+      window.Worker = class extends RealWorker {
+        postMessage(message, transfer) {
+          if (message.type === 'process') setTimeout(() => { try { super.postMessage(message, transfer); } catch (_) {} }, 700);
+          else super.postMessage(message, transfer);
+        }
+      };
+    });
+    const input = page.locator('#vocalRemoverFileInput');
+    await input.setInputFiles(stereo);
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
+    await page.locator('#btnKaraokeCut').click();
+    assert.equal(await page.locator('#btnCancelKaraoke').isVisible(), true);
+    await input.setInputFiles({ ...stereo, name: 'newer.wav' });
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.includes('newer.wav'));
+    await page.waitForTimeout(900);
+    assert.equal(await page.locator('#btnKaraokeCut').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.locator('#karaokeCompare').isHidden(), true);
+    assert.match(await page.locator('#vocalRemoverStatus').innerText(), /newer.wav/);
+  } finally { await context.close(); }
+});
+
+test('key changes and crop/undo cannot leave a stale karaoke stage preview', async () => {
+  const { context, page } = await newPage(768, 1024);
+  try {
+    await openRemover(page);
+    await page.locator('#vocalRemoverFileInput').setInputFiles(stereo);
+    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
+    await page.locator('#btnKaraokeCut').click();
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
+    const old = await page.locator('#karaokeComparePlayer').evaluate(el => el.src);
+    await page.evaluate(() => App.shiftBackingKey(1));
+    assert.equal(await page.locator('#btnUseKaraoke').isDisabled(), true);
+    await page.locator('#btnUpdateKaraoke').click();
+    await page.waitForFunction(old => !document.getElementById('btnUseKaraoke').disabled && document.getElementById('karaokeComparePlayer').src !== old, old);
+    assert.equal(await page.locator('#transposeLabel').textContent(), '+1 st');
+    await page.evaluate(() => App.updateCropSlider('start', 200));
+    await page.locator('#btnApplyCrop').click();
+    assert.equal(await page.locator('#karaokeCompare').isHidden(), true);
+    await page.locator('#btnUpdateKaraoke').click();
+    assert.match(await page.locator('#vocalRemoverStatus').innerText(), /undo the mix crop/i);
+    await page.locator('#btnUndoCrop').click();
+    await page.locator('#btnUpdateKaraoke').click();
+    await page.waitForFunction(() => !document.getElementById('btnUseKaraoke').disabled);
+    assert.equal(await page.locator('#karaokeCompare').isVisible(), true);
+  } finally { await context.close(); }
+});
+
+test('a real recorded demo voice mixed with the demo backing shows increasing vocal attenuation', async () => {
+  const { context, page } = await newPage(768, 1024);
+  try {
+    const values = await page.evaluate(async () => {
+      const ac = new AudioContext();
+      const [b, v] = await Promise.all(['/assets/demo-backing.mp3', '/assets/demo-vocal.mp3'].map(async u => ac.decodeAudioData(await (await fetch(u)).arrayBuffer())));
+      const n = Math.min(b.length, v.length, Math.floor(ac.sampleRate * 10));
+      const bL = b.getChannelData(0), bR = b.getChannelData(Math.min(1, b.numberOfChannels - 1));
+      const vL = v.getChannelData(0), vR = v.getChannelData(Math.min(1, v.numberOfChannels - 1));
+      async function run(strength, withVoice) {
+        const l = new Float32Array(n), r = new Float32Array(n);
+        for (let i = 0; i < n; i++) { l[i] = bL[i] * .25 + (withVoice ? vL[i] * .25 : 0); r[i] = bR[i] * .25 + (withVoice ? vR[i] * .25 : 0); }
+        return new Promise((resolve, reject) => {
+          const w = new Worker('/karaoke-worker.js?v=1.0');
+          w.onmessage = e => {
+            if (e.data.type === 'error') { w.terminate(); reject(new Error(e.data.message)); }
+            if (e.data.type === 'result') { w.terminate(); resolve({ l: new Float32Array(e.data.left), r: new Float32Array(e.data.right), gain: e.data.info.safetyGain }); }
+          };
+          w.onerror = reject;
+          w.postMessage({ type: 'process', left: l.buffer, right: r.buffer, sampleRate: ac.sampleRate, options: { strength } }, [l.buffer, r.buffer]);
+        });
+      }
+      let input = 0; for (let i = 0; i < n; i++) input += (vL[i] * .25) ** 2 + (vR[i] * .25) ** 2;
+      const legacyInput = ac.createBuffer(2, n, ac.sampleRate);
+      legacyInput.copyToChannel(vL.subarray(0, n), 0); legacyInput.copyToChannel(vR.subarray(0, n), 1);
+      const legacy = window.SingVazaDSP.centerCutKaraokeBuffer(ac, legacyInput);
+      const oldL = legacy.getChannelData(0), oldR = legacy.getChannelData(1);
+      let oldEnergy = 0; for (let i = 0; i < n; i++) oldEnergy += (oldL[i] * .25) ** 2 + (oldR[i] * .25) ** 2;
+      const legacyRatio = Math.sqrt(oldEnergy / input);
+      const ratios = [];
+      for (const strength of [.65, .85, 1]) {
+        const base = await run(strength, false), mix = await run(strength, true);
+        if (base.gain !== 1 || mix.gain !== 1) throw new Error('unexpected test clipping gain');
+        let residual = 0;
+        for (let i = 0; i < n; i++) residual += (mix.l[i] - base.l[i]) ** 2 + (mix.r[i] - base.r[i]) ** 2;
+        ratios.push(Math.sqrt(residual / input));
+      }
+      await ac.close(); return { ratios, legacyRatio };
+    });
+    const ratios = values.ratios;
+    assert.ok(ratios[0] < .5 && ratios[1] < ratios[0] && ratios[2] < ratios[1], `measured demo voice RMS ratios: ${ratios}`);
+    assert.ok(ratios[2] < .2, `strong preset residual on this centred demo voice: ${ratios[2]}`);
+    assert.ok(ratios[2] < values.legacyRatio * .5, `strong preset ${ratios[2]} vs previous fixed effect ${values.legacyRatio}`);
+  } finally { await context.close(); }
+});
+
+test('a stereo AAC/H.264 MP4 can be processed, compared and played in the video stage', async () => {
+  const { context, page } = await newPage(390, 844);
+  try {
+    await openRemover(page);
+    await page.locator('#vocalRemoverFileInput').setInputFiles(new URL('./fixtures/stereo-synthetic.mp4', import.meta.url).pathname);
+    await page.waitForFunction(() => /Ready:|could not read/i.test(document.getElementById('vocalRemoverStatus').textContent));
+    assert.match(await page.locator('#vocalRemoverStatus').innerText(), /Ready:/);
+    await page.locator('#btnKaraokeCut').click();
+    await page.waitForFunction(() => document.getElementById('btnKaraokeCut').getAttribute('aria-pressed') === 'true');
+    await page.locator('#compareOriginal').click();
+    await page.locator('#karaokeComparePlayer').evaluate(el => el.play());
+    await page.waitForFunction(() => document.getElementById('karaokeComparePlayer').currentTime > .2);
+    await page.locator('#btnUseKaraoke').click();
+    await page.locator('#stageUploadedMedia').evaluate(el => el.play());
+    await page.waitForFunction(() => {
+      const v = document.getElementById('stageUploadedMedia'), a = document.getElementById('stageKaraokeAudio');
+      return v.currentTime > .3 && a && !a.paused && Math.abs(v.currentTime - a.currentTime) < .3;
+    });
+    assert.equal(await page.locator('#stageUploadedMedia').evaluate(el => el.muted), true);
+  } finally { await context.close(); }
 });

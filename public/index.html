@@ -629,6 +629,28 @@ input[type="range"]::-moz-range-thumb {
 .vocal-upload-btn { border-color: rgba(125, 211, 252, .4); background: rgba(56, 189, 248, .12); color: #d5f3ff; cursor: pointer; }
 .vocal-remover-status { margin: 12px 0 0; color: #d4e3f0; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
 .vocal-remover-note { margin: 7px 0 0; color: #98a9ba; font-size: 11.5px; line-height: 1.5; }
+.vocal-remover-panel [hidden] { display:none !important; }
+.karaoke-options { margin-top: 16px; padding: 14px; border-radius: 13px; border: 1px solid rgba(125,211,252,.17); background: rgba(3,11,21,.36); }
+.karaoke-options-title { color:#eaf7ff; font-size: 13px; font-weight: 800; }
+.karaoke-presets { display:flex; flex-wrap:wrap; gap:7px; margin-top:9px; }
+.karaoke-presets .btn { min-height: 40px; font-size: 12px; }
+.karaoke-presets .btn[aria-pressed="true"] { border-color:#7dd3fc; background:rgba(56,189,248,.19); color:#e0f7ff; }
+.karaoke-sliders { display:grid; grid-template-columns:minmax(0, 1.2fr) minmax(0,.8fr); gap:14px; margin-top:14px; }
+.karaoke-sliders label { display:block; color:#d9e8f6; font-size:12px; font-weight:700; }
+.karaoke-sliders input[type=range] { display:block; width:100%; margin:9px 0; accent-color:#38bdf8; }
+.karaoke-intro-row { display:flex; gap:7px; margin-top:7px; align-items:center; }
+.karaoke-intro-row input { width:95px; min-width:0; }
+.karaoke-hint { margin:5px 0 0; color:#a9bacb; font-size:11.5px; line-height:1.45; }
+.karaoke-compare { margin-top:14px; padding:13px; border:1px solid rgba(56,189,248,.25); border-radius:12px; background:rgba(56,189,248,.055); }
+.karaoke-compare[hidden] { display:none; }
+.karaoke-compare audio { display:block; width:100%; margin-top:10px; height:42px; }
+.karaoke-compare-buttons { display:flex; flex-wrap:wrap; gap:7px; margin-top:8px; }
+.karaoke-compare-buttons .btn[aria-pressed="true"] { border-color:#7dd3fc; color:#e0f7ff; background:rgba(56,189,248,.18); }
+.karaoke-progress { width:100%; height:7px; margin-top:10px; accent-color:#38bdf8; }
+.karaoke-progress[hidden] { display:none; }
+.stage-karaoke-label { margin:0 0 10px; padding:9px 11px; color:#d7f6ff; background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.25); border-radius:10px; font-size:12px; line-height:1.4; }
+.stage-karaoke-label[hidden] { display:none; }
+@media (max-width: 520px) { .karaoke-sliders { grid-template-columns:1fr; } .karaoke-options { padding:12px; } }
 @media (max-width: 650px) {
   .featured-tool { grid-template-columns: 1fr; }
   .featured-tool-image { order: -1; height: 170px; min-height: 0; }
@@ -1296,6 +1318,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           </div>
         </div>
 
+        <p id="stageKaraokeLabel" class="stage-karaoke-label" role="status" hidden></p>
         <div id="stageVideoWrap" class="stage-screen">
           <div>
             <div style="font-weight:700;color:var(--text);font-size:15px;margin-bottom:4px;">Karaoke Video / Audio Stage</div>
@@ -1394,10 +1417,45 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
             Choose audio or video
             <input type="file" id="vocalRemoverFileInput" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv,.mov" hidden onchange="App.handleBackingUpload(event)" />
           </label>
-          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Reduce vocals</button>
         </div>
+        <div class="karaoke-options">
+          <div class="karaoke-options-title">Shape your karaoke backing</div>
+          <div class="karaoke-presets" role="group" aria-label="Vocal reduction presets">
+            <button type="button" class="btn btn-sm" id="karaokePresetMusic" onclick="App.setKaraokePreset(65)" aria-pressed="false">More music</button>
+            <button type="button" class="btn btn-sm" id="karaokePresetBalanced" onclick="App.setKaraokePreset(85)" aria-pressed="true">Balanced</button>
+            <button type="button" class="btn btn-sm" id="karaokePresetStrong" onclick="App.setKaraokePreset(100)" aria-pressed="false">Stronger voice reduction</button>
+          </div>
+          <div class="karaoke-sliders">
+            <div>
+              <label for="karaokeStrength">Reduction strength: <span id="karaokeStrengthValue">85%</span></label>
+              <input id="karaokeStrength" type="range" min="50" max="100" step="5" value="85" oninput="App.karaokeSettingsChanged()" />
+              <p class="karaoke-hint">Stronger can reduce more of the voice, but also more centered instruments.</p>
+            </div>
+            <div>
+              <label for="karaokeIntro">Protect intro (seconds)</label>
+              <div class="karaoke-intro-row"><input class="input" id="karaokeIntro" type="number" min="0" step="0.1" value="0" inputmode="decimal" oninput="App.karaokeSettingsChanged()" /><button type="button" class="btn btn-sm" onclick="App.markKaraokeIntro()">Use playhead</button></div>
+              <p class="karaoke-hint">Keeps the opening unfiltered before a smooth transition. 0 = off; clipping protection may lower the overall level.</p>
+            </div>
+          </div>
+        </div>
+        <div class="vocal-remover-actions">
+          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Reduce vocals</button>
+          <button type="button" class="btn btn-amber" id="btnUpdateKaraoke" onclick="App.updateKaraokeVocalCut()" hidden>Update karaoke</button>
+          <button type="button" class="btn" id="btnCancelKaraoke" onclick="App.cancelKaraokeProcessing()" hidden>Cancel processing</button>
+          <button type="button" class="btn btn-cyan" id="btnUseKaraoke" onclick="App.useKaraokeForSing()" hidden>Use in Sing &amp; Record</button>
+        </div>
+        <progress id="karaokeProgress" class="karaoke-progress" max="100" value="0" hidden aria-label="Vocal reduction progress"></progress>
         <p class="vocal-remover-status" id="vocalRemoverStatus" role="status" aria-live="polite">Choose a stereo song to begin.</p>
-        <p class="vocal-remover-note">Current method: stereo center reduction, not AI separation. Results vary and some instruments may be affected. Video support depends on your browser.</p>
+        <div class="karaoke-compare" id="karaokeCompare" hidden>
+          <div class="karaoke-options-title">Compare original &amp; karaoke</div>
+          <p class="karaoke-hint">Switch versions at the same position. Original is the uploaded file before key changes. Use headphones for the clearest comparison.</p>
+          <div class="karaoke-compare-buttons" role="group" aria-label="Compare audio versions">
+            <button type="button" class="btn btn-sm" id="compareOriginal" onclick="App.compareKaraoke('original')" aria-pressed="false">Original</button>
+            <button type="button" class="btn btn-sm" id="compareKaraoke" onclick="App.compareKaraoke('karaoke')" aria-pressed="true">Karaoke</button>
+          </div>
+          <audio id="karaokeComparePlayer" controls preload="metadata" aria-label="Original or karaoke comparison player"></audio>
+        </div>
+        <p class="vocal-remover-note">Stereo center reduction, not AI separation: some vocals or reverb may remain, and centered instruments may be reduced; mono speakers can sound thinner. A separate vocal stem is not created. Audio stays in your browser; video support depends on your browser.</p>
       </section>
 
       <!-- Card 1: Clean Master Player + Smooth Timeline -->
@@ -1758,6 +1816,6 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 
   <script src="/vendor/confetti.min.js?v=21.2"></script>
   <script src="/dsp-engine.js?v=21.2"></script>
-  <script src="/app.js?v=22.2"></script>
+  <script src="/app.js?v=23.0"></script>
 </body>
 </html>
