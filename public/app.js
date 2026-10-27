@@ -29,10 +29,10 @@ const App = (() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (_) { return 'UTC'; }
   })();
 
-  function getLocalDayKey() {
+  function getLocalDayKey(timezone = clientTimezone) {
     try {
       return new Intl.DateTimeFormat('en-CA', {
-        timeZone: clientTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
+        timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
       }).format(new Date());
     } catch (_) {
       return new Date().toISOString().slice(0, 10);
@@ -58,12 +58,12 @@ const App = (() => {
     authMode: 'register',
     isProDemo: localStorage.getItem('singvaza_pro_demo') === '1',
     exportsUsed: loadGuestDailyExports(),
-    dailyLimit: 2,
+    dailyLimit: 9,
     quota: {
       proActive: false,
       proDaysLeft: 0,
       dailyUsed: loadGuestDailyExports(),
-      dailyLimit: 2,
+      dailyLimit: 9,
       timezone: clientTimezone,
       localDate: getLocalDayKey(),
       minutesToMidnight: 720,
@@ -232,36 +232,40 @@ const App = (() => {
     return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   }
 
-  // ==================== NAVIGATION (CLEAN 4 VIEWS) ====================
-  function switchView(view) {
+  // The tool pages have their own URLs; navigation inside the studio keeps the
+  // decoded audio in memory, so sending a backing to Sing does not re-upload it.
+  const viewUrls = { home: '/', blog: '/#blog', 'vocal-remover': '/studio/vocal-remover', sing: '/studio/karaoke-recorder', mix: '/studio/karaoke-recorder#mix', library: '/studio/karaoke-recorder#library' };
+  function viewFromLocation() {
+    const path = location.pathname.replace(/\/$/, '');
+    if (path === '/studio/vocal-remover') return 'vocal-remover';
+    if (path === '/studio/karaoke-recorder') return location.hash === '#mix' ? 'mix' : location.hash === '#library' ? 'library' : 'sing';
+    return location.hash === '#blog' ? 'blog' : 'home';
+  }
+  function switchView(view, updateUrl = true) {
+    if (!viewUrls[view]) view = 'home';
     state.view = view;
     document.querySelectorAll('.app-view').forEach((el) => el.classList.toggle('active', el.id === `view-${view}`));
-    document.querySelectorAll('.nav-item, .mob-tab').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.view === view);
-    });
+    const section = view === 'blog' ? 'blog' : 'home';
+    document.querySelectorAll('.nav-item, .mob-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.view === section));
+    if (updateUrl && location.pathname + location.hash !== viewUrls[view]) history.pushState({ view }, '', viewUrls[view]);
+    if (view === 'home' && updateUrl && discoveryFetched) loadDiscovery(true);
     window.scrollTo({ top: 0, behavior: 'auto' });
-
     if (view === 'mix') {
+      requestAnimationFrame(() => { drawSpectrum(); drawTimeline(); drawPitchGraph(); });
+    } else if (view === 'vocal-remover') {
       updateVocalRemoverUI();
-      requestAnimationFrame(() => {
-        drawSpectrum();
-        drawTimeline();
-        drawPitchGraph();
-      });
-    } else if (view === 'library') {
-      refreshServerState();
-    }
+    } else if (view === 'library') refreshServerState();
+    else if (view === 'blog') loadBlogPostsFromServer();
   }
 
   function openVocalRemover() {
     if (state.isRecording || state.waitingForYtTap) stopActiveRecordingNow();
     else pauseYoutubeStage();
-    switchView('mix');
-    updateVocalRemoverUI();
+    if (state.isPlaying) pausePlayback();
+    switchView('vocal-remover');
     requestAnimationFrame(() => {
       const panel = document.getElementById('vocalRemoverPanel');
       if (!panel) return;
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       try { panel.focus({ preventScroll: true }); } catch (_) { panel.focus(); }
     });
   }
@@ -284,6 +288,8 @@ const App = (() => {
     if (cancel) cancel.hidden = !state.karaokeBusy;
     const use = document.getElementById('btnUseKaraoke');
     if (use) { use.hidden = !effectActive || !state.karaokeWavUrl; use.disabled = state.karaokeBusy || state.karaokeDirty; }
+    const download = document.getElementById('btnDownloadKaraoke');
+    if (download) { download.hidden = !effectActive || !state.karaokeWavUrl; download.disabled = state.karaokeBusy || state.karaokeDirty; }
     const compare = document.getElementById('karaokeCompare');
     if (compare) compare.hidden = !effectActive || !state.karaokeWavUrl;
     const progress = document.getElementById('karaokeProgress');
@@ -2660,7 +2666,7 @@ const App = (() => {
   }
 
   function isProActive() {
-    if (state.isProDemo) return true;
+    if (state.user && state.isProDemo) return true;
     if (state.quota && state.quota.proActive) return true;
     if (state.user) {
       if (state.user.plan && state.user.plan !== 'free') return true;
@@ -2671,6 +2677,7 @@ const App = (() => {
 
   function getDailyUsedCount() {
     if (state.user && state.quota) {
+      if (state.quota.localDate && state.quota.localDate !== getLocalDayKey(state.quota.timezone || clientTimezone)) return 0;
       return Number(state.quota.dailyUsed || 0);
     }
     return loadGuestDailyExports();
@@ -2689,7 +2696,7 @@ const App = (() => {
     try {
       const data = await apiFetch('/api/state');
       if (data.googleClientId) updateGoogleClientId(data.googleClientId);
-      if (data.quota) state.quota = data.quota;
+      if (data.quota) { state.quota = data.quota; state.dailyLimit = Math.max(1, Number(data.quota.dailyLimit) || 9); }
       if (data.authenticated && data.user) {
         state.user = data.user;
       } else {
@@ -2710,8 +2717,9 @@ const App = (() => {
       ? Math.max(1, Math.ceil((state.user.pro_until - Date.now()) / 86400000))
       : 0);
     const usedToday = getDailyUsedCount();
-    const limit = state.dailyLimit || 2;
+    const limit = state.dailyLimit || 9;
 
+    document.querySelectorAll('.daily-limit-value').forEach((el) => { el.textContent = String(limit); });
     const badge = document.getElementById('topPlanBadge');
     if (badge) {
       if (pro && daysLeft > 0) badge.textContent = `PRO • ${daysLeft}d`;
@@ -2939,6 +2947,8 @@ const App = (() => {
   function logout() {
     state.authToken = '';
     state.user = null;
+    state.isProDemo = false;
+    localStorage.removeItem('singvaza_pro_demo');
     state.quota.proActive = false;
     state.quota.proDaysLeft = 0;
     state.quota.dailyUsed = loadGuestDailyExports();
@@ -2965,6 +2975,8 @@ const App = (() => {
     }
     state.authToken = '';
     state.user = null;
+    state.isProDemo = false;
+    localStorage.removeItem('singvaza_pro_demo');
     state.projects = [];
     state.quota.proActive = false;
     state.quota.proDaysLeft = 0;
@@ -2976,22 +2988,20 @@ const App = (() => {
   }
 
   async function toggleProDemo() {
-    if (!state.user && !state.isProDemo) {
-      openAuthModal('register');
-      return;
-    }
-    if (state.user && (state.quota?.proDaysLeft || 0) > 0) {
+    if (!state.user) { openAuthModal('register'); return; }
+    if ((state.quota?.proDaysLeft || 0) > 0) {
       showToast(`Your 30-Day Free Pro Pass is already active (${state.quota.proDaysLeft} days remaining)!`);
       return;
     }
-    state.isProDemo = !state.isProDemo;
-    localStorage.setItem('singvaza_pro_demo', state.isProDemo ? '1' : '0');
-    apiFetch('/api/upgrade-demo', {
-      method: 'POST',
-      body: JSON.stringify({ plan: state.isProDemo ? 'pro_global' : 'free' }),
-    }).catch(() => {});
-    updateAccountUI();
-    showToast(state.isProDemo ? 'Temporary Free Pro Month activated!' : 'Switched to 2/day Free Tier');
+    const next = !state.isProDemo;
+    try {
+      const response = await apiFetch('/api/upgrade-demo', { method: 'POST', body: JSON.stringify({ plan: next ? 'pro_global' : 'free' }) });
+      if (!response.ok) { showToast(response.error || 'Could not change your plan.'); return; }
+      state.isProDemo = next;
+      localStorage.setItem('singvaza_pro_demo', next ? '1' : '0');
+      await refreshServerState();
+      showToast(next ? 'Temporary Free Pro Month activated!' : `Switched to ${state.dailyLimit}/day Free Tier`);
+    } catch (_) { showToast('Could not change your plan. Check your connection.'); }
   }
 
   async function saveProjectToD1() {
@@ -3050,25 +3060,66 @@ const App = (() => {
     }
   }
 
+  function canDownload() {
+    const limit = state.dailyLimit || 9;
+    if (!isProActive() && getDailyUsedCount() >= limit) {
+      showToast(`Daily ${limit}/${limit} downloads used • ${formatResetCountdown()}`);
+      return false;
+    }
+    return true;
+  }
+
+  async function reserveDownload() {
+    if (!canDownload()) return false;
+    if (!state.user) {
+      const next = loadGuestDailyExports() + 1;
+      localStorage.setItem('singvaza_daily_date', getLocalDayKey());
+      localStorage.setItem('singvaza_daily_used', String(next));
+      state.exportsUsed = next;
+      state.quota.dailyUsed = next;
+      updateAccountUI();
+      return true;
+    }
+    try {
+      const result = await apiFetch('/api/track-export', { method: 'POST' });
+      if (result?.quota) {
+        state.quota = result.quota;
+        state.dailyLimit = Math.max(1, Number(result.quota.dailyLimit) || 9);
+      }
+      updateAccountUI();
+      if (!result?.ok || !result.allowed) {
+        showToast(result?.error || `Daily download limit reached • ${formatResetCountdown()}`);
+        return false;
+      }
+      return true;
+    } catch (_) {
+      showToast('Could not verify your download allowance. Check your connection.');
+      return false;
+    }
+  }
+
+  async function downloadKaraoke() {
+    if (!state.karaokeCutActive || state.karaokeDirty || !state.karaokeWavUrl || state.karaokeBusy) {
+      showToast('Apply the latest karaoke settings first.'); return;
+    }
+    const button = document.getElementById('btnDownloadKaraoke');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      if (!(await reserveDownload())) return;
+      const a = document.createElement('a');
+      a.href = state.karaokeWavUrl;
+      const base = (state.uploadedFileName || 'singvaza').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]/g, '-').slice(0, 90) || 'singvaza';
+      a.download = `${base}-karaoke.wav`;
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast('Karaoke WAV is ready on your device.');
+    } finally { updateVocalRemoverUI(); }
+  }
+
   async function exportMasteredWav() {
     unlockMobileAudioSync();
-    if (!state.backingBuffer && !state.rawVocalBuffer) {
-      await preloadRealDemoAssets();
-    }
-
-    const pro = isProActive();
-    const usedToday = getDailyUsedCount();
-    const limit = state.dailyLimit || 2;
-    if (!pro && usedToday >= limit) {
-      if (!state.user) {
-        openAuthModal('register');
-        showToast('Daily 2/2 free downloads used — Sign in with Gmail for 30 Days Unlimited Pro FREE!');
-      } else {
-        switchView('library');
-        showToast(`Today's 2/2 free downloads used • ${formatResetCountdown()}`);
-      }
-      return;
-    }
+    if (!canDownload()) return;
+    if (!state.backingBuffer && !state.rawVocalBuffer) await preloadRealDemoAssets();
 
     const fmt = document.getElementById('exportFormatSelect')?.value || 'mp3_compact';
     const btn = document.getElementById('btnRenderMaster');
@@ -3084,19 +3135,7 @@ const App = (() => {
       );
       suspendIdleWebAudio();
 
-      if (!state.user) {
-        const nextGuest = loadGuestDailyExports() + 1;
-        localStorage.setItem('singvaza_daily_date', getLocalDayKey());
-        localStorage.setItem('singvaza_daily_used', String(nextGuest));
-        state.exportsUsed = nextGuest;
-        state.quota.dailyUsed = nextGuest;
-      } else {
-        try {
-          const trackRes = await apiFetch('/api/track-export', { method: 'POST' });
-          if (trackRes?.quota) state.quota = trackRes.quota;
-        } catch (_) {}
-      }
-      updateAccountUI();
+      if (!(await reserveDownload())) return;
 
       const fname = `${(document.getElementById('projectTitleInput').value || 'singvaza').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.${result.ext}`;
       const sizeMb = (result.blob.size / (1024 * 1024)).toFixed(2);
@@ -3150,6 +3189,7 @@ const App = (() => {
         return;
       }
     } catch (_) {}
+    if (!(await reserveDownload())) return;
     const url = URL.createObjectURL(state.lastMasterBlob);
     const a = document.createElement('a');
     a.href = url;
@@ -3160,7 +3200,6 @@ const App = (() => {
 
   // ==================== TOP-LEFT HAMBURGER DRAWER, PRIVACY SETTINGS & HUMAN BLOG CMS ====================
   let liveBlogPosts = [];
-  let blogLoadedOnce = false;
 
   function escHtml(s) {
     return String(s || '')
@@ -3226,59 +3265,107 @@ const App = (() => {
   }
 
   function clearLocalStudioData() {
-    localStorage.removeItem('singvaza_daily_date');
-    localStorage.removeItem('singvaza_daily_used');
     localStorage.removeItem('singvaza_pro_demo');
-    showToast('Cleared local browser preferences.');
+    state.isProDemo = false;
+    updateAccountUI();
+    showToast('Preferences cleared. The daily download counter resets at midnight.');
   }
 
+  let liveTools = [];
+  let discoveryFetched = false;
+  let discoveryError = false;
+  let discoveryPending = null;
+  async function loadDiscovery(force = false) {
+    if (discoveryFetched && !force) { renderDiscovery(); return; }
+    if (discoveryPending) return discoveryPending;
+    discoveryPending = (async () => {
+      const [tools, posts] = await Promise.all(['/api/tools?summary=1', '/api/blog?summary=1'].map(async (url) => {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) return null;
+          return await response.json();
+        } catch (_) { return null; }
+      }));
+      if (tools) liveTools = Array.isArray(tools.tools) ? tools.tools : [];
+      if (posts) liveBlogPosts = Array.isArray(posts.posts) ? posts.posts : [];
+      discoveryError = !tools || !posts;
+      discoveryFetched = !discoveryError;
+      renderDiscovery(); renderBlogList();
+    })();
+    try { await discoveryPending; } finally { discoveryPending = null; }
+  }
   async function loadBlogPostsFromServer(force = false) {
-    if (blogLoadedOnce && !force) {
-      renderBlogList();
-      return;
-    }
-    try {
-      const res = await fetch('/api/blog');
-      const data = await res.json();
-      liveBlogPosts = Array.isArray(data.posts) ? data.posts : [];
-      blogLoadedOnce = true;
-    } catch (_) {}
-    renderBlogList();
+    if (!discoveryFetched || force) await loadDiscovery(force);
+    else renderBlogList();
   }
-
+  function discoveryItems() {
+    return [
+      { key: 'builtin-vocal', kind: 'tool', title: 'Vocal Remover', description: 'Reduce vocals and make a karaoke backing from a stereo song.', keywords: 'vocal karaoke voice remover reduce music කටහඬ ඉවත්' },
+      { key: 'builtin-recorder', kind: 'tool', title: 'Karaoke Recorder', description: 'Sing, record and mix your voice.', keywords: 'sing record karaoke audio microphone ගීත' },
+      ...liveTools.map((t) => ({ key: `tool-${t.id}`, kind: 'tool', title: String(t.title || ''), description: String(t.description || ''), keywords: `${t.category || ''} ${t.seo_tags || ''}`, tool: t })),
+      ...liveBlogPosts.map((b) => ({ key: `blog-${b.id}`, kind: 'blog', title: String(b.title || ''), description: String(b.excerpt || ''), keywords: `${b.category || ''} ${b.seo_tags || ''}`, post: b })),
+    ];
+  }
+  function renderDiscovery() {
+    const cards = document.getElementById('toolCards');
+    const preview = document.getElementById('homeBlogPreview');
+    if (!cards || !preview) return;
+    const query = String(document.getElementById('siteSearch')?.value || '').trim().slice(0, 120);
+    const items = discoveryItems();
+    let results = items;
+    if (query) {
+      if (window.SingVazaFuse) {
+        results = new window.SingVazaFuse(items, { keys: ['title', 'description', 'keywords'], threshold: 0.33, ignoreLocation: true }).search(query).map((r) => r.item);
+      } else {
+        const term = query.toLocaleLowerCase();
+        results = items.filter((i) => `${i.title} ${i.description} ${i.keywords}`.toLocaleLowerCase().includes(term));
+      }
+    }
+    const toolItems = results.filter((i) => i.kind === 'tool');
+    const blogItems = results.filter((i) => i.kind === 'blog');
+    for (const el of cards.querySelectorAll('[data-discovery]')) {
+      const builtIn = el.dataset.discovery.startsWith('builtin-');
+      if (!builtIn) el.remove();
+      else el.style.display = toolItems.some((item) => item.key === el.dataset.discovery) ? 'flex' : 'none';
+    }
+    for (const item of toolItems.filter((i) => i.tool)) {
+      const t = item.tool;
+      const link = document.createElement('a');
+      link.className = 'tool-tile'; link.dataset.discovery = item.key;
+      link.href = `/tools/${encodeURIComponent(t.slug)}`;
+      link.innerHTML = `<span class="tool-tile-top"><span class="tool-tile-icon">${escHtml(t.icon || '✦')}</span><span class="tool-tile-label">${escHtml(t.category || 'Web tool')}</span></span><h3>${escHtml(item.title)}</h3><p>${escHtml(item.description)}</p><span class="tool-tile-link">Open tool →</span>`;
+      cards.appendChild(link);
+    }
+    if (!toolItems.length) {
+      const empty = document.createElement('div'); empty.className = 'empty-discovery'; empty.dataset.discovery = 'empty';
+      empty.textContent = query ? 'No tools match your search.' : 'More tools are coming soon.'; cards.appendChild(empty);
+    }
+    document.getElementById('toolCount').textContent = `${toolItems.length} ${toolItems.length === 1 ? 'tool' : 'tools'}`;
+    const showBlogs = query ? blogItems : blogItems.slice(0, 3);
+    preview.innerHTML = showBlogs.length ? showBlogs.map((i) => `<a class="home-blog-card" href="/blog/${encodeURIComponent(i.post.slug)}"><span class="section-eyebrow">${escHtml(i.post.category || 'Guide')}</span><strong>${escHtml(i.title)}</strong><p>${escHtml(i.description)}</p><span class="tool-tile-link">Read article →</span></a>`).join('') : `<div class="empty-discovery">${query ? 'No articles match your search.' : 'Articles will appear here when they are published.'}</div>`;
+    const status = document.getElementById('discoveryStatus');
+    status.textContent = discoveryError ? 'Some published content could not be loaded. Please refresh or try again.' : query ? `${results.length} result${results.length === 1 ? '' : 's'} across tools and articles.` : '';
+  }
+  function searchDiscovery() { renderDiscovery(); }
+  function searchFromBlog(event) {
+    event.preventDefault();
+    const value = document.getElementById('blogSearch')?.value || '';
+    switchView('home');
+    document.getElementById('siteSearch').value = value;
+    renderDiscovery();
+    document.getElementById('siteSearch').focus();
+  }
   function renderBlogList() {
     const grid = document.getElementById('blogPostsGrid');
     const reader = document.getElementById('blogReaderWrap');
     if (!grid) return;
     if (reader) reader.style.display = 'none';
     grid.style.display = 'grid';
-
     if (!liveBlogPosts.length) {
-      grid.innerHTML = `
-        <div class="card" style="grid-column:1 / -1;text-align:center;padding:34px 20px;">
-          <div style="font-size:16px;font-weight:700;margin-bottom:6px;">No Articles Published Yet</div>
-          <p style="font-size:13.5px;color:var(--text-secondary);max-width:440px;margin:0 auto;">
-            New guides, tutorials, and helpful articles will appear here as soon as they are published.
-          </p>
-        </div>
-      `;
+      grid.innerHTML = `<div class="empty-discovery">${discoveryError ? 'Articles could not be loaded. Please refresh and try again.' : 'New guides, tutorials and articles will appear here when they are published.'}</div>`;
       return;
     }
-
-    grid.innerHTML = liveBlogPosts.map((b) => `
-      <article class="blog-card" onclick="App.openBlogPost('${escHtml(b.id)}')">
-        <img src="${escHtml(b.cover_image || '/assets/studio-girl-card.jpg')}" alt="${escHtml(b.title)}" loading="lazy" />
-        <div class="blog-card-body">
-          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-bottom:6px;">
-            <span style="color:var(--cyan);font-weight:800;text-transform:uppercase;letter-spacing:0.06em;">${escHtml(b.category || 'Guide')}</span>
-            <span style="color:var(--text-muted);">${escHtml(String(b.created_at || '').slice(0, 10))}</span>
-          </div>
-          <h3 style="font-size:16px;line-height:1.35;margin-bottom:8px;">${escHtml(b.title)}</h3>
-          <p style="font-size:13px;color:var(--text-secondary);line-height:1.55;flex:1;margin-bottom:12px;">${escHtml(b.excerpt || '')}</p>
-          <span style="font-size:12.5px;font-weight:700;color:var(--amber-bright);">Read Article →</span>
-        </div>
-      </article>
-    `).join('');
+    grid.innerHTML = liveBlogPosts.map((b) => `<a class="blog-card" href="/blog/${encodeURIComponent(b.slug)}" style="text-decoration:none;color:inherit"><img src="${escHtml(b.cover_image || '/assets/studio-girl-card.jpg')}" alt="" loading="lazy" /><div class="blog-card-body"><span class="section-eyebrow">${escHtml(b.category || 'Guide')}</span><h3 style="font-size:16px;margin:6px 0">${escHtml(b.title)}</h3><p style="font-size:13px;color:var(--text-secondary)">${escHtml(b.excerpt || '')}</p><span class="tool-tile-link">Read article →</span></div></a>`).join('');
   }
 
   function openBlogPost(postId) {
@@ -3507,9 +3594,16 @@ const App = (() => {
     updateFxButtonsUI();
     updateVocalRemoverUI();
     initTimelinePointerInteractions();
-    if (window.location.hash === '#blog') {
-      switchView('blog');
-    }
+    switchView(viewFromLocation(), false);
+    const initialSearch = new URLSearchParams(location.search).get('q');
+    if (initialSearch) { document.getElementById('siteSearch').value = initialSearch.slice(0, 120); renderDiscovery(); }
+    window.addEventListener('popstate', () => {
+      if (state.isRecording || state.waitingForYtTap) stopActiveRecordingNow();
+      else pauseYoutubeStage();
+      document.getElementById('karaokeComparePlayer')?.pause();
+      switchView(viewFromLocation(), false);
+    });
+    loadDiscovery();
     refreshServerState();
 
     // Deferred non-blocking analytics beacon (skips logged-in Admin owner + once per session tab)
@@ -3562,7 +3656,7 @@ const App = (() => {
 
   return {
     switchView: (v) => {
-      if (v !== 'mix') { try { document.getElementById('karaokeComparePlayer')?.pause(); } catch (_) {} }
+      if (v !== 'vocal-remover') { try { document.getElementById('karaokeComparePlayer')?.pause(); } catch (_) {} }
       if (v !== 'sing') {
         if (state.isRecording || state.waitingForYtTap) {
           stopActiveRecordingNow();
@@ -3573,7 +3667,7 @@ const App = (() => {
       if (v === 'blog') loadBlogPostsFromServer();
       switchView(v);
     },
-    toggleDrawer, drawerGo,
+    toggleDrawer, drawerGo, searchDiscovery, searchFromBlog, downloadKaraoke,
     shareWebsite, closeShareModal, copyShareLink, triggerNativeShare,
     openPrivacySettings, closePrivacySettings, savePrivacySettings, clearLocalStudioData,
     openBlogPost, closeBlogPost,

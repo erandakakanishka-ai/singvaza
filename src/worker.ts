@@ -1,3 +1,4 @@
+import { builtinPage, builtinResponse } from './builtin-pages';
 import { handleSecurityRoute, requiresEntrySession, requireEntrySession, requireAuthChallenge, type SecurityEnv } from './security';
 
 export interface Env extends SecurityEnv {
@@ -14,7 +15,7 @@ const CORS_HEADERS = {
 };
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const DAILY_FREE_LIMIT = 2;
+const DAILY_FREE_LIMIT = 9;
 const DEFAULT_ADMIN_SHA256 = 'b5098ccafc515b07d2d7033a3102e61dcd6ea5d61e91b77d1fce82a4cc3cac16';
 
 let schemaChecked = false;
@@ -151,7 +152,7 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
   <link rel="icon" href="/favicon.ico" sizes="48x48" />
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
   <link rel="stylesheet" href="/guard.css?v=1" />
-  <script defer src="/guard.js?v=1"></script>
+  <script defer src="/guard.js?v=2"></script>
   ${opts.extraHead || ''}
   <style>
     :root { --bg:#07090f; --surface:#111625; --border:rgba(148,163,184,0.16); --text:#f8fafc; --muted:#94a3b8; --amber:#fbbf24; --cyan:#38bdf8; }
@@ -164,6 +165,10 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
     .nav-links { display:flex; gap:14px; flex-wrap:wrap; font-size:13.5px; }
     .nav-links a { color:var(--muted); text-decoration:none; }
     .nav-links a:hover { color:var(--amber); }
+    .site-search { display:flex;gap:8px;margin:0 0 24px;max-width:510px; }
+    .site-search input { min-width:0;flex:1;background:#101725;color:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px; }
+    .site-search button { border:0;cursor:pointer;font:inherit;font-size:13px; }
+    .sr-only { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap; }
     h1 { font-size:clamp(25px,4vw,35px); line-height:1.22; margin-bottom:12px; }
     h2 { font-size:20px; margin:20px 0 8px; color:var(--amber); }
     h3 { font-size:17px; margin:16px 0 6px; color:var(--text); }
@@ -185,17 +190,20 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
     <header class="top">
       <a class="brand" href="/"><img src="/assets/logo.png" alt="SingVaza" /><span>SING<span style="color:var(--amber);">VAZA</span></span></a>
       <nav class="nav-links" style="align-items:center;">
-        <a href="/">Open Studio</a>
-        <a href="/blog" style="color:var(--amber);font-weight:700;">Blog</a>
+        <a href="/">Home</a>
+        <a href="/tools" ${opts.canonicalPath.startsWith('/tools') ? 'style="color:var(--amber);font-weight:700;"' : ''}>Tools</a>
+        <a href="/blog" ${opts.canonicalPath.startsWith('/blog') ? 'style="color:var(--amber);font-weight:700;"' : ''}>Blog</a>
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
         <button onclick="if(navigator.share){navigator.share({title:document.title,url:location.href}).catch(()=>{});}else{navigator.clipboard?.writeText(location.href);alert('Link copied: '+location.href);}" style="background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.4);color:var(--amber);border-radius:8px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;">Share ↗</button>
       </nav>
     </header>
+    <form class="site-search" role="search" action="/" method="get"><label class="sr-only" for="siteShellSearch">Search tools and articles</label><input id="siteShellSearch" name="q" type="search" placeholder="Search tools and articles..." /><button class="btn" type="submit">Search</button></form>
     ${opts.bodyHtml}
     <footer>
       <div>
-        <a href="/">Home Studio</a> •
+        <a href="/">Home</a> •
+        <a href="/tools">Tools</a> •
         <a href="/blog">Blog</a> •
         <a href="/about">About Us</a> •
         <a href="/contact">Contact Support</a> •
@@ -211,10 +219,14 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
 
 /** Add the shared visitor gate even to standalone editor-supplied HTML. */
 function addGuardToStandaloneHtml(html: string): string {
-  const assets = '<link rel="stylesheet" href="/guard.css?v=1" /><script defer src="/guard.js?v=1"></script>';
-  if (/<\/head\s*>/i.test(html)) return html.replace(/<\/head\s*>/i, (tag) => assets + tag);
-  if (/<body\b[^>]*>/i.test(html)) return html.replace(/<body\b[^>]*>/i, (tag) => tag + assets);
-  return assets + html;
+  const assets = '<link rel="stylesheet" href="/guard.css?v=1" /><script defer src="/guard.js?v=2"></script>';
+  // A compact floating return bar is appended after the editor's content so it
+  // does not become a flex/grid item or change the order of their own markup.
+  const nav = '<nav aria-label="SingVaza navigation" style="box-sizing:border-box;position:fixed;top:10px;right:10px;z-index:2147482000;display:flex;align-items:center;gap:14px;padding:9px 12px;background:#0b101a;color:#f8fafc;border:1px solid #344154;border-radius:12px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px #0008"><a href="/" style="color:#fbbf24;text-decoration:none">← Home</a><a href="/tools" style="color:#f8fafc;text-decoration:none">Tools</a><a href="/blog" style="color:#f8fafc;text-decoration:none">Blog</a></nav>';
+  if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, (tag) => assets + tag);
+  else html = assets + html;
+  if (/<\/body\s*>/i.test(html)) return html.replace(/<\/body\s*>/i, (tag) => nav + tag);
+  return html + nav;
 }
 
 function getUserLocalDayInfo(request: Request) {
@@ -488,6 +500,12 @@ export default {
         try { return decodeURIComponent(url.pathname).replace(/^\/\s+/, '/').replace(/\s+$/, ''); } catch (_) { return url.pathname; }
       })();
 
+      if ((request.method === 'GET' || request.method === 'HEAD') && builtinPage(cleanPath) && env.ASSETS) {
+        const assetUrl = new URL('/', url);
+        const asset = await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return builtinResponse(asset, request);
+      }
+
       const securityResponse = await handleSecurityRoute(request, env);
       if (securityResponse) return securityResponse;
       if (requiresEntrySession(cleanPath, request.method)) {
@@ -514,6 +532,9 @@ export default {
         const staticPaths = [
           { p: '/', pri: '1.0' },
           { p: '/blog', pri: '0.9' },
+          { p: '/tools', pri: '0.9' },
+          { p: '/studio/vocal-remover', pri: '0.85' },
+          { p: '/studio/karaoke-recorder', pri: '0.85' },
           { p: '/about', pri: '0.8' },
           { p: '/contact', pri: '0.8' },
           { p: '/privacy', pri: '0.7' },
@@ -554,7 +575,6 @@ export default {
           postUrls += `\n  <url>\n    <loc>${escapeHtml(url.origin)}/blog/${escapeHtml(r.slug)}</loc>\n    <lastmod>${d}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.85</priority>\n  </url>`;
         }
         if (toolsList.length > 0) {
-          postUrls += `\n  <url>\n    <loc>${escapeHtml(url.origin)}/tools</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>`;
           for (const t of toolsList) {
             const d = String(t.updated_at || '').slice(0, 10) || '2026-10-23';
             postUrls += `\n  <url>\n    <loc>${escapeHtml(url.origin)}/tools/${escapeHtml(t.slug)}</loc>\n    <lastmod>${d}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.85</priority>\n  </url>`;
@@ -589,16 +609,17 @@ export default {
           const bodyHtml = `
             <h1>Online Tools</h1>
             <p style="color:var(--muted);margin-bottom:24px;">Fast browser-based utilities and interactive web tools.</p>
-            ${list.length === 0
-              ? `<div class="card"><p style="margin:0;">New tools are coming soon. <a href="/" style="color:var(--amber);">Back to Home →</a></p></div>`
-              : `<div class="grid">${list.map((t) => `
+            <div class="grid">
+              <a class="post-card" href="/studio/vocal-remover" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">♪</div><div class="tag">Audio Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Vocal Remover</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Make a karaoke-style backing from a stereo song.</p></a>
+              <a class="post-card" href="/studio/karaoke-recorder" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">🎙</div><div class="tag">Audio Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Karaoke Recorder</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Sing, record, mix and master your song.</p></a>
+              ${list.map((t) => `
                 <a class="post-card" href="/tools/${escapeHtml(t.slug)}" style="padding:20px;">
                   <div style="font-size:28px;margin-bottom:10px;">${escapeHtml(t.icon || '⚡')}</div>
                   <div class="tag">${escapeHtml(t.category || 'Web Tool')}</div>
                   <h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">${escapeHtml(t.title)}</h2>
                   <p style="font-size:13.5px;color:var(--muted);margin:0;">${escapeHtml(t.description || '')}</p>
-                </a>`).join('')}</div>`
-            }${beaconTag}`;
+                </a>`).join('')}
+            </div>${beaconTag}`;
           return new Response(
             request.method === 'HEAD' ? null : renderBlogShellHtml({
               origin: url.origin,
@@ -1008,7 +1029,8 @@ export default {
       if (url.pathname === '/api/tools' && request.method === 'GET') {
         await ensureSchema(env.DB);
         if (!env.DB) return json({ tools: [] });
-        const rows = await env.DB.prepare('SELECT * FROM html_tools ORDER BY created_at DESC LIMIT 200').all();
+        const query = url.searchParams.get('summary') === '1' ? 'SELECT id, slug, title, category, icon, description, seo_tags, created_at FROM html_tools ORDER BY created_at DESC LIMIT 200' : 'SELECT * FROM html_tools ORDER BY created_at DESC LIMIT 200';
+        const rows = await env.DB.prepare(query).all();
         return json({ tools: rows.results || [] });
       }
 
@@ -1074,7 +1096,8 @@ export default {
       if (url.pathname === '/api/blog' && request.method === 'GET') {
         await ensureSchema(env.DB);
         if (!env.DB) return json({ posts: [] });
-        const rows = await env.DB.prepare('SELECT * FROM blog_posts ORDER BY created_at DESC LIMIT 100').all();
+        const query = url.searchParams.get('summary') === '1' ? 'SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, created_at FROM blog_posts ORDER BY created_at DESC LIMIT 100' : 'SELECT * FROM blog_posts ORDER BY created_at DESC LIMIT 100';
+        const rows = await env.DB.prepare(query).all();
         return json({ posts: rows.results || [] });
       }
 
@@ -1701,7 +1724,7 @@ export default {
         await ensureSchema(env.DB);
         const sMap = await getSettingsMap(env.DB);
         const activeGoogleClientId = sMap.google_client_id || env.GOOGLE_CLIENT_ID || '';
-        const customDailyLimit = Math.max(1, Number(sMap.daily_free_limit || DAILY_FREE_LIMIT));
+        const customDailyLimit = Math.max(1, Math.floor(Number(sMap.daily_free_limit) || DAILY_FREE_LIMIT));
         const { user, authenticated } = await resolveUser(request, env);
         const projects = await env.DB.prepare(
           'SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC LIMIT 25'
@@ -1774,25 +1797,36 @@ export default {
         return json({ ok: true, id });
       }
 
-      // 7. Timezone-Aware Daily Export Counter
+      // Shared recorder + remover download counter. Authenticated accounts are
+      // updated atomically; guests keep their existing local-browser allowance.
       if (url.pathname === '/api/track-export' && request.method === 'POST') {
+        const settings = await getSettingsMap(env.DB);
+        const limit = Math.max(1, Math.floor(Number(settings.daily_free_limit) || DAILY_FREE_LIMIT));
         if (env.DB) {
           const { user, authenticated } = await resolveUser(request, env);
+          if (!authenticated && request.headers.get('Authorization')) {
+            return json({ ok: false, allowed: false, error: 'Your session expired. Please sign in again.' }, 401);
+          }
           if (authenticated) {
-            const currentQuota = buildQuotaSummary(user, true, tzInfo);
-            if (!currentQuota.proActive && currentQuota.dailyUsed >= DAILY_FREE_LIMIT) {
-              return json({ ok: false, allowed: false, quota: currentQuota }, 429);
-            }
-            const nextDaily = user.daily_date === tzInfo.localDate ? Number(user.daily_exports || 0) + 1 : 1;
-            await env.DB.prepare(
-              'UPDATE users SET exports_this_month = exports_this_month + 1, daily_date = ?, daily_exports = ? WHERE id = ?'
-            ).bind(tzInfo.localDate, nextDaily, user.id).run();
-            user.daily_date = tzInfo.localDate;
-            user.daily_exports = nextDaily;
-            return json({ ok: true, allowed: true, quota: buildQuotaSummary(user, true, tzInfo) });
+            const current = buildQuotaSummary(user, true, tzInfo);
+            current.dailyLimit = limit;
+            // One conditional UPDATE makes two simultaneous requests compete for
+            // the last remaining free slot rather than both passing a stale read.
+            const update = await env.DB.prepare(
+              `UPDATE users SET exports_this_month = COALESCE(exports_this_month, 0) + 1,
+                 daily_exports = CASE WHEN daily_date = ? THEN COALESCE(daily_exports, 0) + 1 ELSE 1 END,
+                 daily_date = ? WHERE id = ? AND (? = 1 OR COALESCE(daily_date, '') != ? OR COALESCE(daily_exports, 0) < ?)`
+            ).bind(tzInfo.localDate, tzInfo.localDate, user.id, current.proActive ? 1 : 0, tzInfo.localDate, limit).run();
+            const fresh: any = await env.DB.prepare('SELECT id, plan, pro_until, daily_date, daily_exports FROM users WHERE id = ?').bind(user.id).first();
+            const quota = buildQuotaSummary(fresh || user, true, tzInfo);
+            quota.dailyLimit = limit;
+            if (!update.meta?.changes) return json({ ok: false, allowed: false, quota }, 429);
+            return json({ ok: true, allowed: true, quota });
           }
         }
-        return json({ ok: true, allowed: true, quota: buildQuotaSummary(null, false, tzInfo) });
+        const quota = buildQuotaSummary(null, false, tzInfo);
+        quota.dailyLimit = limit;
+        return json({ ok: true, allowed: true, quota });
       }
 
       if (url.pathname === '/api/upgrade-demo' && request.method === 'POST') {

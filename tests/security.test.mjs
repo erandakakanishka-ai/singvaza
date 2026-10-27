@@ -175,7 +175,7 @@ test('standalone blog and tool HTML also receives the visitor gate', async () =>
     const res = await worker.fetch(request(path), { ...env, DB: db });
     assert.equal(res.status, 200, path);
     const html = await res.text();
-    assert.match(html, /\/guard\.js\?v=1/, path);
+    assert.match(html, /\/guard\.js\?v=2/, path);
     assert.match(html, /\/guard\.css\?v=1/, path);
   }
 });

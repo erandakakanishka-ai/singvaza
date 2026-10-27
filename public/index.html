@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/guard.css?v=1" />
-  <script defer src="/guard.js?v=1"></script>
+  <script defer src="/guard.js?v=2"></script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>SingVaza — Free Online Karaoke Player, Vocal Recorder & Audio Mastering Studio</title>
   <meta name="description" content="SingVaza is a free online karaoke maker and recorder. Reduce vocals in stereo songs, sing with lyrics, and mix and export your recording in your browser." />
@@ -318,7 +318,7 @@ svg.icon {
   background: #0a0d17;
   border-top: 1px solid var(--border-strong);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   z-index: 65;
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -925,7 +925,50 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 .countdown-mask.show { display: flex; }
 .countdown-digit { font-size: 84px; font-weight: 800; color: var(--amber-bright); }
 
-  </style>
+
+/* Tools + Blog discovery, built to work without a network font or third-party CDN. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+:focus-visible{outline:3px solid #38bdf8;outline-offset:3px}
+.directory{max-width:1120px;margin:auto;padding:0 18px 36px}
+.discover-hero{display:grid;grid-template-columns:1.15fr .85fr;min-height:310px;border:1px solid rgba(255,255,255,.09);border-radius:24px;overflow:hidden;background:radial-gradient(circle at 9% 5%,rgba(244,162,46,.16),transparent 43%),linear-gradient(130deg,#161a24,#10131d);margin:24px 0 30px}
+.discover-copy{padding:clamp(25px,4.5vw,50px);position:relative;z-index:1}
+.discover-kicker{color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.discover-copy h1{font-size:clamp(30px,4.1vw,52px);line-height:1.1;max-width:550px;letter-spacing:-.045em;margin:13px 0}
+.discover-copy p{color:#bcc8d9;max-width:520px;line-height:1.65;font-size:15px}
+.discover-art{position:relative;min-height:220px;background:linear-gradient(90deg,#10131d 0%,transparent 45%),linear-gradient(0deg,rgba(9,12,20,.55),transparent 70%),url('/assets/vocal-remover-studio.jpg') center/cover}
+.discover-art span{position:absolute;bottom:20px;right:22px;color:#fff;font-size:11px;letter-spacing:.1em;font-weight:800;background:rgba(8,12,18,.72);border:1px solid rgba(255,255,255,.18);padding:8px 12px;border-radius:99px}
+.discovery-search{display:flex;align-items:center;gap:10px;max-width:570px;margin-top:24px;padding:5px 6px 5px 15px;background:#090d15;border:1px solid rgba(255,255,255,.16);border-radius:13px;box-shadow:0 12px 28px rgba(0,0,0,.16)}
+.discovery-search svg{color:#fbbf24;flex:none}.discovery-search input{width:100%;min-width:0;outline:none;border:0;background:transparent;color:#fff;padding:11px 0;font:inherit}
+.discovery-search input::placeholder{color:#8e9aab}.discovery-search .btn{min-height:43px}
+.discovery-meta{display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:#aab8c9;font-size:11.5px;margin-top:12px}
+.discovery-meta span{display:inline-flex;align-items:center;gap:5px}.discovery-meta span:before{content:'✦';color:#fbbf24}
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin:0 0 16px}
+.section-head h2{font-size:clamp(21px,2.6vw,28px);line-height:1.2;margin:3px 0 5px}.section-head p{color:#a8b5c5;font-size:13.5px}.section-eyebrow{color:#fbbf24;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.tools-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.tool-tile{position:relative;display:flex;flex-direction:column;min-width:0;min-height:218px;padding:21px;border:1px solid rgba(255,255,255,.09);border-radius:17px;background:linear-gradient(145deg,#171d2b,#111622);color:var(--text);text-align:left;text-decoration:none;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;font:inherit}
+.tool-tile:hover{transform:translateY(-3px);border-color:rgba(251,191,36,.55);box-shadow:0 14px 30px rgba(0,0,0,.22)}
+.tool-tile-top{display:flex;justify-content:space-between;align-items:start;gap:8px;margin-bottom:20px}
+.tool-tile-icon{display:grid;place-items:center;width:45px;height:45px;border-radius:13px;color:#fbbf24;background:rgba(245,158,11,.13);font-size:21px}
+.tool-tile-icon.cyan{color:#67d6fa;background:rgba(56,189,248,.13)}.tool-tile-icon svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+.tool-tile-label{padding:4px 9px;border:1px solid rgba(255,255,255,.1);border-radius:99px;font-size:10px;color:#9dacc0;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.tool-tile h3{font-size:17px;line-height:1.3;margin-bottom:7px}.tool-tile p{font-size:13px;color:#aebacc;line-height:1.55;margin-bottom:17px;overflow-wrap:anywhere}.tool-tile-link{font-weight:800;font-size:12.5px;color:#fbbf24;margin-top:auto}
+.directory-section{margin:32px 0}.home-blog-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.home-blog-card{display:flex;flex-direction:column;gap:7px;color:inherit;text-decoration:none;background:#111623;border:1px solid var(--border);border-radius:15px;padding:18px;min-height:145px}.home-blog-card:hover{border-color:#fbbf24}.home-blog-card strong{font-size:15px}.home-blog-card p{font-size:12.5px;color:#aab7c8;line-height:1.5}.empty-discovery{padding:21px;border:1px dashed rgba(255,255,255,.18);border-radius:14px;color:#aab7c8;grid-column:1/-1}
+.breadcrumbs{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:18px 0;color:#9dadbf;font-size:13px}.breadcrumbs a,.breadcrumbs button{color:#b9c7d8;background:none;border:0;font:inherit;text-decoration:none;cursor:pointer}.breadcrumbs a:hover,.breadcrumbs button:hover{color:#fbbf24}.breadcrumbs span{color:#6e7e91}
+.studio-nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.studio-nav .btn{min-height:40px}.tool-lead{color:#aebacc;margin:0 0 15px;line-height:1.6}
+@media(max-width:850px){.tools-grid,.home-blog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.discover-hero{grid-template-columns:1fr .62fr}.discover-copy{padding:28px}.discover-art{min-height:260px}}
+@media(max-width:600px){.directory{padding:0 14px 22px}.discover-hero{grid-template-columns:1fr;margin-top:14px}.discover-copy{padding:26px 20px}.discover-copy h1{font-size:32px}.discover-art{min-height:145px;background-position:center 43%}.discover-art span{bottom:12px;right:12px}.discovery-search .btn{font-size:12px;padding:8px 12px}.tools-grid,.home-blog-grid{grid-template-columns:1fr}.tool-tile{min-height:190px}.tool-tile-top{margin-bottom:13px}.directory-section{margin:26px 0}}
+@media(max-width:390px){
+  .navbar{padding:0 8px;gap:4px}
+  .navbar>div:first-child{gap:6px!important}
+  .navbar .brand{gap:5px}
+  .navbar .brand-logo-img{width:25px;height:25px}
+  .navbar .brand-name{font-size:12px}
+  .navbar [aria-label="Share SingVaza"]{display:none}
+  #topPlanBadge,#authTriggerBtn{font-size:11px;padding:7px 8px;white-space:nowrap}
+}
+@media(prefers-reduced-motion:reduce){.tool-tile{transition:none}.tool-tile:hover{transform:none}}
+
+</style>
 </head>
 <body>
   <!-- 3-2-1 Studio Countdown -->
@@ -966,7 +1009,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         </div>
         <div id="authCredentialFields" hidden>
         <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.38);border-radius:10px;padding:9px 11px;font-size:12px;color:var(--amber-bright);margin-bottom:12px;line-height:1.45;">
-          🎁 <strong>New Member Launch Gift:</strong> Sign in with your Gmail to unlock <strong>30 Days Unlimited Pro FREE</strong> (then 2 free downloads every day).
+          🎁 <strong>New Member Launch Gift:</strong> Sign in with your Gmail to unlock <strong>30 Days Unlimited Pro FREE</strong> (then <span class="daily-limit-value">9</span> free downloads every day).
         </div>
         <div id="googleGsiMount" style="display:flex;justify-content:center;margin-bottom:8px;"></div>
         <button type="button" class="btn" id="btnQuickGmailSignup" style="width:100%;margin-bottom:12px;border-color:rgba(56,189,248,0.4);" onclick="App.startGmailQuickSignup()">
@@ -1003,7 +1046,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <button class="btn btn-sm" onclick="App.toggleDrawer(false)" aria-label="Close menu">✕</button>
     </div>
 
-    <div class="drawer-section-label">Studio & Blog</div>
+    <div class="drawer-section-label">Tools & Blog</div>
     <button class="drawer-link" onclick="App.drawerGo('home')">
       <svg class="icon" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
       <span>Home</span>
@@ -1024,7 +1067,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       <span>Articles & Guides</span>
     </button>
-    <a class="drawer-link" id="drawerToolsLink" href="/tools" style="display:none;">
+    <a class="drawer-link" id="drawerToolsLink" href="/tools">
       <svg class="icon" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
       <span>Web Tools</span>
     </a>
@@ -1117,7 +1160,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         Read our full <a href="/privacy" style="color:var(--cyan);">Privacy Policy</a> or manage Google ad preferences at <a href="https://adssettings.google.com" target="_blank" rel="noopener" style="color:var(--cyan);">adssettings.google.com</a>.
       </div>
       <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-sm" onclick="App.clearLocalStudioData()">Reset Local Cache</button>
+        <button type="button" class="btn btn-sm" onclick="App.clearLocalStudioData()">Reset Local Preferences</button>
         <button type="button" class="btn btn-amber" style="flex:1;" onclick="App.savePrivacySettings()">Save Preferences</button>
       </div>
     </div>
@@ -1129,17 +1172,14 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <button class="menu-icon-btn" id="btnMenuDrawer" onclick="App.toggleDrawer()" title="Menu & Privacy Settings" aria-label="Open menu and privacy settings">
         <svg class="icon" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <div class="brand" onclick="App.switchView('home')">
+      <a class="brand" href="/" onclick="event.preventDefault();App.switchView('home')" style="text-decoration:none;color:inherit;" aria-label="SingVaza home">
         <img src="/assets/logo.png" alt="SingVaza" class="brand-logo-img" />
         <span class="brand-name">SING<span style="color:var(--amber-bright);">VAZA</span></span>
-      </div>
+      </a>
     </div>
 
-    <nav class="desktop-nav">
-      <button class="nav-item active" data-view="home" onclick="App.switchView('home')">Home</button>
-      <button class="nav-item" data-view="sing" onclick="App.switchView('sing')">1. Sing Karaoke</button>
-      <button class="nav-item" data-view="mix" onclick="App.switchView('mix')">2. Mix Studio</button>
-      <button class="nav-item" data-view="library" onclick="App.switchView('library')">My Library</button>
+    <nav class="desktop-nav" aria-label="Main navigation">
+      <button class="nav-item active" data-view="home" onclick="App.switchView('home')">Tools</button>
       <button class="nav-item" data-view="blog" onclick="App.switchView('blog')">Blog</button>
     </nav>
 
@@ -1147,141 +1187,118 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <button class="menu-icon-btn" onclick="App.shareWebsite()" title="Share SingVaza" aria-label="Share SingVaza" style="width:34px;height:34px;">
         <svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       </button>
-      <button class="btn btn-sm" id="topPlanBadge" onclick="App.switchView('library')">0/2 Free</button>
+      <button class="btn btn-sm" id="topPlanBadge" onclick="App.switchView('library')">0/9 Free</button>
       <button class="btn btn-sm btn-amber" id="authTriggerBtn" onclick="App.openAuthModal()">Sign In</button>
     </div>
   </header>
 
-  <!-- ==================== VIEW 1: CLEAN HOME & LIVE REAL-SINGER DEMO ==================== -->
+  <!-- The two main sections: tools and articles. -->
   <section id="view-home" class="app-view active">
-    <div class="container">
-      <div class="hero-grid">
-        <div>
-          <span class="step-badge">SINGVAZA • KARAOKE & VOCAL MASTERING</span>
-          <h1 class="hero-title">Sing online karaoke. Sound like a record.</h1>
-          <p class="hero-sub">
-            Make karaoke, record your voice and bring your sound to life. Explore vocal tools, studio effects, lyrics and helpful guides—all in your browser.
-          </p>
-
-          <button type="button" class="hero-tool-shortcut" id="homeVocalRemover" onclick="App.openVocalRemover()" aria-label="Open the Vocal Remover in Mix Studio">
-            <span class="hero-tool-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>
-            </span>
-            <span class="hero-tool-copy"><strong>Vocal Remover</strong><small>Reduce lead vocals in a stereo song</small></span>
-            <span class="hero-tool-arrow" aria-hidden="true">→</span>
-          </button>
-
-          <!-- Clean Song Search -->
-          <form class="search-pill-box" onsubmit="App.heroSearchSubmit(event)">
-            <input type="text" id="heroSongQuery" placeholder="Type any song name (e.g. Perfect, Someone Like You)..." />
-            <button type="submit" class="btn btn-amber">Sing Now</button>
+    <div class="directory">
+      <div class="discover-hero">
+        <div class="discover-copy">
+          <span class="discover-kicker">SINGVAZA • TOOLS &amp; STORIES</span>
+          <h1>Make something<br /><span style="color:#fbbf24;">worth sharing.</span></h1>
+          <p>Useful tools for your creative flow, plus ideas and guides to help you along the way.</p>
+          <form class="discovery-search" role="search" onsubmit="event.preventDefault();App.searchDiscovery()">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <label for="siteSearch" class="sr-only">Search tools and articles</label>
+            <input type="search" id="siteSearch" placeholder="Search tools and articles..." autocomplete="off" oninput="App.searchDiscovery()" />
+            <button class="btn btn-amber" type="submit">Search</button>
           </form>
-
-          <div class="chip-row">
-            <button class="song-chip" onclick="App.quickSingSong('Ed Sheeran Perfect')">Perfect</button>
-            <button class="song-chip" onclick="App.quickSingSong('Adele Someone Like You')">Someone Like You</button>
-            <button class="song-chip" onclick="App.quickSingSong('The Weeknd Blinding Lights')">Blinding Lights</button>
-            <button class="song-chip" onclick="App.quickSingSong('Lady Gaga Die With A Smile')">Die With A Smile</button>
-          </div>
-
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn btn-amber btn-lg" onclick="App.switchView('sing')">Start Singing</button>
-            <button class="btn btn-lg" onclick="App.openMixWithRealDemo()">Open Mix Studio</button>
-          </div>
+          <div class="discovery-meta"><span>Made for mobile</span><span>No install needed</span><span>Free to explore</span></div>
         </div>
-
-        <!-- Live Interactive Real-Singer Demo Card (Plays Instantly on Phone!) -->
-        <div class="demo-showcase-card">
-          <div class="demo-photo-wrap">
-            <img src="/assets/hero-singer.jpg" alt="Studio Vocalist" />
-            <span class="demo-photo-badge">● REAL STUDIO VOCAL DEMO</span>
-          </div>
-          <div class="demo-player-body">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-              <div>
-                <div style="font-weight:800;font-size:15px;">Slow Motion Dream — Studio Take</div>
-                <div style="font-size:12px;color:var(--text-secondary);" id="heroDemoSub">Real female vocal + band • Tap Play to test live Studio FX</div>
-              </div>
-              <span class="mono" style="font-size:12px;color:var(--cyan);" id="heroDemoTime">00:00</span>
-            </div>
-
-            <div class="demo-controls-row">
-              <button class="btn btn-amber" style="flex:1;" id="btnHeroPlay" onclick="App.toggleHeroDemo()">
-                <svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <span id="heroPlayText">Hear Vocal Demo</span>
-              </button>
-              <button class="btn btn-cyan" id="btnHeroFx" onclick="App.toggleBypassFx()">
-                Studio FX: ON
-              </button>
-            </div>
-          </div>
-        </div>
+        <div class="discover-art" role="img" aria-label="A music creator in a recording studio"><span>YOUR IDEAS, IN MOTION ✦</span></div>
       </div>
-
-      <!-- Featured tool: a clear entry point that can sit alongside future tools and guides. -->
-      <section class="featured-tool" aria-labelledby="featuredVocalTitle">
-        <div class="featured-tool-copy">
-          <span class="featured-tool-kicker">FEATURED TOOL <span aria-hidden="true">•</span> VOCAL REMOVER</span>
-          <h2 id="featuredVocalTitle">Make a track your own.</h2>
-          <p>Bring a compatible stereo song and reduce its center-panned lead vocals to create a karaoke-style backing track.</p>
-          <button type="button" class="btn btn-amber featured-tool-btn" onclick="App.openVocalRemover()">Open Vocal Remover <span aria-hidden="true">→</span></button>
-          <span class="featured-tool-note">Results vary; some centered instruments may also be affected.</span>
+      <section class="directory-section" id="toolDirectory" aria-labelledby="toolsHeading">
+        <div class="section-head"><div><span class="section-eyebrow">EXPLORE &amp; CREATE</span><h2 id="toolsHeading">Tools for your next idea.</h2><p>Practical tools, ready whenever you are.</p></div><span id="toolCount" style="color:#9eacbc;font-size:12px;"></span></div>
+        <div class="tools-grid" id="toolCards">
+          <button class="tool-tile" id="homeVocalRemover" type="button" data-discovery="builtin-vocal" onclick="App.openVocalRemover()">
+            <span class="tool-tile-top"><span class="tool-tile-icon"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span><span class="tool-tile-label">Audio tool</span></span>
+            <h3>Vocal Remover</h3><p>Reduce vocals in a stereo song and make a karaoke-style backing track.</p><span class="tool-tile-link">Open tool →</span>
+          </button>
+          <button class="tool-tile" id="homeRecorder" type="button" data-discovery="builtin-recorder" onclick="App.switchView('sing')">
+            <span class="tool-tile-top"><span class="tool-tile-icon cyan"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4m-4 0h8"/></svg></span><span class="tool-tile-label">Audio tool</span></span>
+            <h3>Karaoke Recorder</h3><p>Sing along, record your voice and finish your sound in Mix Studio.</p><span class="tool-tile-link">Open tool →</span>
+          </button>
         </div>
-        <div class="featured-tool-image"><img src="/assets/vocal-remover-studio.jpg" alt="Music creator using a phone in a recording studio" loading="lazy" /></div>
+        <p id="discoveryStatus" role="status" aria-live="polite" style="font-size:12px;color:#aab7c8;margin-top:12px;"></p>
       </section>
+      <section class="directory-section" aria-labelledby="homeBlogHeading">
+        <div class="section-head"><div><span class="section-eyebrow">THE SINGVAZA JOURNAL</span><h2 id="homeBlogHeading">A little inspiration.</h2><p>Guides, ideas and stories from the blog.</p></div><button class="btn btn-sm" onclick="App.switchView('blog')">Visit the blog →</button></div>
+        <div id="homeBlogPreview" class="home-blog-grid"><div class="empty-discovery">Articles will appear here when they are published.</div></div>
+      </section>
+    </div>
+  </section>
 
-      <!-- Clean 3-Step Visual Flow -->
-      <div class="steps-grid">
-        <div class="step-card" onclick="App.switchView('sing')">
-          <img src="/assets/studio-stage-card.jpg" alt="Step 1 Search Karaoke" />
-          <div class="step-card-body">
-            <div class="step-badge">STEP 01</div>
-            <h3 style="font-size:16.5px;margin-bottom:5px;">Pick Any Karaoke Song</h3>
-            <p style="font-size:13px;color:var(--text-secondary);">Type any song name for instant playable karaoke video & scrolling lyrics, or upload any MP3/MP4.</p>
+  <section id="view-vocal-remover" class="app-view">
+    <div class="container" style="max-width:860px;">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/" onclick="event.preventDefault();App.switchView('home')">← Home</a><span>/</span><a href="/tools">Tools</a><span>/</span><strong>Vocal Remover</strong></nav>
+      <section class="vocal-remover-panel card" id="vocalRemoverPanel" aria-labelledby="vocalRemoverTitle" tabindex="-1">
+        <div class="vocal-remover-heading">
+          <div>
+            <span class="vocal-remover-kicker">LOCAL AUDIO TOOL <span aria-hidden="true">•</span> NOT AI</span>
+            <h2 id="vocalRemoverTitle">Vocal Remover</h2>
+            <p>Choose a stereo audio or supported video file, then reduce center-panned lead vocals for a karaoke-style backing track.</p>
+          </div>
+          <span class="vocal-remover-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span>
+        </div>
+        <div class="vocal-remover-actions">
+          <label class="btn vocal-upload-btn" for="vocalRemoverFileInput">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+            Choose audio or video
+            <input type="file" id="vocalRemoverFileInput" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv,.mov" hidden onchange="App.handleBackingUpload(event)" />
+          </label>
+        </div>
+        <div class="karaoke-options">
+          <div class="karaoke-options-title">Shape your karaoke backing</div>
+          <div class="karaoke-presets" role="group" aria-label="Vocal reduction presets">
+            <button type="button" class="btn btn-sm" id="karaokePresetMusic" onclick="App.setKaraokePreset(65)" aria-pressed="false">More music</button>
+            <button type="button" class="btn btn-sm" id="karaokePresetBalanced" onclick="App.setKaraokePreset(85)" aria-pressed="true">Balanced</button>
+            <button type="button" class="btn btn-sm" id="karaokePresetStrong" onclick="App.setKaraokePreset(100)" aria-pressed="false">Stronger voice reduction</button>
+          </div>
+          <div class="karaoke-sliders">
+            <div>
+              <label for="karaokeStrength">Reduction strength: <span id="karaokeStrengthValue">85%</span></label>
+              <input id="karaokeStrength" type="range" min="50" max="100" step="5" value="85" oninput="App.karaokeSettingsChanged()" />
+              <p class="karaoke-hint">Stronger can reduce more of the voice, but also more centered instruments.</p>
+            </div>
+            <div>
+              <label for="karaokeIntro">Protect intro (seconds)</label>
+              <div class="karaoke-intro-row"><input class="input" id="karaokeIntro" type="number" min="0" step="0.1" value="0" inputmode="decimal" oninput="App.karaokeSettingsChanged()" /><button type="button" class="btn btn-sm" onclick="App.markKaraokeIntro()">Use playhead</button></div>
+              <p class="karaoke-hint">Keeps the opening unfiltered before a smooth transition. 0 = off; clipping protection may lower the overall level.</p>
+            </div>
           </div>
         </div>
-
-        <div class="step-card" onclick="App.switchView('sing')">
-          <img src="/assets/studio-girl-card.jpg" alt="Step 2 Sing Clean" />
-          <div class="step-card-body">
-            <div class="step-badge">STEP 02</div>
-            <h3 style="font-size:16.5px;margin-bottom:5px;">Sing Into Your Phone</h3>
-            <p style="font-size:13px;color:var(--text-secondary);">Studio noise gate removes room hiss and fan hum automatically while you sing along to the lyrics.</p>
-          </div>
+        <div class="vocal-remover-actions">
+          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Reduce vocals</button>
+          <button type="button" class="btn btn-amber" id="btnUpdateKaraoke" onclick="App.updateKaraokeVocalCut()" hidden>Update karaoke</button>
+          <button type="button" class="btn" id="btnCancelKaraoke" onclick="App.cancelKaraokeProcessing()" hidden>Cancel processing</button>
+          <button type="button" class="btn btn-amber" id="btnDownloadKaraoke" onclick="App.downloadKaraoke()" hidden>Download karaoke WAV</button>
+          <button type="button" class="btn btn-cyan" id="btnUseKaraoke" onclick="App.useKaraokeForSing()" hidden>Use in Sing &amp; Record</button>
         </div>
-
-        <div class="step-card" onclick="App.openMixWithRealDemo()">
-          <img src="/assets/hero-singer.jpg" alt="Step 3 Mix & Master" style="object-position:center 25%;" />
-          <div class="step-card-body">
-            <div class="step-badge">STEP 03</div>
-            <h3 style="font-size:16.5px;margin-bottom:5px;">One-Tap Studio Mix & MP3</h3>
-            <p style="font-size:13px;color:var(--text-secondary);">Choose Concert Hall or Pop Air, align vocal timing in 1 tap, and download a compact stereo MP3 (~3 MB).</p>
+        <progress id="karaokeProgress" class="karaoke-progress" max="100" value="0" hidden aria-label="Vocal reduction progress"></progress>
+        <p class="vocal-remover-status" id="vocalRemoverStatus" role="status" aria-live="polite">Choose a stereo song to begin.</p>
+        <div class="karaoke-compare" id="karaokeCompare" hidden>
+          <div class="karaoke-options-title">Compare original &amp; karaoke</div>
+          <p class="karaoke-hint">Switch versions at the same position. Original is the uploaded file before key changes. Use headphones for the clearest comparison.</p>
+          <div class="karaoke-compare-buttons" role="group" aria-label="Compare audio versions">
+            <button type="button" class="btn btn-sm" id="compareOriginal" onclick="App.compareKaraoke('original')" aria-pressed="false">Original</button>
+            <button type="button" class="btn btn-sm" id="compareKaraoke" onclick="App.compareKaraoke('karaoke')" aria-pressed="true">Karaoke</button>
           </div>
+          <audio id="karaokeComparePlayer" controls controlslist="nodownload" preload="metadata" aria-label="Original or karaoke comparison player"></audio>
         </div>
-      </div>
-
-      <!-- Clean Collapsible FAQ Section for Google Search SEO (Zero Visual Clutter!) -->
-      <div style="margin-top:26px;">
-        <h2 style="font-size:17px;margin-bottom:10px;color:var(--text-secondary);font-weight:700;">Frequently Asked Questions — SingVaza Studio</h2>
-        <details class="card pro-drawer" style="margin-bottom:8px;">
-          <summary style="font-size:13.5px;"><span>What is SingVaza and how does online vocal recording work?</span><span>+</span></summary>
-          <p style="margin-top:10px;font-size:13px;color:var(--text-secondary);line-height:1.65;">
-            SingVaza (also searched as Sing Vaza or SingViza) is a 100% browser-based karaoke player, vocal recorder, and audio mastering studio. All microphone audio stays private inside your device while applying studio reverb, EQ, vocal alignment, and 128 kbps stereo MP3 mastering.
-          </p>
-        </details>
-        <details class="card pro-drawer" style="margin-bottom:0;">
-          <summary style="font-size:13.5px;"><span>Can I upload my own MP3 or MP4 backing track and remove vocals?</span><span>+</span></summary>
-          <p style="margin-top:10px;font-size:13px;color:var(--text-secondary);line-height:1.65;">
-            You can upload a compatible stereo audio or video file from your phone or computer and reduce center-panned vocals in Mix Studio. Results vary by song, and some instruments may also be affected.
-          </p>
-        </details>
-      </div>
+        <p class="karaoke-hint">Karaoke WAV and recorder downloads share your daily allowance. <span class="daily-limit-value">9</span> free downloads per day unless your account has Pro.</p>
+        <p class="vocal-remover-note">Stereo center reduction, not AI separation: some vocals or reverb may remain, and centered instruments may be reduced; mono speakers can sound thinner. A separate vocal stem is not created. Audio stays in your browser; video support depends on your browser.</p>
+      </section>
     </div>
   </section>
 
   <!-- ==================== VIEW 2: SING STAGE (DEDICATED & UNCLUTTERED!) ==================== -->
   <section id="view-sing" class="app-view">
     <div class="container" style="max-width:860px;">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/" onclick="event.preventDefault();App.switchView('home')">← Home</a><span>/</span><a href="/tools">Tools</a><span>/</span><strong>Karaoke Recorder</strong></nav>
+      <div class="studio-nav" aria-label="Recorder navigation"><button class="btn btn-sm" onclick="App.switchView('sing')">Sing &amp; Record</button><button class="btn btn-sm" onclick="App.switchView('mix')">Mix Studio</button><button class="btn btn-sm" onclick="App.switchView('library')">My Library</button><button class="btn btn-sm btn-cyan" id="recorderMakeKaraoke" onclick="App.openVocalRemover()">✦ Make Karaoke</button></div>
       <!-- Block 1: Song Selection -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
@@ -1398,66 +1415,11 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
   <!-- ==================== VIEW 3: CLEAN MIX STUDIO ==================== -->
   <section id="view-mix" class="app-view">
     <div class="container" style="max-width:920px;">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/" onclick="event.preventDefault();App.switchView('home')">← Home</a><span>/</span><a href="/tools">Tools</a><span>/</span><strong>Karaoke Recorder</strong></nav>
+      <div class="studio-nav" aria-label="Recorder navigation"><button class="btn btn-sm" onclick="App.switchView('sing')">Sing &amp; Record</button><button class="btn btn-sm" onclick="App.switchView('mix')">Mix Studio</button><button class="btn btn-sm" onclick="App.switchView('library')">My Library</button><button class="btn btn-sm btn-cyan" onclick="App.openVocalRemover()">✦ Make Karaoke</button></div>
       <div id="mixProcessingBanner" style="display:none;background:rgba(245,158,11,0.14);border:1px solid rgba(251,191,36,0.45);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13.5px;font-weight:700;color:var(--amber-bright);">
         ⏳ Mastering your recorded vocal take into Mix Studio — one moment...
       </div>
-      <!-- Existing stereo vocal reduction, now easy to find without opening the Pro rack. -->
-      <section class="vocal-remover-panel card" id="vocalRemoverPanel" aria-labelledby="vocalRemoverTitle" tabindex="-1">
-        <div class="vocal-remover-heading">
-          <div>
-            <span class="vocal-remover-kicker">FEATURED TOOL <span aria-hidden="true">•</span> MIX STUDIO</span>
-            <h2 id="vocalRemoverTitle">Vocal Remover</h2>
-            <p>Choose a stereo audio or supported video file, then reduce center-panned lead vocals for a karaoke-style backing track.</p>
-          </div>
-          <span class="vocal-remover-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span>
-        </div>
-        <div class="vocal-remover-actions">
-          <label class="btn vocal-upload-btn" for="vocalRemoverFileInput">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-            Choose audio or video
-            <input type="file" id="vocalRemoverFileInput" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv,.mov" hidden onchange="App.handleBackingUpload(event)" />
-          </label>
-        </div>
-        <div class="karaoke-options">
-          <div class="karaoke-options-title">Shape your karaoke backing</div>
-          <div class="karaoke-presets" role="group" aria-label="Vocal reduction presets">
-            <button type="button" class="btn btn-sm" id="karaokePresetMusic" onclick="App.setKaraokePreset(65)" aria-pressed="false">More music</button>
-            <button type="button" class="btn btn-sm" id="karaokePresetBalanced" onclick="App.setKaraokePreset(85)" aria-pressed="true">Balanced</button>
-            <button type="button" class="btn btn-sm" id="karaokePresetStrong" onclick="App.setKaraokePreset(100)" aria-pressed="false">Stronger voice reduction</button>
-          </div>
-          <div class="karaoke-sliders">
-            <div>
-              <label for="karaokeStrength">Reduction strength: <span id="karaokeStrengthValue">85%</span></label>
-              <input id="karaokeStrength" type="range" min="50" max="100" step="5" value="85" oninput="App.karaokeSettingsChanged()" />
-              <p class="karaoke-hint">Stronger can reduce more of the voice, but also more centered instruments.</p>
-            </div>
-            <div>
-              <label for="karaokeIntro">Protect intro (seconds)</label>
-              <div class="karaoke-intro-row"><input class="input" id="karaokeIntro" type="number" min="0" step="0.1" value="0" inputmode="decimal" oninput="App.karaokeSettingsChanged()" /><button type="button" class="btn btn-sm" onclick="App.markKaraokeIntro()">Use playhead</button></div>
-              <p class="karaoke-hint">Keeps the opening unfiltered before a smooth transition. 0 = off; clipping protection may lower the overall level.</p>
-            </div>
-          </div>
-        </div>
-        <div class="vocal-remover-actions">
-          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Reduce vocals</button>
-          <button type="button" class="btn btn-amber" id="btnUpdateKaraoke" onclick="App.updateKaraokeVocalCut()" hidden>Update karaoke</button>
-          <button type="button" class="btn" id="btnCancelKaraoke" onclick="App.cancelKaraokeProcessing()" hidden>Cancel processing</button>
-          <button type="button" class="btn btn-cyan" id="btnUseKaraoke" onclick="App.useKaraokeForSing()" hidden>Use in Sing &amp; Record</button>
-        </div>
-        <progress id="karaokeProgress" class="karaoke-progress" max="100" value="0" hidden aria-label="Vocal reduction progress"></progress>
-        <p class="vocal-remover-status" id="vocalRemoverStatus" role="status" aria-live="polite">Choose a stereo song to begin.</p>
-        <div class="karaoke-compare" id="karaokeCompare" hidden>
-          <div class="karaoke-options-title">Compare original &amp; karaoke</div>
-          <p class="karaoke-hint">Switch versions at the same position. Original is the uploaded file before key changes. Use headphones for the clearest comparison.</p>
-          <div class="karaoke-compare-buttons" role="group" aria-label="Compare audio versions">
-            <button type="button" class="btn btn-sm" id="compareOriginal" onclick="App.compareKaraoke('original')" aria-pressed="false">Original</button>
-            <button type="button" class="btn btn-sm" id="compareKaraoke" onclick="App.compareKaraoke('karaoke')" aria-pressed="true">Karaoke</button>
-          </div>
-          <audio id="karaokeComparePlayer" controls preload="metadata" aria-label="Original or karaoke comparison player"></audio>
-        </div>
-        <p class="vocal-remover-note">Stereo center reduction, not AI separation: some vocals or reverb may remain, and centered instruments may be reduced; mono speakers can sound thinner. A separate vocal stem is not created. Audio stays in your browser; video support depends on your browser.</p>
-      </section>
-
       <!-- Card 1: Clean Master Player + Smooth Timeline -->
       <div class="card">
         <div class="player-bar-top">
@@ -1699,7 +1661,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
             <span style="font-size:12.5px;color:var(--emerald);font-weight:700;" id="masterReadyLabel">✓ Mastered MP3 Ready</span>
             <button class="btn btn-sm btn-cyan" onclick="App.shareMasterFile()">Share to WhatsApp / Phone</button>
           </div>
-          <audio id="renderedAudioPlayer" controls style="width:100%;height:38px;"></audio>
+          <audio id="renderedAudioPlayer" controls controlslist="nodownload" style="width:100%;height:38px;"></audio>
         </div>
       </div>
     </div>
@@ -1708,6 +1670,9 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
   <!-- ==================== VIEW 4: MY CLOUD LIBRARY & PRO ==================== -->
   <section id="view-library" class="app-view">
     <div class="container" style="max-width:860px;">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/" onclick="event.preventDefault();App.switchView('home')">← Home</a><span>/</span><a href="/tools">Tools</a><span>/</span><strong>Karaoke Recorder</strong></nav>
+      <div class="studio-nav" aria-label="Recorder navigation"><button class="btn btn-sm" onclick="App.switchView('sing')">Sing &amp; Record</button><button class="btn btn-sm" onclick="App.switchView('mix')">Mix Studio</button><button class="btn btn-sm" onclick="App.switchView('library')">My Library</button><button class="btn btn-sm btn-cyan" onclick="App.openVocalRemover()">✦ Make Karaoke</button></div>
+
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
           <div>
@@ -1725,11 +1690,11 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px;">
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;">
             <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">DAILY FREE TRIAL (ALL COUNTRIES)</div>
-            <div style="font-size:22px;font-weight:800;margin:4px 0 8px;">2 / Day <span style="font-size:12px;font-weight:500;color:var(--text-muted);">• Free Forever</span></div>
+            <div style="font-size:22px;font-weight:800;margin:4px 0 8px;"><span class="daily-limit-value">9</span> / Day <span style="font-size:12px;font-weight:500;color:var(--text-muted);">• Free Forever</span></div>
             <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;">
               ✓ Unlimited karaoke singing & lyrics<br />
               ✓ All 6 studio reverb, clarity & pitch chains<br />
-              ✓ 2 Mastered MP3 / WAV downloads daily (resets automatically at 12:00 AM local midnight in your timezone)
+              ✓ <span class="daily-limit-value">9</span> shared karaoke WAV and mastered MP3 / WAV downloads daily (resets automatically at 12:00 AM local midnight in your timezone)
             </div>
           </div>
           <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.45);border-radius:12px;padding:14px;">
@@ -1743,7 +1708,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span style="font-size:12px;color:var(--cyan);" id="quotaStatusLine">Daily Free Trial: 0/2 downloads used today • Resets at 12:00 AM local midnight</span>
+          <span style="font-size:12px;color:var(--cyan);" id="quotaStatusLine">Daily Free Trial: 0/9 downloads used today • Resets at 12:00 AM local midnight</span>
           <button class="btn btn-amber" id="proActionBtn" onclick="App.toggleProDemo()">Sign In with Gmail — Get 30 Days Free Pro</button>
         </div>
       </div>
@@ -1753,14 +1718,17 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
   <!-- ==================== VIEW 5: SINGVAZA ARTICLES & GUIDES ==================== -->
   <section id="view-blog" class="app-view">
     <div class="container" style="max-width:960px;">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/" onclick="event.preventDefault();App.switchView('home')">← Home</a><span>/</span><strong>Blog</strong></nav>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
         <div>
           <span class="step-badge">SINGVAZA ARTICLES</span>
           <h2 style="font-size:24px;">Articles & Guides</h2>
           <p style="font-size:13.5px;color:var(--text-secondary);">Helpful guides, online tools, tutorials, and platform updates.</p>
         </div>
-        <a id="blogToolsBtn" href="/tools" class="btn btn-sm" style="display:none;text-decoration:none;">Explore Web Tools →</a>
+        <a id="blogToolsBtn" href="/tools" class="btn btn-sm" style="text-decoration:none;">Explore Web Tools →</a>
       </div>
+
+      <form class="discovery-search" role="search" style="margin:0 0 20px;" onsubmit="App.searchFromBlog(event)"><label for="blogSearch" class="sr-only">Search tools and articles</label><input id="blogSearch" type="search" placeholder="Search tools and articles..." /><button type="submit" class="btn btn-amber">Search</button></form>
 
       <!-- Full Article Reader -->
       <div id="blogReaderWrap" style="display:none;" class="card">
@@ -1790,32 +1758,14 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
     <div>© 2026 SingVaza • 100% Private Local Browser Vocal Processing</div>
   </footer>
 
-  <!-- Clean 5-Tab Mobile Bottom Bar (Home • Sing • Mix • Library • Blog) -->
-  <nav class="mobile-bottom-nav">
-    <button class="mob-tab active" data-view="home" onclick="App.switchView('home')">
-      <svg class="icon" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-      <span>Home</span>
-    </button>
-    <button class="mob-tab" data-view="sing" onclick="App.switchView('sing')">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-      <span>Sing</span>
-    </button>
-    <button class="mob-tab" data-view="mix" onclick="App.switchView('mix')">
-      <svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/></svg>
-      <span>Mix</span>
-    </button>
-    <button class="mob-tab" data-view="library" onclick="App.switchView('library')">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      <span>Library</span>
-    </button>
-    <button class="mob-tab" data-view="blog" onclick="App.switchView('blog')">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      <span>Blog</span>
-    </button>
+  <nav class="mobile-bottom-nav" aria-label="Main navigation">
+    <button class="mob-tab active" data-view="home" onclick="App.switchView('home')"><svg class="icon" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11H3z"/></svg><span>Tools</span></button>
+    <button class="mob-tab" data-view="blog" onclick="App.switchView('blog')"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span>Blog</span></button>
   </nav>
 
   <script src="/vendor/confetti.min.js?v=21.2"></script>
   <script src="/dsp-engine.js?v=21.2"></script>
-  <script src="/app.js?v=23.0"></script>
+  <script src="/vendor/fuse.basic-7.5.0.min.js"></script>
+  <script src="/app.js?v=24.0"></script>
 </body>
 </html>
