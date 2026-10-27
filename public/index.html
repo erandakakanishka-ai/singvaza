@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/guard.css?v=1" />
+  <script defer src="/guard.js?v=1"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -839,7 +841,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 
   <!-- Cloud Account Modal -->
   <div id="authModal" class="modal-backdrop" onclick="if(event.target===this)App.closeAuthModal()">
-    <div class="modal-card">
+    <div class="modal-card" style="max-height:90vh;overflow-y:auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:9px;">
           <img src="/assets/logo.png" alt="" style="width:28px;height:28px;border-radius:7px;" />
@@ -857,6 +859,14 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
         <button class="btn btn-sm" style="width:100%;color:#f87171;border-color:rgba(248,113,113,0.28);" onclick="App.deleteAccount()">Delete Account & Cloud Data</button>
       </div>
       <form id="authForm" onsubmit="App.submitAuth(event)">
+        <div id="authSecurityStep" class="sv-auth-security">
+          <h4>Verify you are human</h4>
+          <p>Complete the Cloudflare check before signing in or creating an account.</p>
+          <div id="authTurnstileMount" class="sv-turnstile"></div>
+          <p id="authSecurityMessage" class="sv-status" role="status" aria-live="polite">Loading security check…</p>
+          <button type="button" id="authSecurityRetry" class="sv-gate-retry" onclick="App.retryAuthSecurity()" hidden>Try again</button>
+        </div>
+        <div id="authCredentialFields" hidden>
         <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.38);border-radius:10px;padding:9px 11px;font-size:12px;color:var(--amber-bright);margin-bottom:12px;line-height:1.45;">
           🎁 <strong>New Member Launch Gift:</strong> Sign in with your Gmail to unlock <strong>30 Days Unlimited Pro FREE</strong> (then 2 free downloads every day).
         </div>
@@ -879,6 +889,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           <input type="password" id="authPassword" class="input" style="width:100%;" placeholder="Password (min 4 chars)" required />
         </div>
         <button type="submit" class="btn btn-amber" style="width:100%;" id="authSubmitBtn">Sign Up Free — Unlock 30 Days Pro</button>
+        </div>
       </form>
     </div>
   </div>
@@ -1629,6 +1640,6 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 
   <script src="/vendor/confetti.min.js?v=21.2"></script>
   <script src="/dsp-engine.js?v=21.2"></script>
-  <script src="/app.js?v=21.2"></script>
+  <script src="/app.js?v=22.1"></script>
 </body>
 </html>

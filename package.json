@@ -7,10 +7,14 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute karomix-db --local --file=./schema.sql",
-    "db:remote": "wrangler d1 execute karomix-db --remote --file=./schema.sql"
+    "db:remote": "wrangler d1 execute karomix-db --remote --file=./schema.sql",
+    "test": "node --test tests/security.test.mjs",
+    "test:e2e": "node --test tests/browser.test.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.64.1",
     "typescript": "^5.6.3",
     "wrangler": "^3.114.17"
   }

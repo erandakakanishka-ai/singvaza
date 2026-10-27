@@ -1,4 +1,6 @@
-export interface Env {
+import { handleSecurityRoute, requiresEntrySession, requireEntrySession, requireAuthChallenge, type SecurityEnv } from '../../src/security';
+
+export interface Env extends SecurityEnv {
   DB: D1Database;
   ASSETS?: Fetcher;
   GOOGLE_CLIENT_ID?: string;
@@ -148,6 +150,8 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
   <link rel="canonical" href="${escapeHtml(opts.origin + opts.canonicalPath)}" />
   <link rel="icon" href="/favicon.ico" sizes="48x48" />
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96.png" />
+  <link rel="stylesheet" href="/guard.css?v=1" />
+  <script defer src="/guard.js?v=1"></script>
   ${opts.extraHead || ''}
   <style>
     :root { --bg:#07090f; --surface:#111625; --border:rgba(148,163,184,0.16); --text:#f8fafc; --muted:#94a3b8; --amber:#fbbf24; --cyan:#38bdf8; }
@@ -203,6 +207,14 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
   </div>
 </body>
 </html>`;
+}
+
+/** Add the shared visitor gate even to standalone editor-supplied HTML. */
+function addGuardToStandaloneHtml(html: string): string {
+  const assets = '<link rel="stylesheet" href="/guard.css?v=1" /><script defer src="/guard.js?v=1"></script>';
+  if (/<\/head\s*>/i.test(html)) return html.replace(/<\/head\s*>/i, (tag) => assets + tag);
+  if (/<body\b[^>]*>/i.test(html)) return html.replace(/<body\b[^>]*>/i, (tag) => tag + assets);
+  return assets + html;
 }
 
 function getUserLocalDayInfo(request: Request) {
@@ -476,6 +488,13 @@ export default {
         try { return decodeURIComponent(url.pathname).replace(/^\/\s+/, '/').replace(/\s+$/, ''); } catch (_) { return url.pathname; }
       })();
 
+      const securityResponse = await handleSecurityRoute(request, env);
+      if (securityResponse) return securityResponse;
+      if (requiresEntrySession(cleanPath, request.method)) {
+        const entryError = await requireEntrySession(request, env);
+        if (entryError) return entryError;
+      }
+
       if (cleanPath === '/google8dc68fc0e32ac33e.html') {
         return new Response(request.method === 'HEAD' ? null : 'google-site-verification: google8dc68fc0e32ac33e.html', {
           status: 200,
@@ -622,7 +641,7 @@ export default {
           enrichedTool = enrichedTool.replace('</head>', `${toolSeoHead}\n</head>`);
         }
         const withBeacon = enrichedTool.includes('</body>') ? enrichedTool.replace('</body>', `${beaconTag}</body>`) : (enrichedTool + beaconTag);
-        return new Response(request.method === 'HEAD' ? null : withBeacon, {
+        return new Response(request.method === 'HEAD' ? null : addGuardToStandaloneHtml(withBeacon), {
           status: 200,
           headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60, s-maxage=300' },
         });
@@ -711,7 +730,7 @@ export default {
   ${articleJsonLd}`;
           let enrichedFull = rawContent.includes('</head>') ? rawContent.replace('</head>', `${standaloneHead}\n</head>`) : rawContent;
           const fullWithBeacon = enrichedFull.includes('</body>') ? enrichedFull.replace('</body>', `${beaconTag}</body>`) : (enrichedFull + beaconTag);
-          return new Response(request.method === 'HEAD' ? null : fullWithBeacon, {
+          return new Response(request.method === 'HEAD' ? null : addGuardToStandaloneHtml(fullWithBeacon), {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=60, s-maxage=300' },
           });
@@ -1524,6 +1543,8 @@ export default {
       if (url.pathname === '/api/auth/google' && request.method === 'POST') {
         await ensureSchema(env.DB);
         const body: any = await request.json();
+        const challengeError = await requireAuthChallenge(request, env, body.turnstileToken);
+        if (challengeError) return challengeError;
         const credential = String(body.credential || '').trim();
         if (!credential) return json({ error: 'Missing Google credential token.' }, 400);
         if (!env.DB) return json({ error: 'Database unavailable' }, 500);
@@ -1578,6 +1599,8 @@ export default {
       if (url.pathname === '/api/auth/register' && request.method === 'POST') {
         await ensureSchema(env.DB);
         const body: any = await request.json();
+        const challengeError = await requireAuthChallenge(request, env, body.turnstileToken);
+        if (challengeError) return challengeError;
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
         const displayName = String(body.display_name || email.split('@')[0] || 'Artist').trim();
@@ -1621,6 +1644,8 @@ export default {
       if (url.pathname === '/api/auth/login' && request.method === 'POST') {
         await ensureSchema(env.DB);
         const body: any = await request.json();
+        const challengeError = await requireAuthChallenge(request, env, body.turnstileToken);
+        if (challengeError) return challengeError;
         const email = String(body.email || '').trim().toLowerCase();
         const password = String(body.password || '');
         if (!env.DB) return json({ error: 'Database unavailable' }, 500);

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="stylesheet" href="/guard.css?v=1" />
+  <script defer src="/guard.js?v=1"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#07090f" />
@@ -84,7 +86,7 @@
       btn.disabled = true;
       btn.textContent = 'Sending...';
       try {
-        const res = await fetch('/api/contact', {
+        const options = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -93,7 +95,10 @@
             subject: document.getElementById('cSubject').value,
             message: document.getElementById('cMsg').value,
           }),
-        });
+        };
+        const res = window.SingVazaGuard
+          ? await window.SingVazaGuard.fetch('/api/contact', options)
+          : await fetch('/api/contact', options);
         const data = await res.json();
         box.style.display = 'block';
         box.textContent = data.ok

@@ -1119,7 +1119,8 @@ const App = (() => {
     const lyricsPromise = fetchLyrics(raw);
 
     try {
-      const res = await fetch(`/api/search-karaoke?q=${encodeURIComponent(raw)}`);
+      const searchUrl = `/api/search-karaoke?q=${encodeURIComponent(raw)}`;
+      const res = window.SingVazaGuard ? await window.SingVazaGuard.fetch(searchUrl) : await fetch(searchUrl);
       const data = await res.json();
       const videos = data.videos || data.results || [];
       if (!videos.length) {
@@ -1230,7 +1231,8 @@ const App = (() => {
       let hit = null;
 
       try {
-        const res = await fetch(`/api/lyrics?q=${encodeURIComponent(cleanQ)}`);
+        const lyricsUrl = `/api/lyrics?q=${encodeURIComponent(cleanQ)}`;
+        const res = window.SingVazaGuard ? await window.SingVazaGuard.fetch(lyricsUrl) : await fetch(lyricsUrl);
         if (res.ok) {
           const data = await res.json();
           hit = data.track || (data.results || [])[0] || null;
@@ -2206,7 +2208,9 @@ const App = (() => {
       ...(opts.headers || {}),
     };
     if (state.authToken) headers.Authorization = `Bearer ${state.authToken}`;
-    const res = await fetch(url, { ...opts, headers });
+    const res = window.SingVazaGuard
+      ? await window.SingVazaGuard.fetch(url, { ...opts, headers })
+      : await fetch(url, { ...opts, headers });
     return res.json();
   }
 
@@ -2239,7 +2243,7 @@ const App = (() => {
   async function refreshServerState() {
     try {
       const data = await apiFetch('/api/state');
-      if (data.googleClientId) state.googleClientId = data.googleClientId;
+      if (data.googleClientId) updateGoogleClientId(data.googleClientId);
       if (data.quota) state.quota = data.quota;
       if (data.authenticated && data.user) {
         state.user = data.user;
@@ -2306,6 +2310,15 @@ const App = (() => {
   }
 
   let gsiInitialized = false;
+  function updateGoogleClientId(clientId) {
+    if (!clientId) return;
+    state.googleClientId = clientId;
+    const fields = document.getElementById('authCredentialFields');
+    if (document.getElementById('authModal')?.classList.contains('open') && fields && !fields.hidden) {
+      maybeMountGoogleButton();
+    }
+  }
+
   function maybeMountGoogleButton() {
     if (!state.googleClientId) return;
     const mount = document.getElementById('googleGsiMount');
@@ -2317,18 +2330,34 @@ const App = (() => {
           client_id: state.googleClientId,
           callback: async (resp) => {
             if (!resp?.credential) return;
-            const data = await apiFetch('/api/auth/google', {
-              method: 'POST',
-              body: JSON.stringify({ credential: resp.credential }),
-            });
-            if (data.error) { showToast(data.error); return; }
-            state.authToken = data.token;
-            state.user = data.user;
-            if (data.quota) state.quota = data.quota;
-            localStorage.setItem('singvaza_token', data.token);
-            updateAccountUI();
-            closeAuthModal();
-            showToast(`Welcome ${data.user.display_name}! 30-Day Free Pro Pass activated!`);
+            const guard = window.SingVazaGuard;
+            const turnstileToken = guard?.takeAuthToken() || '';
+            if (!turnstileToken) {
+              showToast('Please complete the security check before signing in.');
+              guard?.resetAuth();
+              return;
+            }
+            try {
+              const data = await apiFetch('/api/auth/google', {
+                method: 'POST',
+                body: JSON.stringify({ credential: resp.credential, turnstileToken }),
+              });
+              if (data.error) {
+                showToast(data.error);
+                return;
+              }
+              state.authToken = data.token;
+              state.user = data.user;
+              if (data.quota) state.quota = data.quota;
+              localStorage.setItem('singvaza_token', data.token);
+              updateAccountUI();
+              closeAuthModal();
+              showToast(`Welcome ${data.user.display_name}! 30-Day Free Pro Pass activated!`);
+            } catch (_) {
+              showToast('Could not sign in. Please check your connection and try again.');
+            } finally {
+              if (!state.user && document.getElementById('authModal')?.classList.contains('open')) guard?.resetAuth();
+            }
           },
         });
         gsiInitialized = true;
@@ -2369,6 +2398,34 @@ const App = (() => {
     showToast('Enter your Gmail below to unlock 30 Days Free Pro instantly!');
   }
 
+  function setAuthSecurityState(token, message, isError = false) {
+    const fields = document.getElementById('authCredentialFields');
+    const status = document.getElementById('authSecurityMessage');
+    const retry = document.getElementById('authSecurityRetry');
+    if (fields) fields.hidden = !token;
+    if (status) {
+      status.textContent = message || '';
+      status.classList.toggle('is-error', isError);
+    }
+    if (retry) retry.hidden = !isError;
+    if (token) maybeMountGoogleButton();
+  }
+
+  async function retryAuthSecurity() {
+    const guard = window.SingVazaGuard;
+    const mount = document.getElementById('authTurnstileMount');
+    setAuthSecurityState('', 'Loading Cloudflare security check…');
+    if (!guard || !mount) {
+      setAuthSecurityState('', 'Security check is unavailable. Please reload the page.', true);
+      return;
+    }
+    try {
+      await guard.mountAuth(mount, setAuthSecurityState);
+    } catch (_) {
+      setAuthSecurityState('', 'Security check could not load. Please try again.', true);
+    }
+  }
+
   function openAuthModal(defaultMode = null) {
     if (defaultMode) setAuthMode(defaultMode);
     document.getElementById('authModal').classList.add('open');
@@ -2379,11 +2436,15 @@ const App = (() => {
       document.getElementById('authUserEmail').textContent = state.user.email;
       updateAccountUI();
     } else {
-      maybeMountGoogleButton();
+      retryAuthSecurity();
     }
   }
 
-  function closeAuthModal() { document.getElementById('authModal').classList.remove('open'); }
+  function closeAuthModal() {
+    document.getElementById('authModal').classList.remove('open');
+    window.SingVazaGuard?.unmountAuth();
+    setAuthSecurityState('', 'Complete the security check to continue.');
+  }
 
   function setAuthMode(mode) {
     state.authMode = mode;
@@ -2402,16 +2463,32 @@ const App = (() => {
       password: document.getElementById('authPassword').value,
       display_name: document.getElementById('authName').value.trim(),
     };
+    const guard = window.SingVazaGuard;
+    payload.turnstileToken = guard?.takeAuthToken() || '';
+    if (!payload.turnstileToken) {
+      showToast('Please complete the security check before signing in.');
+      guard?.resetAuth();
+      return;
+    }
     const path = state.authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
-    const data = await apiFetch(path, { method: 'POST', body: JSON.stringify(payload) });
-    if (data.error) { showToast(data.error); return; }
-    state.authToken = data.token;
-    state.user = data.user;
-    if (data.quota) state.quota = data.quota;
-    localStorage.setItem('singvaza_token', data.token);
-    updateAccountUI();
-    closeAuthModal();
-    showToast(`Welcome ${data.user.display_name}! Your 30-Day Free Pro Pass is active!`);
+    try {
+      const data = await apiFetch(path, { method: 'POST', body: JSON.stringify(payload) });
+      if (data.error) {
+        showToast(data.error);
+        return;
+      }
+      state.authToken = data.token;
+      state.user = data.user;
+      if (data.quota) state.quota = data.quota;
+      localStorage.setItem('singvaza_token', data.token);
+      updateAccountUI();
+      closeAuthModal();
+      showToast(`Welcome ${data.user.display_name}! Your 30-Day Free Pro Pass is active!`);
+    } catch (_) {
+      showToast('Could not sign in. Please check your connection and try again.');
+    } finally {
+      if (!state.user && document.getElementById('authModal')?.classList.contains('open')) guard?.resetAuth();
+    }
   }
 
   function logout() {
@@ -2432,8 +2509,15 @@ const App = (() => {
       return;
     }
     try {
-      await apiFetch('/api/auth/account', { method: 'DELETE' });
-    } catch (_) {}
+      const result = await apiFetch('/api/auth/account', { method: 'DELETE' });
+      if (!result.deleted) {
+        showToast(result.error || 'Could not delete your account. Please try again.');
+        return;
+      }
+    } catch (_) {
+      showToast('Could not delete your account. Please check your connection and try again.');
+      return;
+    }
     state.authToken = '';
     state.user = null;
     state.projects = [];
@@ -3007,7 +3091,7 @@ const App = (() => {
             }
           }
           if (cfg.google_client_id && !state.googleClientId) {
-            state.googleClientId = cfg.google_client_id;
+            updateGoogleClientId(cfg.google_client_id);
           }
         })
         .catch(() => {});
@@ -3065,7 +3149,7 @@ const App = (() => {
     searchLyricsOnly, clearUploadedStageTrack,
     toggleCustomLyricsEditor, saveCustomLyrics,
     onMicModeChange, handleBackingUpload, handleVocalUpload, toggleMicMonitor, toggleMicRecording, receiveNativeDualTracks,
-    openAuthModal, closeAuthModal, setAuthMode, startGmailQuickSignup, submitAuth, logout, deleteAccount, toggleProDemo,
+    openAuthModal, closeAuthModal, retryAuthSecurity, setAuthMode, startGmailQuickSignup, submitAuth, logout, deleteAccount, toggleProDemo,
     saveProjectToD1, restoreProject, onExportFormatChange, exportMasteredWav, shareMasterFile,
   };
 })();
