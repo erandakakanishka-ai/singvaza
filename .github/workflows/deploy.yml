@@ -1,0 +1,43 @@
+name: 🚀 Cloudflare Deploy (Auto Live)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    name: Deploy to Cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Optional: Run tests first (uncomment if needed)
+      # - name: Run tests
+      #   run: npm test
+
+      - name: Deploy to Cloudflare Workers & Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          # For Workers with assets (your wrangler.toml)
+          # If you use Pages Direct Upload instead, change to:
+          # command: pages deploy public --project-name=singvaza
+
+      - name: Deployment Success
+        run: echo "✅ Deployed to https://singvaza.pages.dev"
