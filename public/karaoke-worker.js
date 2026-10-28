@@ -248,6 +248,12 @@ function makeStft(def) {
           if (b < def.dimF) { specRe[b] = real[b * frames + f]; specIm[b] = imag[b * frames + f]; }
           else { specRe[b] = 0; specIm[b] = 0; }
         }
+        // The model only predicts the one-sided spectrum, so the negative
+        // frequencies have to be rebuilt as their complex conjugates before the
+        // inverse DFT. Without this mirror the tone comes back at half
+        // amplitude, which made the subtracted vocal about 6 dB too quiet - the
+        // "nothing happens" the tool used to show. (torch.istft does the same.)
+        for (let b = 1; b < nBins - 1; b++) { specRe[def.nFft - b] = specRe[b]; specIm[def.nFft - b] = -specIm[b]; }
         const frame = fft.inverse(specRe, specIm);
         const off = f * def.hop;
         for (let i = 0; i < def.nFft; i++) {
@@ -294,6 +300,19 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
   }
   const release = async () => { try { await session.release?.(); } catch (_) {} };
 
+  // The model was trained on audio normalised to full scale (what UVR and
+  // python-audio-separator do before every demix: peak -> 1.0, result scaled
+  // back afterwards). Feeding it a raw -12 dB mix makes the predicted vocal
+  // roughly ten times too quiet, which is exactly what "nothing changes" looks
+  // like. Every chunk is therefore divided by one song-wide peak first.
+  let songPeak = 1e-9;
+  for (let i = 0; i < left.length; i++) {
+    const a = Math.abs(left[i]), b = Math.abs(right[i]);
+    if (a > songPeak) songPeak = a;
+    if (b > songPeak) songPeak = b;
+  }
+  const norm = songPeak > 0 ? 1 / songPeak : 1;
+
   const opts = options || {};
   // strength: how much of the detected vocal is subtracted (1 = the model's full
   // estimate, 0.5 = half of it, so backing vocals can be kept on purpose).
@@ -333,6 +352,7 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
     chunkL.fill(0); chunkR.fill(0);
     chunkL.set(left.subarray(Math.max(0, start - trim), Math.max(0, end - trim)));
     chunkR.set(right.subarray(Math.max(0, start - trim), Math.max(0, end - trim)));
+    if (norm !== 1) { for (let i = 0; i < chunk; i++) { chunkL[i] *= norm; chunkR[i] *= norm; } }
     reflectPadInto(chunkL, padL, trim);
     reflectPadInto(chunkR, padR, trim);
     stft.forward(padL, frames, Lr, Li);
@@ -350,6 +370,7 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
     const out = outputs.output ? outputs.output.data : Object.values(outputs)[0].data;
     const vocWaveL = stft.inverse(out.subarray(0, stride), out.subarray(stride, stride * 2), frames, chunk);
     const vocWaveR = stft.inverse(out.subarray(stride * 2, stride * 3), out.subarray(stride * 3, stride * 4), frames, chunk);
+    if (norm !== 1) { for (let i = 0; i < chunk; i++) { vocWaveL[i] /= norm; vocWaveR[i] /= norm; } }
 
     for (let i = 0; i < span; i++) {
       const w = chunkWindow[i];
@@ -493,7 +514,7 @@ function centreReduce(left, right, sampleRate, options, progress) {
 }
 
 const state = { cancelled: false };
-const api = { encodeWav, runSeparation, centreReduce, makeFft, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_CACHE, modelSources, fetchModelBytes };
+const api = { encodeWav, runSeparation, centreReduce, makeFft, makeStft, periodicHann, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_CACHE, modelSources, fetchModelBytes };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
 if (typeof self !== 'undefined' && typeof self.postMessage === 'function' && typeof document === 'undefined') {

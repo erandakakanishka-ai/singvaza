@@ -296,3 +296,25 @@ test('if our own copy is unreachable the download falls back to HuggingFace', as
     assert.deepEqual(fetchStub.calls, [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
   } finally { fetchStub.restore(); }
 });
+
+/* The inverse transform must rebuild the negative frequencies, otherwise a
+ * pure tone comes back at half amplitude and the subtracted vocal is ~6 dB too
+ * quiet - which looked exactly like "the AI does nothing". */
+test('inverse STFT keeps the full amplitude of a pure tone (mirror spectrum restored)', () => {
+  const { makeStft, periodicHann } = workerModule;
+  const def = { nFft: 6144, hop: 1024, dimF: 2048, segmentSize: 256 };
+  const stft = makeStft(def);
+  const chunk = def.hop * (def.segmentSize - 1);
+  const frames = Math.floor((chunk + 2 * stft.trim - def.nFft) / def.hop) + 1;
+  const stride = def.dimF * frames;
+  const x = new Float32Array(chunk + 2 * stft.trim);
+  for (let i = 0; i < x.length; i++) x[i] = 0.5 * Math.sin((2 * Math.PI * 440 * i) / sr);
+  const re = new Float32Array(stride), im = new Float32Array(stride);
+  stft.forward(x, frames, re, im);
+  const back = stft.inverse(re, im, frames, chunk);
+  const rms = (a) => Math.sqrt(a.reduce((s, v) => s + v * v, 0) / a.length);
+  const expected = 0.5 / Math.SQRT2;              // 440 Hz sine, amplitude 0.5
+  const got = rms(back.subarray(sr, 3 * sr));     // skip the padding edges
+  assert.ok(Math.abs(got / expected - 1) < 0.03, `tone rms ${got.toFixed(4)} should be ~${expected.toFixed(4)}`);
+  assert.ok(periodicHann(4).length === 4);
+});

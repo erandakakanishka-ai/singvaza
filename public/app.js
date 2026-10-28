@@ -327,7 +327,7 @@ const App = (() => {
   function runKaraokeWorker(type, buffer, options, onStage) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker('/karaoke-worker.js?v=2.1'); }
+      try { worker = new Worker('/karaoke-worker.js?v=2.2'); }
       catch (_) { reject(new Error('This browser could not start audio processing.')); return; }
       state.karaokeWorker = worker;
       state.karaokeWorkerReject = reject;
