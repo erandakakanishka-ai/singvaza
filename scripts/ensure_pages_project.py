@@ -99,7 +99,9 @@ def main():
         # every deployment fail.
         patch[env_name] = {"env_vars": env_vars, "d1_databases": d1, "r2_buckets": r2}
         r2_state = f"MODEL_BUCKET -> {R2_BUCKET}" if r2_ready else "skipped (bucket not ready)"
-        print(f"  {env_name}: D1 DB={'yes' if DB_ID else 'no'}  turnstile={'yes' if (SITE_KEY and SECRET_KEY) else 'kept as is'}  R2={r2_state}")
+        print(f"  {env_name}: D1={'yes' if DB_ID else 'no'}  "
+              f"site_key={'set' if SITE_KEY else 'MISSING'}  "
+              f"secret_key={'set' if SECRET_KEY else 'MISSING (dashboard only)'}  R2={r2_state}")
 
     status, body = call("PATCH", f"/pages/projects/{PROJECT}", {"deployment_configs": patch})
     if not body.get("success"):
