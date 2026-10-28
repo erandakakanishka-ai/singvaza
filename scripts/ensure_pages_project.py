@@ -92,10 +92,10 @@ def main():
             r2.update(wanted_r2)
         else:
             r2.pop("MODEL_BUCKET", None)
-        entry = {"env_vars": env_vars, "d1_databases": d1}
-        if r2:
-            entry["r2_buckets"] = r2
-        patch[env_name] = entry
+        # Always send r2_buckets, even when empty: an omitted key means "leave
+        # the old binding alone", and a stale binding to a missing bucket makes
+        # every deployment fail.
+        patch[env_name] = {"env_vars": env_vars, "d1_databases": d1, "r2_buckets": r2}
         r2_state = f"MODEL_BUCKET -> {R2_BUCKET}" if r2_ready else "skipped (bucket not ready)"
         print(f"  {env_name}: D1 DB={'yes' if DB_ID else 'no'}  turnstile={'yes' if (SITE_KEY and SECRET_KEY) else 'kept as is'}  R2={r2_state}")
 
