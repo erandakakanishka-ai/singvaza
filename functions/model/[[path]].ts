@@ -14,6 +14,10 @@
  */
 
 const MODEL_KEY = 'UVR-MDX-NET-Inst_HQ_3.onnx';
+/* The model ships as two static files next to this route (Cloudflare Pages
+ * refuses a single asset over 25 MiB). They are plain assets, so the function
+ * has to step aside and let the static handler serve them. */
+const STATIC_PREFIX = 'model-part';
 const MIRROR_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR-MDX-NET-Inst_HQ_3.onnx';
 
 type Env = { MODEL_BUCKET?: R2Bucket };
@@ -21,6 +25,9 @@ type Env = { MODEL_BUCKET?: R2Bucket };
 export const onRequest: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
   const name = url.pathname.replace(/^\/+/, '').replace(/^model\//, '');
+  if (name.startsWith(STATIC_PREFIX) && /^model-part[\w.-]+\.part$/.test(name)) {
+    return context.next();
+  }
   if (name !== MODEL_KEY && name !== `models/${MODEL_KEY}` && name !== '') {
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
   }

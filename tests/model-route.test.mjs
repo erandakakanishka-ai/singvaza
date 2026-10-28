@@ -72,3 +72,25 @@ test('the worker ships the model with the site, keeping R2 and HuggingFace as fa
   assert.deepEqual(worker.MODEL_PARTS, ['/model/model-part1.part', '/model/model-part2.part']);
   assert.deepEqual(worker.modelSources().slice(1), ['/model/UVR-MDX-NET-Inst_HQ_3.onnx', worker.MODEL_URL]);
 });
+
+/* Cloudflare Pages caps one asset at 25 MiB, so the model ships as two static
+ * parts. The function must not swallow them - otherwise /model/model-part1.part
+ * answers 404 and the karaoke tool can never load its model. */
+test('the two static model parts are passed through to the static handler', async () => {
+  for (const part of ['model-part1.part', 'model-part2.part']) {
+    let nexted = false;
+    const res = await route.onRequest({
+      request: new Request(`https://singvaza.pages.dev/model/${part}`),
+      env: {},
+      next: async () => { nexted = true; return new Response('static'); },
+    });
+    assert.equal(nexted, true, `${part} must reach the static handler`);
+    assert.equal(res.status, 200);
+  }
+  const blocked = await route.onRequest({
+    request: new Request('https://singvaza.pages.dev/model/secrets.part'),
+    env: {},
+    next: async () => new Response('should not happen'),
+  });
+  assert.equal(blocked.status, 404);
+});
