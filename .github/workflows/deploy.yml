@@ -2,9 +2,9 @@ name: 🚀 Deploy to Cloudflare Pages
 
 # Every push to main goes live on https://singvaza.pages.dev.
 # The workflow never deletes or recreates the Pages project: it creates it only
-# if it is missing (same name => same address), then supplements the bindings
-# and uploads the files. The Cloudflare token is stored as a repository secret
-# and is created with "no expiration", so this cannot rot like the old one.
+# if it is missing (same name => same address), re-applies the D1 binding and
+# uploads the files. The Cloudflare token is a repository secret created with
+# "no expiration", so this cannot rot like the old one.
 on:
   push:
     branches: [main]
@@ -34,17 +34,23 @@ jobs:
       - name: Tests
         run: npm test
 
-      - name: Keep the Pages project, its D1 binding and its variables intact
+      - name: Keep the Pages project. Its D1 binding and the Turnstile keys are preserved
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+          # Only re-applied when the secret exists; otherwise whatever the project
+          # already has stays exactly as it is.
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
         run: python3 scripts/ensure_pages_project.py
 
+      # Wrangler must not push stale environment variables over the ones the
+      # dashboard holds (the encrypted Turnstile secret lives only there), so the
+      # config file is kept out of the upload.
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=singvaza --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          mv wrangler.toml wrangler.toml.ci
+          npx --yes wrangler@4.86.0 pages deploy public --project-name=singvaza --branch=main --commit-dirty=true

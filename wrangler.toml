@@ -2,6 +2,13 @@ name = "singvaza"
 compatibility_date = "2026-10-23"
 pages_build_output_dir = "./public"
 
+# Cloudflare Turnstile (the "checking your browser" gate on entry).
+# The site key is public - it is printed in the page - so it lives here.
+# The secret key is NOT in this file: it is stored as an encrypted Pages secret
+# (Dashboard -> Settings -> Variables and secrets, or scripts/restore_turnstile.py).
+[vars]
+TURNSTILE_SITE_KEY = "0x4AAAAAAFniOJ4h6ZeO8qhC"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "karomix-db"
