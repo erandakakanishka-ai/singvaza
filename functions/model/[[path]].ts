@@ -1,6 +1,6 @@
 /* Serves the AI vocal-removal model from SingVaza's own Cloudflare R2 bucket.
  *
- * Why: the model is a single 29 MB file (UVR MDX-Net KARA, MIT licence) that a
+ * Why: the model is a single 64 MB file (UVR MDX-Net Inst HQ 3, MIT licence) that a
  * visitor downloads once per browser and then reuses from cache. Serving it from
  * R2 keeps that download fast and reliable, and it never depends on a third
  * party staying online.
@@ -13,8 +13,8 @@
  * still works.
  */
 
-const MODEL_KEY = 'UVR_MDXNET_KARA.onnx';
-const MIRROR_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR_MDXNET_KARA.onnx';
+const MODEL_KEY = 'UVR-MDX-NET-Inst_HQ_3.onnx';
+const MIRROR_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR-MDX-NET-Inst_HQ_3.onnx';
 
 type Env = { MODEL_BUCKET?: R2Bucket };
 

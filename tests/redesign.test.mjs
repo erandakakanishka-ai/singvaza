@@ -13,9 +13,11 @@ after(async () => { await browser?.close(); });
 async function pageFor(width = 390, installRoutes = null) {
   const context = await browser.newContext({ viewport: { width, height: width < 600 ? 844 : 1000 }, acceptDownloads: true });
   await context.route('https://challenges.cloudflare.com/turnstile/v0/api.js?*', r => r.fulfill({ status: 200, contentType: 'application/javascript', body: widget }));
-  // Keep the 29 MB MDX model out of CI. The worker then reports its offline
+  // Keep the ~48 MB MDX model out of CI. The worker then reports its offline
   // centre-reduction fallback, which still exercises the whole download flow.
-  await context.route('https://huggingface.co/**/UVR_MDXNET_KARA.onnx', r => r.fulfill({ status: 503, body: 'offline in tests' }));
+  await context.route('https://huggingface.co/**/UVR-MDX-NET-Inst_HQ_3.onnx', r => r.fulfill({ status: 503, body: 'offline in tests' }));
+  await context.route((url) => url.pathname.startsWith('/model/model-part'), (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
+  await context.route((url) => url.pathname === '/model/UVR-MDX-NET-Inst_HQ_3.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
   if (installRoutes) await installRoutes(context);
   const page = await context.newPage();
   const errors = [];

@@ -96,7 +96,9 @@ test('separation keeps a vocal-free mix intact and only touches what the model m
   assert.ok(sideAfter > sideBefore * 0.7, 'stereo width retained');
 });
 
-function vocalMarkingOrt() {
+/* A stand-in for the instrumental model: everything the two channels share
+ * (the centre, i.e. the "voice") is dropped, the sides survive. */
+function instrumentalMarkingOrt() {
   const base = fakeOrt();
   return {
     Tensor: base.Tensor,
@@ -108,18 +110,15 @@ function vocalMarkingOrt() {
           async release() {},
           async run({ input }) {
             const dims = input.dims;              // [1, 4, dimF, frames]
-            const dimF = dims[2], frames = dims[3];
-            const out = new Float32Array(4 * dimF * frames);
+            const dimF = dims[2], frames = dims[3], plane = dimF * frames;
+            const out = new Float32Array(4 * plane);
             const src = input.data;
-            // "Vocal" = the mono sum of the input, i.e. everything centred.
-            for (let b = 0; b < dimF; b++) {
-              for (let f = 0; f < frames; f++) {
-                const i = b * frames + f;
-                const re = (src[i] + src[2 * dimF * frames + i]) / 2;
-                const im = (src[dimF * frames + i] + src[3 * dimF * frames + i]) / 2;
-                out[i] = re; out[dimF * frames + i] = im;
-                out[2 * dimF * frames + i] = re; out[3 * dimF * frames + i] = im;
-              }
+            // Instrumental = the difference of the two channels: no centre voice.
+            for (let i = 0; i < plane; i++) {
+              out[i] = src[i] - src[2 * plane + i];
+              out[plane + i] = src[plane + i] - src[3 * plane + i];
+              out[2 * plane + i] = src[2 * plane + i] - src[i];
+              out[3 * plane + i] = src[3 * plane + i] - src[plane + i];
             }
             return { output: { data: out, dims } };
           },
@@ -129,9 +128,9 @@ function vocalMarkingOrt() {
   };
 }
 
-test('the strength slider scales the subtraction, from "no change" to the full model estimate', async () => {
+test('the strength slider blends from "no change" to the full model backing', async () => {
   const { left, right } = toneMix(2);
-  const deps = { loadOrt: async () => vocalMarkingOrt(), fetchModel: async () => new Uint8Array(8) };
+  const deps = { loadOrt: async () => instrumentalMarkingOrt(), fetchModel: async () => new Uint8Array(8) };
   const rms = (a, b) => { let s = 0; for (let i = 30000; i < 60000; i++) s += a[i] * a[i] + b[i] * b[i]; return Math.sqrt(s / 60000); };
   const none = await runSeparation(left.slice(), right.slice(), () => {}, { cancelled: false }, deps, { strength: 0 });
   const full = await runSeparation(left.slice(), right.slice(), () => {}, { cancelled: false }, deps, { strength: 1 });
@@ -201,14 +200,18 @@ test('WAV encoding writes a valid 16-bit stereo header and bounded samples', () 
 });
 
 test('the shipped model definition matches the python-audio-separator MDX parameters', async () => {
-  assert.equal(MODEL_DEF.nFft, 6144);
+  // Inst_HQ_3: n_fft 7680 / dim_f 3072, and it predicts the instrumental.
+  assert.equal(MODEL_DEF.nFft, 7680);
   assert.equal(MODEL_DEF.hop, 1024);
-  assert.equal(MODEL_DEF.dimF, 2048);
-  assert.equal(MODEL_DEF.segmentSize, 256);
+  assert.equal(MODEL_DEF.dimF, 3072);
+  // 32 frames per chunk (~0.72 s) keeps the peak memory low enough for phones;
+  // the model's time axis is dynamic, so this is a real speed/quality trade.
+  assert.equal(MODEL_DEF.segmentSize, 32);
   assert.equal(MODEL_DEF.overlap, 0.25);
-  assert.equal(MODEL_DEF.compensate, 1.065);
+  assert.equal(MODEL_DEF.output, 'instrumental');
+  assert.ok(MODEL_DEF.compensate > 1 && MODEL_DEF.compensate < 3, 'level trim for the predicted backing');
   const source = await readFile(new URL('../public/karaoke-worker.js', import.meta.url), 'utf8');
-  assert.match(source, /UVR_MDXNET_KARA\.onnx/);
+  assert.match(source, /UVR-MDX-NET-Inst_HQ_3\.onnx/);
   assert.doesNotMatch(source, /postMessage\(\{ type: 'process'.*strength/);
 });
 
@@ -257,10 +260,11 @@ const okBody = (size) => ({
   get body() { return null; },
 });
 
-test('the model is now served from our own R2 path, with HuggingFace kept as a fallback', () => {
-  assert.equal(workerModule.MODEL_URL_R2, '/model/UVR_MDXNET_KARA.onnx');
+test('the model ships as two static parts, with R2 and HuggingFace kept as fallbacks', () => {
+  assert.equal(workerModule.MODEL_URL_R2, '/model/UVR-MDX-NET-Inst_HQ_3.onnx');
   assert.match(workerModule.MODEL_URL, /^https:\/\/huggingface\.co\//);
-  assert.deepEqual(workerModule.modelSources(), [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
+  assert.deepEqual(workerModule.MODEL_PARTS, ['/model/model-part1.part', '/model/model-part2.part']);
+  assert.deepEqual(workerModule.modelSources().slice(1), [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
 });
 
 test('a browser that cached the model from HuggingFace does not download it again', async () => {
@@ -275,25 +279,25 @@ test('a browser that cached the model from HuggingFace does not download it agai
   } finally { fetchStub.restore(); }
 });
 
-test('a fresh browser downloads from R2 first and caches it under both keys', async () => {
+test('a fresh browser stitches the two static parts and caches one joined copy', async () => {
   const events = [];
   const caches = fakeCaches();
-  const fetchStub = stubFetch(() => okBody(29_000_000));
+  const fetchStub = stubFetch(() => okBody(24_000_000));
   try {
-    await withCaches(caches, () => workerModule.fetchModelBytes((p) => events.push(p)));
-    assert.deepEqual(fetchStub.calls, ['/model/UVR_MDXNET_KARA.onnx']);
-    assert.ok(caches.store.has(workerModule.MODEL_URL_R2), 'cached under the R2 key');
-    assert.ok(caches.store.has(workerModule.MODEL_URL), 'cached under the old HuggingFace key');
+    const bytes = await withCaches(caches, () => workerModule.fetchModelBytes((p) => events.push(p)));
+    assert.deepEqual(fetchStub.calls, workerModule.MODEL_PARTS, 'the shipped parts are the first choice');
+    assert.equal(bytes.byteLength, 48_000_000, 'the parts are joined in order');
+    assert.ok(caches.store.has('/model/inst-hq-3.joined'), 'a single cached copy of the joined model');
   } finally { fetchStub.restore(); }
 });
 
-test('if our own copy is unreachable the download falls back to HuggingFace', async () => {
+test('if the shipped parts are unreachable the download falls back to our own copy, then HuggingFace', async () => {
   const caches = fakeCaches();
-  const fetchStub = stubFetch((url) => (url.startsWith('/model/') ? { ok: false, status: 404 } : okBody(29_000_000)));
+  const fetchStub = stubFetch((url) => (url.endsWith('.part') ? { ok: false, status: 404 } : okBody(29_000_000)));
   try {
     const bytes = await withCaches(caches, () => workerModule.fetchModelBytes(() => {}));
     assert.equal(bytes.byteLength, 29_000_000);
-    assert.deepEqual(fetchStub.calls, [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
+    assert.deepEqual(fetchStub.calls, [workerModule.MODEL_PARTS[0], workerModule.MODEL_URL_R2]);
   } finally { fetchStub.restore(); }
 });
 
@@ -302,7 +306,7 @@ test('if our own copy is unreachable the download falls back to HuggingFace', as
  * quiet - which looked exactly like "the AI does nothing". */
 test('inverse STFT keeps the full amplitude of a pure tone (mirror spectrum restored)', () => {
   const { makeStft, periodicHann } = workerModule;
-  const def = { nFft: 6144, hop: 1024, dimF: 2048, segmentSize: 256 };
+  const def = { nFft: 7680, hop: 1024, dimF: 3072, segmentSize: 256 };
   const stft = makeStft(def);
   const chunk = def.hop * (def.segmentSize - 1);
   const frames = Math.floor((chunk + 2 * stft.trim - def.nFft) / def.hop) + 1;

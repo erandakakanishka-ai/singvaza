@@ -6,29 +6,39 @@
  * uploaded: the song, the spectrograms and the stems stay on the device.
  *
  * Signal path (matches python-audio-separator / Ultimate Vocal Remover):
- *   mix -> centred STFT (n_fft 6144, hop 1024, periodic Hann, reflect padding)
- *       -> MDX-Net predicts the complex vocal spectrogram, 25% overlapped chunks
- *       -> iSTFT + overlap-add -> vocal stem
- *       -> instrumental = mix - compensate * vocal   (compensate = 1.065)
+ *   mix -> centred STFT (n_fft 7680, hop 1024, periodic Hann, reflect padding)
+ *       -> MDX-Net predicts the complex INSTRUMENTAL spectrogram, 25% overlapped
+ *          chunks (Inst_HQ_3 predicts the backing directly; asking a model to
+ *          predict the vocal and subtracting it left too much voice behind)
+ *       -> iSTFT + overlap-add -> instrumental stem
  * The instrumental keeps its original low end, top end and stereo width, so it
  * sounds like the record instead of a hollow centre-cancelled phase trick.
  */
 
-const MODEL_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR_MDXNET_KARA.onnx';
+/* The model ships with the site as two static parts (Cloudflare Pages caps a
+ * single asset at 25 MiB). They are fetched once, joined and then kept in Cache
+ * Storage, so the second song never downloads them again. */
+const MODEL_PARTS = ['/model/model-part1.part', '/model/model-part2.part'];
+const MODEL_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR-MDX-NET-Inst_HQ_3.onnx';
 /* Self-hosted copy of the exact same model file. It is served from SingVaza's
  * own Cloudflare R2 bucket so the download is fast and does not depend on a
  * third party. If it is ever unreachable we fall back to MODEL_URL above. */
-const MODEL_URL_R2 = '/model/UVR_MDXNET_KARA.onnx';
-const MODEL_BYTES = 29704436;
-const MODEL_CACHE = 'singvaza-mdx-v1';
+const MODEL_URL_R2 = '/model/UVR-MDX-NET-Inst_HQ_3.onnx';
+const MODEL_BYTES = 47915709;
+const MODEL_CACHE = 'singvaza-mdx-v2';
 const MODEL_DEF = {
-  name: 'UVR MDX-Net KARA',
-  nFft: 6144,
+  name: 'UVR MDX-Net Inst HQ 3',
+  nFft: 7680,
   hop: 1024,
-  dimF: 2048,
-  segmentSize: 256,
+  dimF: 3072,
+  segmentSize: 32,
   overlap: 0.25,
-  compensate: 1.065,
+  // The network is trained on audio peak-normalised to full scale and it
+  // returns the instrumental slightly below the level of its own input
+  // (measured: -3.6 dB on music, -8.9 dB on a pure backing track). The peak is
+  // multiplied back after the iSTFT, so this only has to make up the rest.
+  output: 'instrumental',
+  compensate: 1.42,
 };
 const MAX_SECONDS = 9 * 60;
 
@@ -57,8 +67,11 @@ async function loadOrt() {
   }
 }
 
+/* One cache key for the joined model, whichever way it arrived. */
+const MODEL_URL_PARTS_KEY = '/model/inst-hq-3.joined';
+
 function modelSources() {
-  const list = [MODEL_URL_R2, MODEL_URL];
+  const list = [MODEL_URL_PARTS_KEY, MODEL_URL_R2, MODEL_URL];
   return list.filter((u, i) => u && list.indexOf(u) === i);
 }
 
@@ -111,6 +124,23 @@ async function downloadModelBytes(url, onProgress) {
   return bytes;
 }
 
+async function downloadModelParts(onProgress) {
+  const parts = [];
+  let total = 0, seen = 0;
+  for (const url of MODEL_PARTS) {
+    const res = await fetch(url, { cache: 'force-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    if (buf.byteLength < 1000000) throw new Error('a model part was incomplete');
+    parts.push(buf);
+    total += buf.byteLength;
+  }
+  const joined = new Uint8Array(total);
+  for (const part of parts) { joined.set(part, seen); seen += part.byteLength; }
+  onProgress({ stage: 'model', loaded: total, total });
+  return joined;
+}
+
 async function fetchModelBytes(onProgress) {
   let cache = null;
   try { if (typeof caches !== 'undefined') cache = await caches.open(MODEL_CACHE); } catch (_) { cache = null; }
@@ -118,15 +148,24 @@ async function fetchModelBytes(onProgress) {
   if (cached) return cached;
 
   let lastError = null;
+  // Preferred path: the two static parts that ship with the site itself. No
+  // worker bundle, no 25 MiB asset limit, no third-party host.
+  {
+    try {
+      const joined = await downloadModelParts(onProgress);
+      try { await cache.put(MODEL_URL_PARTS_KEY, new Response(joined.buffer, { headers: { 'content-type': 'application/octet-stream' } })); } catch (_) {}
+      return joined;
+    } catch (err) { lastError = err; }
+  }
   for (const url of modelSources()) {
+    if (url === MODEL_URL_PARTS_KEY) continue;   // handled above
     try {
       const bytes = await downloadModelBytes(url, onProgress);
       if (cache) {
         try {
-          // Store under both keys so a later switch (either direction) is a cache hit.
-          for (const key of modelSources()) {
-            await cache.put(key, new Response(bytes.slice(0), { headers: { 'content-type': 'application/octet-stream' } }));
-          }
+          // One stored copy, no extra buffers: this model is ~48 MB, and every
+          // extra copy of it is real memory on a phone.
+          await cache.put(MODEL_URL_PARTS_KEY, new Response(bytes.buffer, { headers: { 'content-type': 'application/octet-stream' } }));
         } catch (_) {}
       }
       return bytes;
@@ -271,13 +310,26 @@ function makeStft(def) {
   };
 }
 
+/* torch's reflect padding (what UVR uses): the sample next to the edge is NOT
+ * repeated, the mirror starts one step inside. Getting this wrong leaves a
+ * click/level step at every chunk boundary. */
 function reflectPadInto(src, out, pad) {
   const n = src.length;
   out.set(src.subarray(0, n), pad);
   for (let i = 0; i < pad; i++) {
-    out[i] = src[Math.min(n - 1, pad - i)] || 0;
+    out[i] = src[Math.max(0, pad - i)] || 0;
     out[pad + n + i] = src[Math.max(0, n - 2 - i)] || 0;
   }
+}
+
+/* How many frames of the model to run at once. `deviceMemory` is reported in
+ * GB by Chromium; Safari/Firefox do not report it, so they get the safe middle
+ * value. Bigger is faster and slightly cleaner, but uses more memory. */
+function pickSegmentSize() {
+  const mem = (typeof navigator !== 'undefined' && Number(navigator.deviceMemory)) || 4;
+  if (mem >= 8) return 128;
+  if (mem >= 4) return 64;
+  return 32;
 }
 
 /* ---------------- separation ---------------- */
@@ -291,11 +343,21 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
   if (state.cancelled) throw abortError();
   onProgress({ stage: 'session' });
   const providers = ortBackend === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'];
+  // The arena/memory-pattern allocators grab a large block up front for this
+  // model (measured: a multi-hundred-MB peak on a single 12 MB chunk, enough to
+  // get the tab killed on a phone). Allocating per tensor instead keeps the peak
+  // close to the real tensor sizes.
+  const sessionOptions = {
+    executionProviders: providers,
+    enableCpuMemArena: false,
+    enableMemPattern: false,
+    executionMode: 'sequential',
+  };
   let session;
   try {
-    session = await ort.InferenceSession.create(modelBytes, { executionProviders: providers });
+    session = await ort.InferenceSession.create(modelBytes, sessionOptions);
   } catch (_) {
-    session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['wasm'] });
+    session = await ort.InferenceSession.create(modelBytes, { ...sessionOptions, executionProviders: ['wasm'] });
     ortBackend = 'wasm';
   }
   const release = async () => { try { await session.release?.(); } catch (_) {} };
@@ -314,14 +376,24 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
   const norm = songPeak > 0 ? 1 / songPeak : 1;
 
   const opts = options || {};
-  // strength: how much of the detected vocal is subtracted (1 = the model's full
-  // estimate, 0.5 = half of it, so backing vocals can be kept on purpose).
+  // strength: how much of the model's instrumental is used (1 = the model's full
+  // estimate, 0.85 = keep 15% of the original mix in, so the track still sounds
+  // alive in quiet passages).
   const strength = Number.isFinite(Number(opts.strength)) ? Math.min(1, Math.max(0, Number(opts.strength))) : 0.85;
   const targetSeconds = left.length / 44100;
   const introSeconds = Number.isFinite(Number(opts.introSeconds)) ? Math.max(0, Math.min(Number(opts.introSeconds), targetSeconds - 0.01)) : 0;
-  const subtract = def.compensate * strength;
-  const stft = makeStft(def);
-  const chunk = def.hop * (def.segmentSize - 1);
+  // Level of the predicted instrumental relative to its chunk, and how much of
+  // that prediction replaces the mix.
+  const modelGain = def.compensate;
+  const wet = strength;
+  // The model's time axis is dynamic, so the chunk length is a trade between
+  // speed and accuracy: more frames per chunk = fewer, heavier passes. A phone
+  // with little memory must stay small or the tab is killed; a desktop can go
+  // several times bigger and is then both faster and cleaner.
+  const segSize = Math.max(8, Math.round(opts.segmentSize || pickSegmentSize()));
+  const modelDef = { ...def, segmentSize: segSize };
+  const stft = makeStft(modelDef);
+  const chunk = def.hop * (segSize - 1);
   const trim = stft.trim;
   const gen = chunk - 2 * trim;
   const step = Math.floor((1 - def.overlap) * chunk);
@@ -329,7 +401,7 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
   const n = left.length;
   const padLen = gen + trim - (n % gen);
   const total = n + trim + padLen;
-  const frames = Math.floor((chunk + 2 * trim - def.nFft) / def.hop) + 1;
+  const frames = segSize;
   const stride = def.dimF * frames;
 
   // Only the accumulated instrumental, its window weight and per-chunk scratch
@@ -368,18 +440,21 @@ async function runSeparation(left, right, onProgress, state, deps, options) {
       throw new Error('The vocal model could not process this file on this device.');
     }
     const out = outputs.output ? outputs.output.data : Object.values(outputs)[0].data;
-    const vocWaveL = stft.inverse(out.subarray(0, stride), out.subarray(stride, stride * 2), frames, chunk);
-    const vocWaveR = stft.inverse(out.subarray(stride * 2, stride * 3), out.subarray(stride * 3, stride * 4), frames, chunk);
-    if (norm !== 1) { for (let i = 0; i < chunk; i++) { vocWaveL[i] /= norm; vocWaveR[i] /= norm; } }
+    const instWaveL = stft.inverse(out.subarray(0, stride), out.subarray(stride, stride * 2), frames, chunk);
+    const instWaveR = stft.inverse(out.subarray(stride * 2, stride * 3), out.subarray(stride * 3, stride * 4), frames, chunk);
+    const scale = modelGain / norm;
+    for (let i = 0; i < chunk; i++) { instWaveL[i] *= scale; instWaveR[i] *= scale; }
 
     for (let i = 0; i < span; i++) {
       const w = chunkWindow[i];
       const gx = start + i - trim;          // index inside the original signal
       if (gx < 0 || gx >= n) continue;
-      const wl = vocWaveL[i] * subtract;
-      const wr = vocWaveR[i] * subtract;
-      outL[gx] += (left[gx] - wl) * w;
-      outR[gx] += (right[gx] - wr) * w;
+      // wet = the model's backing, dry = the untouched mix; the strength slider
+      // blends between them so 85% still sounds natural.
+      const wl = left[gx] * (1 - wet) + instWaveL[i] * wet;
+      const wr = right[gx] * (1 - wet) + instWaveR[i] * wet;
+      outL[gx] += wl * w;
+      outR[gx] += wr * w;
       weight[gx] += w;
     }
     done += 1;
@@ -514,7 +589,7 @@ function centreReduce(left, right, sampleRate, options, progress) {
 }
 
 const state = { cancelled: false };
-const api = { encodeWav, runSeparation, centreReduce, makeFft, makeStft, periodicHann, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_CACHE, modelSources, fetchModelBytes };
+const api = { encodeWav, runSeparation, centreReduce, makeFft, makeStft, periodicHann, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_PARTS, MODEL_CACHE, modelSources, fetchModelBytes };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
 if (typeof self !== 'undefined' && typeof self.postMessage === 'function' && typeof document === 'undefined') {

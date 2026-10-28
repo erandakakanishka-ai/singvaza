@@ -33,13 +33,16 @@ after(async () => { await browser?.close(); });
 
 async function newPage(width, height) {
   const context = await browser.newContext({ viewport: { width, height } });
-  // Keep the 29 MB MDX model out of CI: fail the download fast so the worker
+  // Keep the ~48 MB MDX model out of CI: fail the download fast so the worker
   // exercises its offline centre-reduction fallback with the same message flow.
-  await context.route('https://huggingface.co/**/UVR_MDXNET_KARA.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
-  // /model/UVR_MDXNET_KARA.onnx (our own R2 copy) must also stay offline in
+  await context.route('https://huggingface.co/**/UVR-MDX-NET-Inst_HQ_3.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
+  // /model/UVR-MDX-NET-Inst_HQ_3.onnx (our own R2 copy) must also stay offline in
   // tests - it lives on the same origin as the app, so a plain **/model/** glob
   // would swallow the app itself; anchor it to the onnx path instead.
-  await context.route((url) => url.pathname === '/model/UVR_MDXNET_KARA.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
+  await context.route((url) => url.pathname === '/model/UVR-MDX-NET-Inst_HQ_3.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
+  // Keep the ~48 MB model out of CI entirely: the shipped parts and every
+  // fallback are made to fail fast so the worker exercises its offline path.
+  await context.route((url) => url.pathname.startsWith('/model/model-part'), (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
   await context.route('https://challenges.cloudflare.com/turnstile/v0/api.js?*', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: dummyWidget }));
   const page = await context.newPage();
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' });
