@@ -1,12 +1,19 @@
 name = "singvaza"
-main = "src/worker.ts"
 compatibility_date = "2024-11-01"
-
-[assets]
-directory = "./public"
-binding = "ASSETS"
+pages_build_output_dir = "./public"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "karomix-db"
 database_id = "88b28623-1da8-42ff-8b52-479097f44650"
+
+# AI vocal-removal model (29 MB, MIT licence) served from our own R2 bucket.
+# Step 1 - create the bucket once:      npx wrangler r2 bucket create singvaza-models
+# Step 2 - upload the model once:       npx wrangler r2 object put singvaza-models/UVR_MDXNET_KARA.onnx --file=UVR_MDXNET_KARA.onnx --remote
+# Step 3 - uncomment the block below and push; /model/UVR_MDXNET_KARA.onnx then
+#          streams from R2. Until then that URL 302s to the public mirror, so the
+#          vocal remover keeps working either way.
+#
+# [[r2_buckets]]
+# binding = "MODEL_BUCKET"
+# bucket_name = "singvaza-models"

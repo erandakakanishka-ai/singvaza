@@ -36,6 +36,10 @@ async function newPage(width, height) {
   // Keep the 29 MB MDX model out of CI: fail the download fast so the worker
   // exercises its offline centre-reduction fallback with the same message flow.
   await context.route('https://huggingface.co/**/UVR_MDXNET_KARA.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
+  // /model/UVR_MDXNET_KARA.onnx (our own R2 copy) must also stay offline in
+  // tests - it lives on the same origin as the app, so a plain **/model/** glob
+  // would swallow the app itself; anchor it to the onnx path instead.
+  await context.route((url) => url.pathname === '/model/UVR_MDXNET_KARA.onnx', (route) => route.fulfill({ status: 503, body: 'offline in tests' }));
   await context.route('https://challenges.cloudflare.com/turnstile/v0/api.js?*', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: dummyWidget }));
   const page = await context.newPage();
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' });

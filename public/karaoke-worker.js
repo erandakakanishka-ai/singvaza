@@ -15,6 +15,10 @@
  */
 
 const MODEL_URL = 'https://huggingface.co/Tha456/uvr5-models/resolve/main/UVR_MDXNET_KARA.onnx';
+/* Self-hosted copy of the exact same model file. It is served from SingVaza's
+ * own Cloudflare R2 bucket so the download is fast and does not depend on a
+ * third party. If it is ever unreachable we fall back to MODEL_URL above. */
+const MODEL_URL_R2 = '/model/UVR_MDXNET_KARA.onnx';
 const MODEL_BYTES = 29704436;
 const MODEL_CACHE = 'singvaza-mdx-v1';
 const MODEL_DEF = {
@@ -34,27 +38,16 @@ let ortBackend = 'wasm';
 async function loadOrt() {
   if (ortPromise) return ortPromise;
   ortPromise = (async () => {
-    const webgpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
-    const wasmSrc = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.mjs';
-    const webgpuSrc = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.mjs';
-    const tryLoad = async (src, backend) => {
-      const mod = await import(/* @vite-ignore */ src);
-      const ort = mod.default || mod;
-      if (!ort || !ort.InferenceSession) throw new Error('ORT unavailable');
-      ort.env.wasm.wasmPaths = src.replace(/ort\.[a-z]+\.min\.mjs$/, '');
-      ort.env.wasm.numThreads = (typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated)
-        ? Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 2) - 1))
-        : 1;
-      ortBackend = backend;
-      return ort;
-    };
-    if (webgpu) {
-      try {
-        const adapter = navigator.gpu.requestAdapter ? await navigator.gpu.requestAdapter() : null;
-        if (adapter) return await tryLoad(webgpuSrc, 'webgpu');
-      } catch (_) {}
-    }
-    return tryLoad(wasmSrc, 'wasm');
+    const src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.wasm.min.mjs';
+    const mod = await import(/* @vite-ignore */ src);
+    const ort = mod.default || mod;
+    if (!ort || !ort.InferenceSession) throw new Error('ORT unavailable');
+    ort.env.wasm.wasmPaths = src.replace(/ort\.[a-z]+\.min\.mjs$/, '');
+    // Single threaded by default: low-memory phones kill the worker with
+    // SharedArrayBuffer threads, and the model is small enough without them.
+    ort.env.wasm.numThreads = 1;
+    ortBackend = 'wasm';
+    return ort;
   })();
   try {
     return await ortPromise;
@@ -64,23 +57,33 @@ async function loadOrt() {
   }
 }
 
-async function fetchModelBytes(onProgress) {
-  let cache = null;
-  try { if (typeof caches !== 'undefined') cache = await caches.open(MODEL_CACHE); } catch (_) { cache = null; }
-  if (cache) {
+function modelSources() {
+  const list = [MODEL_URL_R2, MODEL_URL];
+  return list.filter((u, i) => u && list.indexOf(u) === i);
+}
+
+/* Look in the cache under every known location: a browser that already
+ * downloaded the model from HuggingFace must NOT download it again after the
+ * switch to the self-hosted copy - we migrate that cached copy across. */
+async function cachedModelBytes(cache, onProgress) {
+  if (!cache) return null;
+  for (const url of modelSources()) {
     try {
-      const hit = await cache.match(MODEL_URL);
-      if (hit) {
-        const buf = new Uint8Array(await hit.arrayBuffer());
-        if (buf.byteLength > 1000000) {
-          onProgress({ stage: 'model-cached' });
-          return buf;
-        }
+      const hit = await cache.match(url);
+      if (!hit) continue;
+      const buf = new Uint8Array(await hit.arrayBuffer());
+      if (buf.byteLength > 1000000) {
+        onProgress({ stage: 'model-cached' });
+        return buf;
       }
     } catch (_) {}
   }
-  const res = await fetch(MODEL_URL);
-  if (!res.ok) throw new Error(`The vocal model could not be downloaded (HTTP ${res.status}).`);
+  return null;
+}
+
+async function downloadModelBytes(url, onProgress) {
+  const res = await fetch(url, { cache: 'force-cache' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const total = Number(res.headers.get('content-length')) || MODEL_BYTES;
   let bytes;
   if (res.body && res.body.getReader) {
@@ -92,7 +95,7 @@ async function fetchModelBytes(onProgress) {
       if (done) break;
       if (seen + value.length > out.length) {
         const grown = new Uint8Array(Math.max(out.length * 2, seen + value.length));
-        grown.set(out.subarray(0, seen));
+        grown.set((bytes || out).subarray(0, seen));
         bytes = grown;
       }
       (bytes || out).set(value, seen);
@@ -104,10 +107,34 @@ async function fetchModelBytes(onProgress) {
   } else {
     bytes = new Uint8Array(await res.arrayBuffer());
   }
-  if (cache) {
-    try { await cache.put(MODEL_URL, new Response(bytes.slice(0), { headers: { 'content-type': 'application/octet-stream' } })); } catch (_) {}
-  }
+  if (!bytes || bytes.byteLength < 1000000) throw new Error('the download was incomplete');
   return bytes;
+}
+
+async function fetchModelBytes(onProgress) {
+  let cache = null;
+  try { if (typeof caches !== 'undefined') cache = await caches.open(MODEL_CACHE); } catch (_) { cache = null; }
+  const cached = await cachedModelBytes(cache, onProgress);
+  if (cached) return cached;
+
+  let lastError = null;
+  for (const url of modelSources()) {
+    try {
+      const bytes = await downloadModelBytes(url, onProgress);
+      if (cache) {
+        try {
+          // Store under both keys so a later switch (either direction) is a cache hit.
+          for (const key of modelSources()) {
+            await cache.put(key, new Response(bytes.slice(0), { headers: { 'content-type': 'application/octet-stream' } }));
+          }
+        } catch (_) {}
+      }
+      return bytes;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(`The vocal model could not be downloaded${lastError ? ` (${lastError.message})` : ''}.`);
 }
 
 /* ---------------- FFT (any 7-smooth length) ---------------- */
@@ -466,7 +493,7 @@ function centreReduce(left, right, sampleRate, options, progress) {
 }
 
 const state = { cancelled: false };
-const api = { encodeWav, runSeparation, centreReduce, makeFft, MODEL_DEF, MODEL_URL };
+const api = { encodeWav, runSeparation, centreReduce, makeFft, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_CACHE, modelSources, fetchModelBytes };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
 if (typeof self !== 'undefined' && typeof self.postMessage === 'function' && typeof document === 'undefined') {

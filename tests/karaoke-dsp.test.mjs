@@ -211,3 +211,88 @@ test('the shipped model definition matches the python-audio-separator MDX parame
   assert.match(source, /UVR_MDXNET_KARA\.onnx/);
   assert.doesNotMatch(source, /postMessage\(\{ type: 'process'.*strength/);
 });
+
+/* The model moved from HuggingFace to SingVaza's own R2 bucket. These tests pin
+ * the two promises made to users: the R2 copy is tried first, and anybody who
+ * already has the model cached never downloads it a second time. */
+const workerModule = require('../public/karaoke-worker.js');
+
+function fakeCaches(entries = {}) {
+  const store = new Map(Object.entries(entries).map(([k, bytes]) => [k, { byteLength: bytes }]));
+  const opened = {
+    async match(url) {
+      if (!store.has(url)) return null;
+      const size = store.get(url).byteLength;
+      return { async arrayBuffer() { return new ArrayBuffer(size); } };
+    },
+    async put(url, res) {
+      store.set(url, { byteLength: res ? 1 : 0 });
+    },
+  };
+  return { store, async open() { return opened; } };
+}
+
+function withCaches(cachesValue, fn) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'caches');
+  const prev = globalThis.caches;
+  if (cachesValue === undefined) delete globalThis.caches; else globalThis.caches = cachesValue;
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => { if (had) globalThis.caches = prev; else delete globalThis.caches; });
+}
+
+function stubFetch(handler) {
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'fetch');
+  const prev = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => { calls.push(String(url)); return handler(String(url)); };
+  return { calls, restore() { if (had) globalThis.fetch = prev; else delete globalThis.fetch; } };
+}
+
+const okBody = (size) => ({
+  ok: true,
+  status: 200,
+  headers: { get: () => String(size) },
+  async arrayBuffer() { return new ArrayBuffer(size); },
+  get body() { return null; },
+});
+
+test('the model is now served from our own R2 path, with HuggingFace kept as a fallback', () => {
+  assert.equal(workerModule.MODEL_URL_R2, '/model/UVR_MDXNET_KARA.onnx');
+  assert.match(workerModule.MODEL_URL, /^https:\/\/huggingface\.co\//);
+  assert.deepEqual(workerModule.modelSources(), [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
+});
+
+test('a browser that cached the model from HuggingFace does not download it again', async () => {
+  const events = [];
+  const caches = fakeCaches({ [workerModule.MODEL_URL]: 29_000_000 });
+  const fetchStub = stubFetch(() => okBody(29_000_000));
+  try {
+    const bytes = await withCaches(caches, () => workerModule.fetchModelBytes((p) => events.push(p)));
+    assert.equal(bytes.byteLength, 29_000_000);
+    assert.deepEqual(fetchStub.calls, [], 'no network download for an existing user');
+    assert.ok(events.some((e) => e.stage === 'model-cached'));
+  } finally { fetchStub.restore(); }
+});
+
+test('a fresh browser downloads from R2 first and caches it under both keys', async () => {
+  const events = [];
+  const caches = fakeCaches();
+  const fetchStub = stubFetch(() => okBody(29_000_000));
+  try {
+    await withCaches(caches, () => workerModule.fetchModelBytes((p) => events.push(p)));
+    assert.deepEqual(fetchStub.calls, ['/model/UVR_MDXNET_KARA.onnx']);
+    assert.ok(caches.store.has(workerModule.MODEL_URL_R2), 'cached under the R2 key');
+    assert.ok(caches.store.has(workerModule.MODEL_URL), 'cached under the old HuggingFace key');
+  } finally { fetchStub.restore(); }
+});
+
+test('if our own copy is unreachable the download falls back to HuggingFace', async () => {
+  const caches = fakeCaches();
+  const fetchStub = stubFetch((url) => (url.startsWith('/model/') ? { ok: false, status: 404 } : okBody(29_000_000)));
+  try {
+    const bytes = await withCaches(caches, () => workerModule.fetchModelBytes(() => {}));
+    assert.equal(bytes.byteLength, 29_000_000);
+    assert.deepEqual(fetchStub.calls, [workerModule.MODEL_URL_R2, workerModule.MODEL_URL]);
+  } finally { fetchStub.restore(); }
+});
