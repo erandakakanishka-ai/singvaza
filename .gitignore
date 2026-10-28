@@ -4,3 +4,6 @@ node_modules/
 *.sqlite
 *.sqlite-journal
 .local_studio.db*
+
+# local publish scratch
+.publish/
