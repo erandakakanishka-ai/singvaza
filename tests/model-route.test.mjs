@@ -94,3 +94,14 @@ test('the two static model parts are passed through to the static handler', asyn
   });
   assert.equal(blocked.status, 404);
 });
+
+test('the model parts are cached for a week instead of being revalidated every load', async () => {
+  const res = await route.onRequest({
+    request: new Request('https://singvaza.pages.dev/model/model-part2.part'),
+    env: {},
+    next: async () => new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { 'content-type': 'application/octet-stream', 'cache-control': 'public, max-age=0, must-revalidate' } }),
+  });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('cache-control'), /max-age=604800/);
+  assert.equal(new Uint8Array(await res.arrayBuffer()).byteLength, 3);
+});

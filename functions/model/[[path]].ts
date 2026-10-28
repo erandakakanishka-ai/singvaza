@@ -26,7 +26,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const url = new URL(context.request.url);
   const name = url.pathname.replace(/^\/+/, '').replace(/^model\//, '');
   if (name.startsWith(STATIC_PREFIX) && /^model-part[\w.-]+\.part$/.test(name)) {
-    return context.next();
+    // Do not hand a bare asset response back to the visitor: a 24 MB model part
+    // that is revalidated on every load costs the phone a round trip each time.
+    // Mirror it with a long-lived cache header; the bytes are immutable.
+    const asset = await context.next();
+    if (!asset.ok) return asset;
+    const headers = new Headers(asset.headers);
+    headers.set('cache-control', 'public, max-age=604800, immutable');
+    headers.set('content-type', 'application/octet-stream');
+    return new Response(asset.body, { status: asset.status, headers });
   }
   if (name !== MODEL_KEY && name !== `models/${MODEL_KEY}` && name !== '') {
     return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
