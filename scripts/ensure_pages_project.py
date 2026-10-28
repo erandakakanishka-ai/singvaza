@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Make sure the Cloudflare Pages project exists and keeps every binding and
+variable the site needs - without ever deleting or recreating the project, so
+the address https://singvaza.pages.dev is preserved.
+
+Idempotent: run it as often as you like. It only PATCHes the fields below and
+leaves everything else in deployment_configs untouched.
+
+Env: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, and optionally
+     D1_DATABASE_ID, TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY,
+     MODEL_R2_BUCKET (set to "" to skip the R2 binding).
+"""
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+API = "https://api.cloudflare.com/client/v4"
+TOKEN = os.environ["CLOUDFLARE_API_TOKEN"]
+ACCOUNT = os.environ["CLOUDFLARE_ACCOUNT_ID"]
+PROJECT = os.environ.get("PAGES_PROJECT", "singvaza")
+DB_ID = os.environ.get("D1_DATABASE_ID", "88b28623-1da8-42ff-8b52-479097f44650")
+SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "").strip()
+SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+R2_BUCKET = os.environ.get("MODEL_R2_BUCKET", "singvaza-models")
+
+
+def call(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(
+        f"{API}/accounts/{ACCOUNT}{path}", data=data, method=method,
+        headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as res:
+            return res.status, json.loads(res.read() or b"{}")
+    except urllib.error.HTTPError as err:
+        try:
+            return err.code, json.loads(err.read() or b"{}")
+        except Exception:
+            return err.code, {"success": False, "errors": [{"message": str(err)}]}
+
+
+def main():
+    status, body = call("GET", f"/pages/projects/{PROJECT}")
+    if status == 404:
+        print(f"project {PROJECT} is missing - creating it (same name, so the address is unchanged)")
+        status, body = call("POST", "/pages/projects", {"name": PROJECT, "production_branch": "main"})
+        if not body.get("success"):
+            print("could not create the project:", body)
+            return 1
+        status, body = call("GET", f"/pages/projects/{PROJECT}")
+    if not body.get("success"):
+        print("cannot read the project:", json.dumps(body)[:400])
+        return 1
+
+    project = body["result"]
+    print(f"project: {project['name']}  ({project.get('subdomain')})")
+
+    configs = project.get("deployment_configs") or {}
+    wanted_r2 = {"MODEL_BUCKET": {"name": R2_BUCKET}} if R2_BUCKET else {}
+    patch = {}
+    for env_name in ("production", "preview"):
+        current = configs.get(env_name) or {}
+        env_vars = dict(current.get("env_vars") or {})
+        if SITE_KEY:
+            env_vars["TURNSTILE_SITE_KEY"] = {"type": "plain_text", "value": SITE_KEY}
+        if SECRET_KEY:
+            env_vars["TURNSTILE_SECRET_KEY"] = {"type": "secret_text", "value": SECRET_KEY}
+        d1 = dict(current.get("d1_databases") or {})
+        if DB_ID:
+            d1["DB"] = {"id": DB_ID}
+        r2 = dict(current.get("r2_buckets") or {})
+        r2.update(wanted_r2)
+        entry = {"env_vars": env_vars, "d1_databases": d1}
+        if r2:
+            entry["r2_buckets"] = r2
+        patch[env_name] = entry
+        print(f"  {env_name}: D1 DB={'yes' if DB_ID else 'no'}  turnstile={'yes' if (SITE_KEY and SECRET_KEY) else 'kept as is'}  R2={R2_BUCKET or 'skipped'}")
+
+    status, body = call("PATCH", f"/pages/projects/{PROJECT}", {"deployment_configs": patch})
+    if not body.get("success"):
+        print("PATCH failed:", json.dumps(body)[:600])
+        print("  (the deployment can still work - bindings may need a manual check)")
+        return 0
+    print("bindings + variables saved")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
