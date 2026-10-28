@@ -59,7 +59,23 @@ def main():
     print(f"project: {project['name']}  ({project.get('subdomain')})")
 
     configs = project.get("deployment_configs") or {}
-    wanted_r2 = {"MODEL_BUCKET": {"name": R2_BUCKET}} if R2_BUCKET else {}
+
+    # A binding to a bucket that does not exist makes the whole deployment fail,
+    # so only bind R2 once the bucket is really there.
+    r2_ready = False
+    if R2_BUCKET:
+        status, listing = call("GET", "/r2/buckets")
+        names = [b.get("name") for b in (listing.get("result") or {}).get("buckets", [])] if listing.get("success") else []
+        r2_ready = R2_BUCKET in names
+        if not r2_ready and listing.get("success"):
+            print(f"R2 bucket {R2_BUCKET} is missing - creating it")
+            status, created = call("POST", "/r2/buckets", {"name": R2_BUCKET})
+            r2_ready = bool(created.get("success"))
+            if not r2_ready:
+                print("  could not create the bucket (token needs Workers R2 Storage: Edit):", json.dumps(created)[:200])
+        elif not listing.get("success"):
+            print("  cannot list R2 buckets - leaving the R2 binding alone")
+    wanted_r2 = {"MODEL_BUCKET": {"name": R2_BUCKET}} if r2_ready else {}
     patch = {}
     for env_name in ("production", "preview"):
         current = configs.get(env_name) or {}
@@ -72,12 +88,16 @@ def main():
         if DB_ID:
             d1["DB"] = {"id": DB_ID}
         r2 = dict(current.get("r2_buckets") or {})
-        r2.update(wanted_r2)
+        if r2_ready:
+            r2.update(wanted_r2)
+        else:
+            r2.pop("MODEL_BUCKET", None)
         entry = {"env_vars": env_vars, "d1_databases": d1}
         if r2:
             entry["r2_buckets"] = r2
         patch[env_name] = entry
-        print(f"  {env_name}: D1 DB={'yes' if DB_ID else 'no'}  turnstile={'yes' if (SITE_KEY and SECRET_KEY) else 'kept as is'}  R2={R2_BUCKET or 'skipped'}")
+        r2_state = f"MODEL_BUCKET -> {R2_BUCKET}" if r2_ready else "skipped (bucket not ready)"
+        print(f"  {env_name}: D1 DB={'yes' if DB_ID else 'no'}  turnstile={'yes' if (SITE_KEY and SECRET_KEY) else 'kept as is'}  R2={r2_state}")
 
     status, body = call("PATCH", f"/pages/projects/{PROJECT}", {"deployment_configs": patch})
     if not body.get("success"):
