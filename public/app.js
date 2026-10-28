@@ -312,6 +312,7 @@ const App = (() => {
   function cancelKaraokeJob() {
     state.karaokeJobSeq += 1;
     if (state.karaokeWorker) {
+      try { state.karaokeWorker.postMessage({ type: 'cancel' }); } catch (_) {}
       state.karaokeWorker.terminate();
       state.karaokeWorker = null;
     }
@@ -323,10 +324,10 @@ const App = (() => {
     state.karaokeBusy = false;
   }
 
-  function runKaraokeWorker(type, buffer, options) {
+  function runKaraokeWorker(type, buffer, options, onStage) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker('/karaoke-worker.js?v=1.0'); }
+      try { worker = new Worker('/karaoke-worker.js?v=2.0'); }
       catch (_) { reject(new Error('This browser could not start audio processing.')); return; }
       state.karaokeWorker = worker;
       state.karaokeWorkerReject = reject;
@@ -339,8 +340,14 @@ const App = (() => {
         const data = event.data || {};
         if (data.type === 'progress') {
           const bar = document.getElementById('karaokeProgress');
-          if (bar) bar.value = Math.round(Math.max(0, Math.min(1, data.progress)) * 100);
+          if (bar && typeof data.progress === 'number') {
+            // Keep the bar monotonic across the download/separate/encode phases.
+            const pct = Math.round(Math.max(0, Math.min(1, data.progress)) * 100);
+            bar.value = Math.max(Number(bar.value) || 0, pct);
+          }
+          if (onStage) onStage(data);
         } else if (data.type === 'result') { finish(); resolve(data); }
+        else if (data.type === 'cancelled') { finish(); reject(Object.assign(new Error('Processing cancelled.'), { name: 'AbortError' })); }
         else if (data.type === 'error') { finish(); reject(new Error(data.message || 'Audio processing failed.')); }
       };
       worker.onerror = () => { finish(); reject(new Error('Could not process this track. Try a shorter file or another browser.')); };
@@ -350,6 +357,23 @@ const App = (() => {
         worker.postMessage({ type, left: left.buffer, right: right.buffer, sampleRate: buffer.sampleRate, options }, [left.buffer, right.buffer]);
       } catch (err) { finish(); reject(err); }
     });
+  }
+
+  function karaokeStageMessage(data) {
+    if (!data) return 'Working locally… your file stays on this device.';
+    if (data.stage === 'engine') return data.backend === 'webgpu'
+      ? 'Loading the AI engine (GPU)…'
+      : 'Loading the AI engine (processor)…';
+    if (data.stage === 'model') {
+      const pct = data.total ? Math.round((data.loaded / data.total) * 100) : 0;
+      return `Downloading the AI vocal model once (${pct}%). It is cached for next time.`;
+    }
+    if (data.stage === 'model-cached') return 'AI vocal model ready (cached on this device).';
+    if (data.stage === 'session') return 'Starting the AI model…';
+    if (data.stage === 'separate') return `Separating vocals with AI… ${Math.round((data.fraction || 0) * 100)}% (${data.chunk || 0}/${data.chunks || 0} windows)`;
+    if (data.stage === 'fallback') return 'AI engine unavailable — using the offline centre-reducer instead.';
+    if (data.stage === 'encode') return 'Building the karaoke backing WAV…';
+    return 'Working locally… your file stays on this device.';
   }
 
   function deactivateStageKaraoke() {
@@ -1316,9 +1340,11 @@ const App = (() => {
     state.karaokeBusy = true;
     const progress = document.getElementById('karaokeProgress');
     if (progress) progress.value = 0;
-    updateVocalRemoverUI('Reducing center vocals locally… your file stays on this device.');
+    updateVocalRemoverUI('Loading the AI vocal model… your file stays on this device.');
     try {
-      const processed = await runKaraokeWorker('process', source, { strength, introSeconds });
+      const processed = await runKaraokeWorker('separate', source, { strength, introSeconds }, (stage) => {
+        if (state.karaokeBusy) updateVocalRemoverUI(karaokeStageMessage(stage));
+      });
       if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
       const ctx = ensureAudioCtx();
       const effectBuffer = ctx.createBuffer(2, source.length, source.sampleRate);
@@ -1331,7 +1357,7 @@ const App = (() => {
         backing = await SingVazaDSP.transposeBufferAsync(ctx, effectBuffer, key);
         if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
         updateVocalRemoverUI('Preparing karaoke playback…');
-        const encoded = await runKaraokeWorker('encode', backing);
+        const encoded = await runKaraokeWorker('encode', backing, {}, null);
         if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
         wav = encoded.wav;
       }
@@ -1350,14 +1376,16 @@ const App = (() => {
       if (player) player.src = state.karaokeWavUrl;
       document.getElementById('compareOriginal')?.setAttribute('aria-pressed', 'false');
       document.getElementById('compareKaraoke')?.setAttribute('aria-pressed', 'true');
-      let message = 'Vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
-      if (processed.info?.nearMono) message += ' This track has very little stereo separation; the music may sound weak.';
+      let message = 'AI vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
+      if (processed.info?.engine === 'centre') message = 'Centre reduction is on (offline mode). Compare the versions or use the karaoke backing in Sing.';
+      else if (processed.info?.backend === 'webgpu') message += ' Processed on your GPU.';
+      if (processed.info?.strength < 1) message += ` Removing ${Math.round(processed.info.strength * 100)}% of the detected vocal.`;
       if (processed.info?.safetyGain < 1) message += ' Overall level was lowered slightly to prevent clipping.';
       updateVocalRemoverUI(message);
       suspendIdleWebAudio();
       drawTimeline();
       if (state.isPlaying) startPlayback(getCurrentPlayhead());
-      showToast('Karaoke backing ready to compare.');
+      showToast(processed.info?.engine === 'mdx' ? 'AI karaoke backing ready — compare it now.' : 'Karaoke backing ready to compare.');
     } catch (err) {
       if (jobSeq !== state.karaokeJobSeq) return;
       state.karaokeBusy = false;

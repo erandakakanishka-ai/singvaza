@@ -3,7 +3,7 @@ export function builtinPage(path: string) {
   const clean = path.replace(/\/$/, '');
   if (clean === '/studio/vocal-remover') return {
     title: 'Vocal Remover — Make Karaoke Online | SingVaza',
-    description: 'Reduce center-panned vocals in a stereo song locally in your browser. Download a karaoke-style backing track or use it in SingVaza Recorder.',
+    description: 'Remove vocals from any song with an AI model that runs in your browser. Download a karaoke backing track or sing over it in SingVaza Recorder.',
     path: '/studio/vocal-remover',
   };
   if (clean === '/studio/karaoke-recorder') return {
