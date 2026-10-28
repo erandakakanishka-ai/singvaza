@@ -41,7 +41,6 @@ jobs:
           # Only re-applied when the secret exists; otherwise whatever the project
           # already has stays exactly as it is.
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
         run: python3 scripts/ensure_pages_project.py
 
       - name: Deploy to Cloudflare Pages

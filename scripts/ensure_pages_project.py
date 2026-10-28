@@ -23,8 +23,11 @@ PROJECT = os.environ.get("PAGES_PROJECT", "singvaza")
 DB_ID = os.environ.get("D1_DATABASE_ID", "88b28623-1da8-42ff-8b52-479097f44650")
 # The site key is public - it is printed into every page - so it is safe to keep
 # here as the default. The secret is never in this file.
-SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "0x4AAAAAAFniOJ4h6ZeO8qhC").strip()
-SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+# An env var that is present but empty (an unset GitHub secret renders as "")
+# must fall back to the default, otherwise the key silently disappears.
+DEFAULT_SITE_KEY = "0x4AAAAAAFniOJ4h6ZeO8qhC"
+SITE_KEY = (os.environ.get("TURNSTILE_SITE_KEY") or "").strip() or DEFAULT_SITE_KEY
+SECRET_KEY = (os.environ.get("TURNSTILE_SECRET_KEY") or "").strip()
 R2_BUCKET = os.environ.get("MODEL_R2_BUCKET", "singvaza-models")
 
 
@@ -109,6 +112,15 @@ def main():
         print("  (the deployment can still work - bindings may need a manual check)")
         return 0
     print("bindings + variables saved")
+
+    status, body = call("GET", f"/pages/projects/{PROJECT}")
+    if body.get("success"):
+        cfg = (body["result"].get("deployment_configs") or {}).get("production") or {}
+        stored = cfg.get("env_vars") or {}
+        print("  after save - TURNSTILE_SITE_KEY:",
+              "set" if stored.get("TURNSTILE_SITE_KEY", {}).get("value") else "MISSING",
+              "| TURNSTILE_SECRET_KEY:",
+              "set" if stored.get("TURNSTILE_SECRET_KEY", {}).get("value") else "MISSING")
     return 0
 
 
