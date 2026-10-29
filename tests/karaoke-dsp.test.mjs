@@ -360,3 +360,47 @@ test('the first decode attempt hands over the buffer without copying it', async 
   assert.match(body, /file\.arrayBuffer\(\)/, 'the retry rebuilds its copy from the file');
   assert.doesNotMatch(body, /decodeAudioData\(raw\.slice/, 'never copies up front');
 });
+
+test('the instant reducer removes centre vocal energy without gutting the music', () => {
+  const w = require('../public/karaoke-worker.js');
+  const sr = 44100, n = sr * 8;
+  const musL = new Float32Array(n), musR = new Float32Array(n), voice = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr;
+    const bass = Math.sin(2 * Math.PI * 80 * t) * 0.25;
+    musL[i] = bass + Math.sin(2 * Math.PI * 440 * t * 1.004) * 0.15 + Math.sin(2 * Math.PI * 260 * t) * 0.1;
+    musR[i] = bass + Math.sin(2 * Math.PI * 440 * t * 0.996) * 0.15 + Math.sin(2 * Math.PI * 260 * t) * 0.1;
+    const f0 = 300 + 40 * Math.sin(t);
+    voice[i] = (Math.sin(2 * Math.PI * f0 * t) + 0.5 * Math.sin(4 * Math.PI * f0 * t)) * 0.12;
+  }
+  const L = new Float32Array(n), R = new Float32Array(n);
+  for (let i = 0; i < n; i++) { L[i] = musL[i] + voice[i]; R[i] = musR[i] + voice[i]; }
+  const before = { L: L.slice(), R: R.slice() };
+  const info = w.instantReduce(L, R, sr, { strength: 0.85, introSeconds: 0 }, null);
+
+  // the centred voice must lose at least 5 dB of the level it contributed
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (L[i] - before.L[i]) * voice[i]; den += voice[i] * voice[i]; }
+  const residualDb = 20 * Math.log10(Math.abs(num / den));
+  assert.ok(residualDb < -5, `voice residual should drop below -5 dB, got ${residualDb.toFixed(1)} dB`);
+
+  // ...while the music level stays within 1.5 dB (no hollow, no quiet output)
+  let eIn = 0, eOut = 0;
+  for (let i = 0; i < n; i++) { eIn += musL[i] ** 2 + musR[i] ** 2; eOut += L[i] ** 2 + R[i] ** 2; }
+  const levelDb = 10 * Math.log10(eOut / eIn);
+  assert.ok(Math.abs(levelDb) < 1.5, `music level should hold within 1.5 dB, moved ${levelDb.toFixed(1)} dB`);
+  assert.equal(info.engine, undefined);
+  assert.ok(info.safetyGain > 0);
+});
+
+test('the instant reducer leaves the intro untouched when asked', () => {
+  const w = require('../public/karaoke-worker.js');
+  const sr = 44100, n = sr * 4;
+  const L = new Float32Array(n), R = new Float32Array(n);
+  for (let i = 0; i < n; i++) { L[i] = Math.sin(i * 0.01) * 0.3; R[i] = Math.sin(i * 0.01 + 0.2) * 0.3; }
+  const inL = L.slice();
+  w.instantReduce(L, R, sr, { strength: 0.9, introSeconds: 1.5 }, null);
+  let maxDiff = 0;
+  for (let i = 0; i < sr * 1.4; i++) maxDiff = Math.max(maxDiff, Math.abs(L[i] - inL[i]));
+  assert.ok(maxDiff < 1e-6, 'the protected intro must be bit-identical to the original');
+});

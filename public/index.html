@@ -1237,9 +1237,9 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
       <section class="vocal-remover-panel card" id="vocalRemoverPanel" aria-labelledby="vocalRemoverTitle" tabindex="-1">
         <div class="vocal-remover-heading">
           <div>
-            <span class="vocal-remover-kicker">AI VOCAL SEPARATION <span aria-hidden="true">•</span> STAYS ON YOUR DEVICE</span>
+            <span class="vocal-remover-kicker">INSTANT VOCAL REMOVAL <span aria-hidden="true">•</span> STAYS ON YOUR DEVICE</span>
             <h2 id="vocalRemoverTitle">Vocal Remover</h2>
-            <p>Choose a stereo audio or supported video file. An MDX-Net AI model removes the lead vocal and rebuilds a clean karaoke backing — the song never leaves your device.</p>
+            <p>Choose a stereo audio or supported video file. The centre vocal is removed band by band and the backing is rebuilt in seconds — nothing is uploaded and no model has to download.</p>
           </div>
           <span class="vocal-remover-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span>
         </div>
@@ -1259,9 +1259,9 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           </div>
           <div class="karaoke-sliders">
             <div>
-              <label for="karaokeStrength">AI vocal removal: <span id="karaokeStrengthValue">85%</span></label>
+              <label for="karaokeStrength">Vocal removal: <span id="karaokeStrengthValue">85%</span></label>
               <input id="karaokeStrength" type="range" min="50" max="100" step="5" value="85" oninput="App.karaokeSettingsChanged()" />
-              <p class="karaoke-hint">How much of the AI backing replaces the original. 100% removes the most voice; lower values keep more of the original for a fuller feel.</p>
+              <p class="karaoke-hint">How hard the centre vocal is cut. 100% removes the most voice; lower values keep more of the original for a fuller feel. Works well on most pop and rock masters.</p>
             </div>
             <div>
               <label for="karaokeIntro">Protect intro (seconds)</label>
@@ -1271,7 +1271,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           </div>
         </div>
         <div class="vocal-remover-actions">
-          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Remove vocals (AI)</button>
+          <button type="button" class="btn btn-amber" id="btnKaraokeCut" onclick="App.applyKaraokeVocalCut()" aria-pressed="false" disabled>Remove vocals</button>
           <button type="button" class="btn btn-amber" id="btnUpdateKaraoke" onclick="App.updateKaraokeVocalCut()" hidden>Update karaoke</button>
           <button type="button" class="btn" id="btnCancelKaraoke" onclick="App.cancelKaraokeProcessing()" hidden>Cancel processing</button>
           <button type="button" class="btn btn-amber" id="btnDownloadKaraoke" onclick="App.downloadKaraoke()" hidden>Download karaoke WAV</button>
@@ -1289,7 +1289,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
           <audio id="karaokeComparePlayer" controls controlslist="nodownload" preload="metadata" aria-label="Original or karaoke comparison player"></audio>
         </div>
         <p class="karaoke-hint">Karaoke WAV and recorder downloads share your daily allowance. <span class="daily-limit-value">9</span> free downloads per day unless your account has Pro.</p>
-        <p class="vocal-remover-note">AI separation (UVR MDX-Net, MIT licence) runs inside your browser. The first run downloads a 48 MB model once and caches it; later runs are offline-capable. Lead vocals are removed while backing vocals, bass and stereo width stay intact. Very reverberant or heavily doubled vocals may leave faint traces. On low-end phones processing is slower — keep the tab open. If the AI engine cannot load, an offline centre-reducer is used instead.</p>
+        <p class="vocal-remover-note">Everything runs in your browser: no upload, no model download, no account. The remover measures, for every frequency in the voice range, how much of it is centred (a lead vocal is dead centre, guitars and keys are not) and cuts only that centred part, leaving bass, cymbals and stereo width intact. A typical song takes a few seconds. Vocals that are heavily doubled, delayed or very wet can leave faint traces — that is the physical limit of a centre-based separation; nothing is sent anywhere to do better.</p>
       </section>
     </div>
   </section>
@@ -1766,6 +1766,6 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
   <script src="/vendor/confetti.min.js?v=21.2"></script>
   <script src="/dsp-engine.js?v=21.2"></script>
   <script src="/vendor/fuse.basic-7.5.0.min.js"></script>
-  <script src="/app.js?v=25.5"></script>
+  <script src="/app.js?v=25.6"></script>
 </body>
 </html>

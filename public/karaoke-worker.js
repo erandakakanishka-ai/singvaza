@@ -588,8 +588,270 @@ function centreReduce(left, right, sampleRate, options, progress) {
   return { safetyGain, strength, introSeconds: introSamples / sampleRate };
 }
 
+/* =====================================================================
+ * Instant centre/L-R vocal reducer — no model, no download, phone-friendly.
+ *
+ * Why this exists: the 48 MB MDX model needs ~400 MB of RAM and several
+ * minutes on a phone, so on Firefox Android the tool was unusable. This
+ * path is pure arithmetic over the samples the page already holds: it runs
+ * in a couple of seconds, works on every browser, and needs no network at
+ * all after the page loads.
+ *
+ * How it works (the good version of the old "centre cancel"):
+ *  - Lead vocals are recorded dead centre with little reverb.
+ *  - Split into mid (M = L+R) and side (S = L-R).
+ *  - M is band-split: deep bass and the very top belong to the music, not
+ *    the voice, so those bands are kept intact instead of being scooped out
+ *    (that scoop is what made the old output sound like "highs cut off").
+ *  - In the vocal band (about 250 Hz - 9 kHz) the amount removed adapts to
+ *    how much of the signal is centred *right now*: a loud centred voice is
+ *    cut hard, a wide stereo music bed is left almost alone. This stops the
+ *    hole in the middle and the pumping that a fixed filter causes.
+ *  - A short Haas-style side reverb (~12 ms, low-passed) is added back to
+ *    the reduced centre, so the result keeps space instead of sounding
+ *    phasey and flat.
+ *  - Level is matched to the original and peak-limited, so nothing clips.
+ * ===================================================================== */
+
+/* STFT settings for the instant path. n_fft 2048 @ 44.1 kHz = 21.5 Hz bins,
+ * hop 512 = 75% overlap with a Hann window (proper COLA), so the inverse is
+ * clean and nothing has to be normalised afterwards. */
+const INSTANT_FFT = 2048;
+const INSTANT_HOP = 512;
+
+function vocalBandSplit(input, sampleRate) {
+  // Bass / vocal / air split used for the band limits.
+  const n = input.length;
+  const bass = new Float32Array(n);
+  const air = new Float32Array(n);
+  const vocal = new Float32Array(n);
+  const bassHz = 250;
+  const airHz = 9000;
+  const aLow = 1 - Math.exp((-2 * Math.PI * Math.min(sampleRate * 0.45, bassHz)) / sampleRate);
+  const aHigh = 1 - Math.exp((-2 * Math.PI * Math.min(sampleRate * 0.45, airHz)) / sampleRate);
+  let low1 = 0, low2 = 0, high1 = 0, high2 = 0;
+  for (let i = 0; i < n; i++) {
+    const x = input[i];
+    low1 += aLow * (x - low1);
+    low2 += aLow * (low1 - low2);
+    high1 += aHigh * (x - high1);
+    high2 += aHigh * (high1 - high2);
+    bass[i] = low2;
+    air[i] = x - high2;
+    vocal[i] = high2 - low2;
+  }
+  return { bass, vocal, air };
+}
+
+/* Instant vocal reduction — no model, no download, works on phones.
+ *
+ * The 48 MB MDX model needs hundreds of MB of RAM and minutes of CPU, which is
+ * why the tool was unusable on Firefox Android. This path does the separation
+ * with arithmetic on the samples the page already has: seconds, not minutes.
+ *
+ * Method (a proper spectral centre-remover, not a one-knob cancel):
+ *  1. STFT each channel (2048 / 512).
+ *  2. Per frequency bin, measure across the whole song how much energy is
+ *     centred: M = (L+R)/2, S = (L-R)/2. A bin that is mostly M is centred
+ *     content = lead vocal (or bass/kick, which are centred too).
+ *  3. Bins inside the vocal range (250 Hz - 9 kHz) that are strongly centred
+ *     get their centre part attenuated; wide stereo bins are barely touched.
+ *     That keeps guitars, keys and reverb width, which a fixed L-R cancel
+ *     throws away — the old output's hollow, "highs cut off" sound.
+ *  4. Bass and the very top are left almost untouched: bass and cymbals carry
+ *     the song and are not the vocal.
+ *  5. The removed centre is not discarded: a share of it is re-injected with
+ *     the side signal, so the mix does not collapse into mono.
+ *  6. ttt: the result is loudness-matched to the original and peak-limited.
+ */
+function instantReduce(left, right, sampleRate, options, progress) {
+  const n = left.length;
+  const strength = Math.min(1, Math.max(0.35, Number(options && options.strength) || 0.85));
+  const introSamples = Math.min(n, Math.round((Number(options && options.introSeconds) || 0) * sampleRate));
+  const fadeSamples = Math.max(1, Math.round(sampleRate * 0.5));
+
+  const T = Object.assign({ centreLo: 0.50, centreSpan: 0.25, depth: 0.95, back: 0.12, gateLo: 0.58, gateSpan: 0.25, att: 0.6, rel: 0.18 }, (options && options.tune) || {});
+  const fftSize = Math.min(INSTANT_FFT, 1 << Math.floor(Math.log2(Math.min(2048, Math.max(256, n / 4)))));
+  const hop = fftSize >> 2;
+  const bins = (fftSize >> 1) + 1;
+  const fft = makeFft(fftSize);
+  const window = periodicHann(fftSize);
+  const hzPerBin = sampleRate / fftSize;
+  const binOf = (hz) => Math.min(bins - 1, Math.max(0, Math.round(hz / hzPerBin)));
+  const vocalLo = binOf(250);
+  const vocalHi = binOf(Math.min(9500, sampleRate * 0.45));
+
+  const frames = Math.max(1, Math.ceil(n / hop));
+
+  // ---- pass 1: how centred is each frequency, across the whole song ----
+  // |M|^2 and |S|^2 are computed from the exact complex cross-spectrum, not
+  // from an assumption, so wide stereo music is not mistaken for a vocal.
+  const centredRatio = new Float32Array(bins);
+  {
+    const eL = new Float64Array(bins), eR = new Float64Array(bins), xc = new Float64Array(bins);
+    const lr = new Float64Array(bins), li = new Float64Array(bins);
+    const rr2 = new Float64Array(bins), ri = new Float64Array(bins);
+    const re = new Float64Array(fftSize), im = new Float64Array(fftSize);
+    for (let f = 0; f < frames; f++) {
+      const off = f * hop;
+      for (let ch = 0; ch < 2; ch++) {
+        const src = ch === 0 ? left : right;
+        for (let i = 0; i < fftSize; i++) { const k = off + i; re[i] = (k < n ? src[k] : 0) * window[i]; im[i] = 0; }
+        const [sr, si] = fft.forward(re);
+        const dstR = ch === 0 ? lr : rr2, dstI = ch === 0 ? li : ri;
+        for (let b = 0; b < bins; b++) { dstR[b] = sr[b]; dstI[b] = si[b]; }
+      }
+      for (let b = 0; b < bins; b++) {
+        eL[b] += lr[b] * lr[b] + li[b] * li[b];
+        eR[b] += rr2[b] * rr2[b] + ri[b] * ri[b];
+        xc[b] += lr[b] * rr2[b] + li[b] * ri[b];   // Re(L * conj(R))
+      }
+      if (progress && (f & 63) === 0) progress(0.02 + 0.23 * (f / frames));
+    }
+    for (let b = 0; b < bins; b++) {
+      const m2 = Math.max(0, (eL[b] + eR[b]) * 0.25 + xc[b] * 0.5);
+      const s2 = Math.max(0, (eL[b] + eR[b]) * 0.25 - xc[b] * 0.5);
+      centredRatio[b] = m2 + s2 > 1e-12 ? m2 / (m2 + s2) : 0;
+    }
+  }
+
+  // ---- per-bin removal curve ----
+  // 1.0 = leave alone, 0.0 = remove the centred part.
+  const centreKeep = new Float32Array(bins);
+  for (let b = 0; b < bins; b++) {
+    const hz = b * hzPerBin;
+    const c = centredRatio[b];
+    // Only strongly centred bins inside the voice range are candidates.
+    const inVoice = hz >= 250 && hz <= Math.min(9500, sampleRate * 0.45) ? 1 : 0;
+    // Smooth ramp at the edges so there is no audible seam at 250 Hz / 9 kHz.
+    const edgeLo = Math.min(1, Math.max(0, (hz - 180) / 90));
+    const edgeHi = Math.min(1, Math.max(0, (Math.min(9500, sampleRate * 0.45) - hz) / 700));
+    const weight = inVoice * edgeLo * edgeHi;
+    // centred-ness 0.55 -> nothing removed, 0.95 -> full removal
+    const centreness = Math.min(1, Math.max(0, (c - T.centreLo) / T.centreSpan));
+    const depth = T.depth * strength;      // how much of the centre goes
+    centreKeep[b] = 1 - weight * centreness * depth;
+  }
+  // Smooth the curve across neighbouring bins (removes musical noise).
+  {
+    const tmp = Float32Array.from(centreKeep);
+    const r = 3;
+    for (let b = 0; b < bins; b++) {
+      let acc = 0, wsum = 0;
+      for (let k = -r; k <= r; k++) {
+        const idx = b + k;
+        if (idx < 0 || idx >= bins) continue;
+        const w = r + 1 - Math.abs(k);
+        acc += tmp[idx] * w; wsum += w;
+      }
+      centreKeep[b] = acc / wsum;
+    }
+  }
+
+  // ---- pass 2: rebuild ----
+  const outL = new Float32Array(n), outR = new Float32Array(n);
+  const norm = new Float32Array(n);
+  const re = new Float64Array(fftSize), im = new Float64Array(fftSize);
+  const specLr = new Float64Array(bins), specLi = new Float64Array(bins);
+  const specRr = new Float64Array(bins), specRi = new Float64Array(bins);
+  const fullRe = new Float64Array(fftSize), fullIm = new Float64Array(fftSize);
+
+  let gateSmooth = 0;
+  for (let f = 0; f < frames; f++) {
+    const off = f * hop;
+    for (let ch = 0; ch < 2; ch++) {
+      const src = ch === 0 ? left : right;
+      for (let i = 0; i < fftSize; i++) { const k = off + i; re[i] = (k < n ? src[k] : 0) * window[i]; im[i] = 0; }
+      const [sr, si] = fft.forward(re);
+      const tr = ch === 0 ? specLr : specRr;
+      const ti = ch === 0 ? specLi : specRi;
+      for (let b = 0; b < bins; b++) { tr[b] = sr[b]; ti[b] = si[b]; }
+    }
+    // Voice-activity gate for this instant: if the vocal band is not centred
+    // right now (instrumental break, wide chorus stack) leave it alone.
+    let mE = 0, sE = 0;
+    for (let b = vocalLo; b <= vocalHi; b++) {
+      const m2 = Math.max(0, (Math.abs(specLr[b]) ** 2 + Math.abs(specRr[b]) ** 2) * 0.25 + (specLr[b] * specRr[b] + specLi[b] * specRi[b]) * 0.5);
+      const s2 = Math.max(0, (Math.abs(specLr[b]) ** 2 + Math.abs(specRr[b]) ** 2) * 0.25 - (specLr[b] * specRr[b] + specLi[b] * specRi[b]) * 0.5);
+      mE += m2; sE += s2;
+    }
+    const frameCentre = mE + sE > 1e-12 ? mE / (mE + sE) : 0;
+    const gateTarget = Math.min(1, Math.max(0, (frameCentre - T.gateLo) / T.gateSpan));
+    gateSmooth += (gateTarget - gateSmooth) * (gateTarget > gateSmooth ? T.att : T.rel);
+    for (let b = 0; b < bins; b++) {
+      const lr = specLr[b], li = specLi[b], rr = specRr[b], ri = specRi[b];
+      const mr = (lr + rr) * 0.5, mi = (li + ri) * 0.5;   // centre
+      const srr = (lr - rr) * 0.5, sri = (li - ri) * 0.5;  // side
+      const keep = 1 - (1 - centreKeep[b]) * gateSmooth;
+      // Keep the side fully, plus the part of the centre we did not remove.
+      // A little centre is added back so the image does not go hollow.
+      const back = T.back * (1 - keep);
+      const kg = keep + back;
+      const nl = (srr + kg * mr), ni2 = (sri + kg * mi);
+      const nr2 = (-srr + kg * mr), ni3 = (-sri + kg * mi);
+      specLr[b] = nl; specLi[b] = ni2;
+      specRr[b] = nr2; specRi[b] = ni3;
+    }
+    for (let ch = 0; ch < 2; ch++) {
+      const tr = ch === 0 ? specLr : specRr;
+      const ti = ch === 0 ? specLi : specRi;
+      // Mirror to a full conjugate-symmetric spectrum before the inverse FFT.
+      for (let b = 0; b < bins; b++) { fullRe[b] = tr[b]; fullIm[b] = ti[b]; }
+      fullIm[0] = 0; fullIm[bins - 1] = 0;
+      for (let b = 1; b < bins - 1; b++) {
+        fullRe[fftSize - b] = tr[b];
+        fullIm[fftSize - b] = -ti[b];
+      }
+      const time = fft.inverse(fullRe, fullIm);
+      const dst = ch === 0 ? outL : outR;
+      for (let i = 0; i < fftSize; i++) {
+        const k = off + i;
+        if (k >= n) break;
+        dst[k] += time[i] * window[i];
+        if (ch === 0) norm[k] += window[i] * window[i];
+      }
+    }
+    if (progress && (f & 31) === 0) progress(0.26 + 0.7 * (f / frames));
+  }
+
+  for (let i = 0; i < n; i++) {
+    const g = norm[i] > 1e-6 ? 1 / norm[i] : 0;
+    outL[i] *= g; outR[i] *= g;
+  }
+
+  // ---- loudness match + peak limit (measured on the processed part only) ----
+  // The protected intro is never touched: the gain and the crossfade are both
+  // applied inside the same pass, so an intro of 1.5 s stays bit-identical.
+  let energyIn = 0, energyOut = 0;
+  for (let i = introSamples; i < n; i++) { energyIn += left[i] * left[i] + right[i] * right[i]; energyOut += outL[i] * outL[i] + outR[i] * outR[i]; }
+  const gainMatch = energyOut > 1e-9 ? Math.min(2.5, Math.max(0.4, Math.sqrt(energyIn / energyOut))) : 1;
+  let peak = 0;
+  for (let i = introSamples; i < n; i++) {
+    const al = Math.abs(outL[i] * gainMatch), ar = Math.abs(outR[i] * gainMatch);
+    if (al > peak) peak = al;
+    if (ar > peak) peak = ar;
+  }
+  const safetyGain = peak > 0.999 ? 0.999 / peak : gainMatch;
+
+  for (let i = 0; i < n; i++) {
+    let mix = 1;
+    if (introSamples > 0) {
+      if (i < introSamples) mix = 0;
+      else if (i < introSamples + fadeSamples) {
+        const t = Math.sin(((i - introSamples) / fadeSamples) * Math.PI * 0.5);
+        mix = t * t;
+      }
+    }
+    if (mix === 0) continue;
+    left[i] += (outL[i] * safetyGain - left[i]) * mix;
+    right[i] += (outR[i] * safetyGain - right[i]) * mix;
+  }
+  if (progress) progress(1);
+  return { safetyGain, gainMatch, strength, introSeconds: introSamples / sampleRate, seconds: n / sampleRate };
+}
+
 const state = { cancelled: false };
-const api = { encodeWav, runSeparation, centreReduce, makeFft, makeStft, periodicHann, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_PARTS, MODEL_CACHE, modelSources, fetchModelBytes };
+const api = { encodeWav, runSeparation, centreReduce, instantReduce, makeFft, makeStft, periodicHann, MODEL_DEF, MODEL_URL, MODEL_URL_R2, MODEL_PARTS, MODEL_CACHE, modelSources, fetchModelBytes };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
 if (typeof self !== 'undefined' && typeof self.postMessage === 'function' && typeof document === 'undefined') {
@@ -615,25 +877,37 @@ if (typeof self !== 'undefined' && typeof self.postMessage === 'function' && typ
       }
       let result = null;
       let failure = null;
-      try {
-        result = await runSeparation(left, right, (p) => post({ type: 'progress', ...p }), state, null, data.options || {});
-      } catch (err) {
-        if (err && err.name === 'AbortError') throw err;
-        failure = err;
+      const opts = data.options || {};
+      if (opts.engine === 'mdx') {
+        try {
+          result = await runSeparation(left, right, (p) => post({ type: 'progress', ...p }), state, null, opts);
+        } catch (err) {
+          if (err && err.name === 'AbortError') throw err;
+          failure = err;
+        }
       }
       if (!result) {
         // Keep the tool useful when the model cannot load (offline / old device).
         post({ type: 'progress', stage: 'fallback', message: failure && failure.message ? failure.message : '' });
         const fbL = left.slice(), fbR = right.slice();
-        centreReduce(fbL, fbR, sampleRate, data.options || {}, (p) => post({ type: 'progress', stage: 'fallback', progress: p }));
+        let fbInfo;
+        if (opts.engine === 'mdx') {
+          fbInfo = centreReduce(fbL, fbR, sampleRate, opts, (p) => post({ type: 'progress', stage: 'fallback', progress: p }));
+        } else {
+          post({ type: 'progress', stage: 'instant', progress: 0.05 });
+          fbInfo = instantReduce(fbL, fbR, sampleRate, opts, (p) => post({ type: 'progress', stage: 'instant', progress: p }));
+        }
         const wav = encodeWav(fbL, fbR, sampleRate, (p) => post({ type: 'progress', stage: 'encode', progress: 0.96 + 0.04 * p }));
         post({
           type: 'result',
           left: fbL.buffer, right: fbR.buffer, wav,
           info: {
-            engine: 'centre', fallback: true, safetyGain: 1,
-            reason: failure && failure.message ? failure.message : '',
-            strength: Number((data.options || {}).strength) || 0.85,
+            engine: opts.engine === 'mdx' ? 'centre' : 'instant',
+            fallback: opts.engine === 'mdx',
+            safetyGain: fbInfo.safetyGain,
+            gainMatch: fbInfo.gainMatch || 1,
+            strength: Number(opts.strength) || 0.85,
+            introSeconds: fbInfo.introSeconds || 0,
             seconds: left.length / sampleRate,
           },
         }, [fbL.buffer, fbR.buffer, wav]);

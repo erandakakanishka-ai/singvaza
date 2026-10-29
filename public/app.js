@@ -327,7 +327,7 @@ const App = (() => {
   function runKaraokeWorker(type, buffer, options, onStage) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker('/karaoke-worker.js?v=3.1'); }
+      try { worker = new Worker('/karaoke-worker.js?v=4.0'); }
       catch (_) { reject(new Error('This browser could not start audio processing.')); return; }
       state.karaokeWorker = worker;
       state.karaokeWorkerReject = reject;
@@ -372,6 +372,7 @@ const App = (() => {
     if (data.stage === 'session') return 'Starting the AI model…';
     if (data.stage === 'separate') return `Separating vocals with AI… ${Math.round((data.fraction || 0) * 100)}% (${data.chunk || 0}/${data.chunks || 0} windows)`;
     if (data.stage === 'fallback') return 'AI engine unavailable — using the offline centre-reducer instead.';
+    if (data.stage === 'instant') return `Removing the centre vocal… ${Math.round((data.progress || 0) * 100)}%`;
     if (data.stage === 'encode') return 'Building the karaoke backing WAV…';
     return 'Working locally… your file stays on this device.';
   }
@@ -1340,9 +1341,9 @@ const App = (() => {
     state.karaokeBusy = true;
     const progress = document.getElementById('karaokeProgress');
     if (progress) progress.value = 0;
-    updateVocalRemoverUI('Loading the AI vocal model… your file stays on this device.');
+    updateVocalRemoverUI('Removing the centre vocal… your file stays on this device.');
     try {
-      const processed = await runKaraokeWorker('separate', source, { strength, introSeconds }, (stage) => {
+      const processed = await runKaraokeWorker('separate', source, { strength, introSeconds, engine: 'instant' }, (stage) => {
         if (state.karaokeBusy) updateVocalRemoverUI(karaokeStageMessage(stage));
       });
       if (jobSeq !== state.karaokeJobSeq || loadSeq !== state.backingLoadSeq) return;
@@ -1376,10 +1377,10 @@ const App = (() => {
       if (player) player.src = state.karaokeWavUrl;
       document.getElementById('compareOriginal')?.setAttribute('aria-pressed', 'false');
       document.getElementById('compareKaraoke')?.setAttribute('aria-pressed', 'true');
-      let message = 'AI vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
+      let message = 'Vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
       if (processed.info?.engine === 'centre') message = 'Centre reduction is on (offline mode). Compare the versions or use the karaoke backing in Sing.';
       else if (processed.info?.backend === 'webgpu') message += ' Processed on your GPU.';
-      if (processed.info?.strength < 1) message += ` Using ${Math.round(processed.info.strength * 100)}% of the AI backing.`;
+      if (processed.info?.strength < 1) message += ` Strength ${Math.round(processed.info.strength * 100)}%.`;
       if (processed.info?.safetyGain < 1) message += ' Overall level was lowered slightly to prevent clipping.';
       updateVocalRemoverUI(message);
       suspendIdleWebAudio();
