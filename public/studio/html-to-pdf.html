@@ -12,7 +12,7 @@
 :root{--bg:#141414;--panel:#1d1d1d;--panel2:#171717;--line:#333333;--ink:#ededed;--dim:#a3a3a3;--cyan:#e0a13a;--ok:#5fbf7f;--bad:#e06c60;--amber:#f2a93b;--amber-ink:#1a1206;--slate:#8b98a8;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);height:100%}
-body{overflow:hidden}
+body{overflow-x:auto;overflow-y:hidden}
 a{color:var(--cyan)}
 button,select,input{font-family:inherit}
 /* three panes: toolbar | editor | preview */
@@ -105,10 +105,10 @@ textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;ba
 .rail-vertical svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;transform:rotate(-90deg)}
 .rail-vertical span{writing-mode:vertical-rl}
 /* the editor and the viewer can go full width */
-.app{display:flex!important}
-.app>.pane-tools{flex:0 0 212px;min-width:0}
-.app>.pane-editor{flex:1 1 280px;min-width:0}
-.app>.pane-preview{flex:1 1 320px;min-width:0}
+.app{display:flex!important;min-width:1180px}
+.app>.pane-tools{flex:0 0 212px;min-width:200px}
+.app>.pane-editor{flex:1 1 340px;min-width:330px}
+.app>.pane-preview{flex:1 1 340px;min-width:340px}
 .pane.full{flex:1 1 100%!important;width:auto!important;max-width:none!important}
 details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:6px 0}
 .warn{display:none;margin-top:6px;font-size:11px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:6px 8px}
@@ -364,6 +364,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
         if (target.classList.contains('collapsed')) return;
         active = true; moved = false;
         startX = e.clientX; startW = target.getBoundingClientRect().width;
+        target.style.minWidth = '0';
         handle.classList.add('active');
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
