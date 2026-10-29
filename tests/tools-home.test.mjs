@@ -26,12 +26,18 @@ test('the tool counter follows what is actually on screen', () => {
   }
 });
 
-test('the "tools we can build next" list is on the home page', () => {
+test('the ranked "what to build next" list is on the home page', () => {
   assert.ok(html.includes('id="roadmapTools"'), 'the roadmap block exists');
-  const items = html.match(/<li><b>/g) || [];
-  assert.ok(items.length >= 20, 'a real list of candidate tools (' + items.length + ')');
-  for (const name of ['Photos → PDF', 'Invoice → PDF', 'QR code maker', 'EPF / ETF']) {
+  const ranked = html.match(/<li><span class="rank">/g) || [];
+  assert.equal(ranked.length, 8, 'eight ranked ideas, no invented extras');
+  for (const name of ['Image compressor', 'Photos → PDF', 'QR code generator', 'PDF merge / split']) {
     assert.ok(html.includes(name), 'missing idea ' + name);
   }
-  assert.ok(/no server, no upload/i.test(html), 'the on-device rule is stated');
+  assert.ok(/only those we can run on your own device/i.test(html), 'the on-device rule is stated');
+});
+
+test('the cover is drawn, not a stock photo', () => {
+  assert.ok(html.includes('class="art"'), 'an inline SVG cover');
+  assert.ok(!/hero-documents|vocal-remover-studio\.jpg[^)]*\) center\/cover/.test(html.slice(html.indexOf('.discover-art'), html.indexOf('.discover-art') + 400)), 'no photo file behind the hero');
+  assert.ok(html.includes('html[data-theme="light"] .discover-art .art-page'), 'the cover has a light-theme variant');
 });

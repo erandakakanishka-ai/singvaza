@@ -935,8 +935,20 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 .discover-kicker{color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 .discover-copy h1{font-size:clamp(30px,4.1vw,52px);line-height:1.1;max-width:550px;letter-spacing:-.045em;margin:13px 0}
 .discover-copy p{color:var(--text-secondary);max-width:520px;line-height:1.65;font-size:15px}
-.discover-art{position:relative;min-height:220px;background:linear-gradient(90deg,var(--surface-2) 0%,transparent 45%),linear-gradient(0deg,rgba(9,12,20,.55),transparent 70%),url('/assets/hero-documents.jpg') center/cover}
-.discover-art span{position:absolute;bottom:20px;right:22px;color: var(--text);font-size:11px;letter-spacing:.1em;font-weight:800;background:rgba(8,12,18,.72);border:1px solid var(--hairline);padding:8px 12px;border-radius:99px}
+.discover-art{position:relative;min-height:220px;overflow:hidden;background:
+  radial-gradient(120% 90% at 78% 18%,rgba(245,158,11,.30),transparent 58%),
+  radial-gradient(90% 80% at 92% 92%,rgba(56,189,248,.20),transparent 62%),
+  linear-gradient(160deg,var(--surface-2) 0%,var(--surface) 52%,var(--surface-3) 100%)}
+.discover-art svg.art{position:absolute;inset:0;width:100%;height:100%}
+.discover-art .art-sheet{fill:rgba(255,255,255,.06);stroke:rgba(251,191,36,.55);stroke-width:1.2}
+.discover-art .art-page{fill:rgba(12,16,24,.55);stroke:rgba(251,191,36,.7)}
+html[data-theme="light"] .discover-art .art-sheet{fill:rgba(15,23,42,.05)}
+html[data-theme="light"] .discover-art .art-page{fill:rgba(255,255,255,.92)}
+.discover-art .art-line{stroke:rgba(248,250,252,.30);stroke-width:2;stroke-linecap:round}
+.discover-art .art-line.warm{stroke:rgba(251,191,36,.75)}
+.discover-art .art-glow{fill:url(#artGlow)}
+.discover-art .art-dot{fill:#fbbf24}
+.discover-art span{position:absolute;bottom:16px;right:18px;font-size:10px;color: var(--text);font-size:11px;letter-spacing:.1em;font-weight:800;background:rgba(8,12,18,.72);border:1px solid var(--hairline);padding:8px 12px;border-radius:99px}
 .discovery-search{display:flex;align-items:center;gap:10px;max-width:570px;margin-top:24px;padding:5px 6px 5px 15px;background:var(--input-bg);border:1px solid var(--hairline);border-radius:13px;box-shadow:0 12px 28px rgba(0,0,0,.16)}
 .discovery-search svg{color:#fbbf24;flex:none}.discovery-search input{width:100%;min-width:0;outline:none;border:0;background:transparent;color: var(--text);padding:11px 0;font:inherit}
 .discovery-search input::placeholder{color:var(--text-secondary)}.discovery-search .btn{min-height:43px}
@@ -974,6 +986,12 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 .roadmap>summary small{font-weight:600;color:var(--text-secondary);font-size:11.5px}
 .roadmap-group{padding:2px 0 12px}
 .roadmap-group h4{margin:8px 0 8px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;font-weight:800}
+.roadmap ol.ranked{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;counter-reset:none}
+.roadmap ol.ranked li{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"rank name tag" "rank note tag";align-items:center;column-gap:9px;row-gap:1px;padding:9px 11px;border:1px solid var(--hairline);border-radius:11px;background:var(--tile-top)}
+.roadmap .rank{grid-area:rank;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:rgba(245,158,11,.16);color:#fbbf24;font-size:11.5px;font-weight:800}
+.roadmap ol.ranked b{grid-area:name;font-size:13.5px;line-height:1.25}
+.roadmap ol.ranked em{grid-area:note;font-style:normal;color:var(--text-secondary);font-size:11.5px;line-height:1.35}
+.roadmap ol.ranked i{grid-area:tag;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);border:1px solid var(--hairline);border-radius:5px;padding:2px 6px;white-space:nowrap}
 .roadmap ul{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 .roadmap li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--text);padding:7px 10px;border:1px solid var(--hairline);border-radius:10px;background:var(--tile-top)}
 .roadmap li b{font-weight:700}
@@ -981,7 +999,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 .roadmap li i{flex:none;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#0b1220;background:#fbbf24;border-radius:5px;padding:2px 5px}
 .roadmap li i.soon{background:transparent;border:1px solid var(--hairline);color:var(--text-secondary)}
 .roadmap .roadmap-note{color:var(--text-secondary);font-size:11.5px;line-height:1.5;padding:0 2px 14px;margin:0}
-@media(max-width:600px){.roadmap ul{grid-template-columns:1fr}.roadmap{padding:2px 12px}.roadmap li{font-size:12.5px}}
+@media(max-width:600px){.roadmap ul,.roadmap ol.ranked{grid-template-columns:1fr}.roadmap{padding:2px 12px}.roadmap li{font-size:12.5px}}
 @media(prefers-reduced-motion:reduce){.tool-tile{transition:none}.tool-tile:hover{transform:none}}
 
 </style>
@@ -1313,9 +1331,9 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
     <div class="directory">
       <div class="discover-hero">
         <div class="discover-copy">
-          <span class="discover-kicker">SINGVAZA • TOOLS &amp; STORIES</span>
-          <h1>Make something<br /><span style="color:#fbbf24;">worth sharing.</span></h1>
-          <p>Useful tools for your creative flow, plus ideas and guides to help you along the way.</p>
+          <span class="discover-kicker">SINGVAZA • POCKET TOOLS</span>
+          <h1>Small tools that<br /><span style="color:#fbbf24;">just work.</span></h1>
+          <p>Documents, photos and everyday files, handled on your own phone. Nothing to install, nothing uploaded.</p>
           <form class="discovery-search" role="search" onsubmit="event.preventDefault();App.searchDiscovery()">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <label for="siteSearch" class="sr-only">Search tools and articles</label>
@@ -1324,7 +1342,52 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
           </form>
           <div class="discovery-meta"><span>Made for mobile</span><span>No install needed</span><span>Free to explore</span></div>
         </div>
-        <div class="discover-art" role="img" aria-label="A desk with documents being converted on a phone"><span>DOCUMENTS, NOT UPLOADS ✦</span></div>
+        <div class="discover-art" role="img" aria-label="An illustrated sheet of paper turning into light">
+          <svg class="art" viewBox="0 0 520 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <radialGradient id="artGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity=".55"/>
+                <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+              </radialGradient>
+              <linearGradient id="artEdge" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" stop-opacity=".9"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity=".55"/>
+              </linearGradient>
+            </defs>
+            <circle class="art-glow" cx="352" cy="104" r="118"/>
+            <!-- three stacked sheets, the back two faint, the front one crisp -->
+            <g transform="translate(300 40) rotate(-9)">
+              <rect class="art-sheet" x="0" y="0" width="132" height="176" rx="9" opacity=".45"/>
+            </g>
+            <g transform="translate(280 46) rotate(-4)">
+              <rect class="art-sheet" x="0" y="0" width="132" height="176" rx="9" opacity=".7"/>
+            </g>
+            <g transform="translate(256 54)">
+              <rect class="art-page" x="0" y="0" width="136" height="180" rx="10" stroke="url(#artEdge)" stroke-width="1.4"/>
+              <line class="art-line warm" x1="20" y1="34" x2="96" y2="34"/>
+              <line class="art-line" x1="20" y1="58" x2="116" y2="58"/>
+              <line class="art-line" x1="20" y1="76" x2="104" y2="76"/>
+              <line class="art-line" x1="20" y1="102" x2="116" y2="102"/>
+              <line class="art-line" x1="20" y1="120" x2="88" y2="120"/>
+              <line class="art-line warm" x1="20" y1="150" x2="64" y2="150"/>
+            </g>
+            <!-- light coming out of the top corner of the page -->
+            <g stroke="#fbbf24" stroke-linecap="round" fill="none">
+              <path d="M398 92c26-18 44-16 62-34" stroke-width="2" opacity=".85"/>
+              <path d="M404 116c30-6 50 2 74-10" stroke-width="1.6" opacity=".6"/>
+              <path d="M396 66c16-16 24-30 28-46" stroke-width="1.6" opacity=".55"/>
+            </g>
+            <g fill="#fbbf24">
+              <circle class="art-dot" cx="466" cy="54" r="3" opacity=".9"/>
+              <circle class="art-dot" cx="484" cy="104" r="2.2" opacity=".7"/>
+              <circle class="art-dot" cx="424" cy="16" r="2" opacity=".6"/>
+            </g>
+            <g stroke="rgba(248,250,252,.16)" stroke-width="1" fill="none">
+              <circle cx="352" cy="104" r="146"/><circle cx="352" cy="104" r="184" opacity=".6"/>
+            </g>
+          </svg>
+          <span>MADE ON YOUR DEVICE ✦</span>
+        </div>
       </div>
       <section class="directory-section" id="toolDirectory" aria-labelledby="toolsHeading">
         <div class="section-head"><div><span class="section-eyebrow">EXPLORE &amp; CREATE</span><h2 id="toolsHeading">Tools for your next idea.</h2><p>Practical tools, ready whenever you are.</p></div><span id="toolCount" style="color:#9eacbc;font-size:12px;"></span></div>
@@ -1347,53 +1410,20 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
 
         <details class="roadmap" id="roadmapTools">
           <summary>
-            <span>Tools we can build next <small>· the most searched, all on-device</small></span>
+            <span>What to build next <small>· ranked by real search demand</small></span>
             <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
-          <div class="roadmap-group">
-            <h4>Documents &amp; PDF</h4>
-            <ul>
-              <li><b>Photos → PDF</b><span>Pick 1–30 photos, get one A4 PDF</span><i>easy</i></li>
-              <li><b>Word → HTML / Text</b><span>Already reads .docx on-device</span><i>easy</i></li>
-              <li><b>Excel → CSV</b><span>Any sheet, first 400 rows</span><i>easy</i></li>
-              <li><b>CSV → Excel</b><span>Real .xlsx from a CSV paste</span><i>easy</i></li>
-              <li><b>Invoice → PDF</b><span>Fill a form, download a clean invoice</span><i>easy</i></li>
-              <li><b>CV / résumé → PDF</b><span>Template, type, export</span><i>medium</i></li>
-              <li><b>PDF merge / split</b><span>Combine or cut pages, no upload</span><i>hard</i></li>
-            </ul>
-          </div>
-          <div class="roadmap-group">
-            <h4>Photos</h4>
-            <ul>
-              <li><b>Passport-size photo sheet</b><span>Crop + tile on a 4×6 sheet, print</span><i>easy</i></li>
-              <li><b>Image compressor</b><span>Shrink JPG/PNG before sending</span><i>easy</i></li>
-              <li><b>JPG → WebP</b><span>Smaller files, same look</span><i>easy</i></li>
-              <li><b>Photo resizer</b><span>Exact pixels for forms and visas</span><i>easy</i></li>
-            </ul>
-          </div>
-          <div class="roadmap-group">
-            <h4>Text &amp; code</h4>
-            <ul>
-              <li><b>Word &amp; character counter</b><span>Limits for essays and posts</span><i>easy</i></li>
-              <li><b>Case converter</b><span>UPPER, lower, Title, sentence</span><i>easy</i></li>
-              <li><b>JSON formatter</b><span>Pretty-print and validate</span><i>easy</i></li>
-              <li><b>Base64 / URL encode</b><span>Encode and decode safely</span><i>easy</i></li>
-              <li><b>QR code maker</b><span>Wi-Fi, links, text → PNG</span><i>easy</i></li>
-              <li><b>Markdown → Word</b><span>Uses the same writer as HTML → Word</span><i>easy</i></li>
-            </ul>
-          </div>
-          <div class="roadmap-group">
-            <h4>Sri Lanka &amp; everyday</h4>
-            <ul>
-              <li><b>Loan / EMI calculator</b><span>Monthly payment + full schedule</span><i>easy</i></li>
-              <li><b>EPF / ETF salary calculator</b><span>Take-home from gross pay</span><i>easy</i></li>
-              <li><b>Age &amp; date difference</b><span>Years, months, days</span><i>easy</i></li>
-              <li><b>Unit &amp; currency converter</b><span>mm ↔ inch, kg ↔ lb, LKR rates</span><i>soon</i></li>
-              <li><b>NIC birthday / gender check</b><span>Old and new NIC numbers</span><i>soon</i></li>
-              <li><b>Sinhala ↔ legacy font converter</b><span>FM fonts to Unicode</span><i>soon</i></li>
-            </ul>
-          </div>
-          <p class="roadmap-note">Every one of these runs on your own device: no server, no upload, no account — the same rule as the two tools above. Tell me which one to build first and it goes live next.</p>
+          <ol class="ranked">
+            <li><span class="rank">1</span><b>Image compressor</b><em>Compress to under 50 / 100 / 200 KB</em><i>tiny</i></li>
+            <li><span class="rank">2</span><b>Photos → PDF</b><em>Up to 30 photos into one A4 PDF</em><i>tiny</i></li>
+            <li><span class="rank">3</span><b>QR code generator</b><em>Link, Wi-Fi or text — PNG and SVG</em><i>tiny</i></li>
+            <li><span class="rank">4</span><b>Passport / ID photo sheet</b><em>Crop and tile on a 4×6 sheet, print</em><i>small</i></li>
+            <li><span class="rank">5</span><b>Word counter</b><em>Words, characters, Sinhala and English</em><i>tiny</i></li>
+            <li><span class="rank">6</span><b>JPG / PNG → WebP</b><em>Smaller files, same look</em><i>tiny</i></li>
+            <li><span class="rank">7</span><b>PDF merge / split</b><em>Combine or cut pages, no upload</em><i>big</i></li>
+            <li><span class="rank">8</span><b>CSV ↔ Excel</b><em>Paste a CSV, get a real .xlsx and back</em><i>small</i></li>
+          </ol>
+          <p class="roadmap-note">Picked from the tools people search for most, and only those we can run on your own device. Say a number and it goes live next.</p>
         </details>
       </section>
       <section class="directory-section" aria-labelledby="homeBlogHeading">
@@ -1942,7 +1972,7 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
   <script src="/dsp-engine.js?v=21.2"></script>
   <script src="/vendor/fuse.basic-7.5.0.min.js"></script>
   <script src="/tour.js?v=2"></script>
-  <script src="/app.js?v=26.1"></script>
+  <script src="/app.js?v=26.2"></script>
 <script>
   // a gentle first-visit walkthrough: theme, tools, and the two document converters
   if (window.SingVazaTour) window.SingVazaTour.wire([
