@@ -55,6 +55,8 @@ select,input[type=number],input[type=text]{width:100%;background:#101010;color:v
 .tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dim);font-size:12px;font-weight:700;padding:9px 11px;cursor:pointer}
 .tab[aria-pressed="true"]{color:#fff;border-bottom-color:var(--amber)}
 .tabbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px;padding:4px 2px}
+.tiny{background:#242424;border:1px solid #3d3d3d;color:var(--dim);font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;cursor:pointer}
+.tiny:hover{color:var(--ink);border-color:#5a5a5a}
 .editorwrap{position:relative;flex:1;min-height:0;display:flex}
 .gutter{flex:none;width:42px;overflow:hidden;background:#101010;border-right:1px solid var(--line);color:#5a5a5a;font:12px/1.55 var(--mono);padding:8px 0;text-align:right}
 .gutter div{padding-right:7px;height:18.6px}
@@ -105,11 +107,13 @@ textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;ba
 .rail-vertical svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;transform:rotate(-90deg)}
 .rail-vertical span{writing-mode:vertical-rl}
 /* the editor and the viewer can go full width */
-.app{display:flex!important;min-width:1180px}
-.app>.pane-tools{flex:0 0 212px;min-width:200px}
-.app>.pane-editor{flex:1 1 340px;min-width:330px}
-.app>.pane-preview{flex:1 1 340px;min-width:340px}
+.app{display:flex!important;width:1180px;min-width:1180px;max-width:1180px}
+.app>.pane-tools{flex:0 0 212px;width:212px;min-width:0}
+.app>.pane-editor{flex:1 1 0;min-width:0}
+.app>.pane-preview{flex:1 1 0;min-width:0}
+.pane{overflow:hidden}
 .pane.full{flex:1 1 100%!important;width:auto!important;max-width:none!important}
+/* the guided tour styles live in /tour.js */
 details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:6px 0}
 .warn{display:none;margin-top:6px;font-size:11px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:6px 8px}
 .footnote{margin-top:22px;font-size:11.5px;color:#5b6b86;line-height:1.6}
@@ -227,7 +231,9 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       <button class="tab" data-type="markdown" aria-pressed="false">Markdown</button>
       <button class="tab" data-type="code" aria-pressed="false">Code</button>
       <button class="tab" data-type="text" aria-pressed="false">Text</button>
-      <span class="tabbar-right"><span id="count"></span></span>
+      <span class="tabbar-right"><span id="count"></span>
+        <button class="tiny" id="btnHideCode" title="Hide the code panel (drag the edge to resize)">Hide &#10005;</button>
+      </span>
     </div>
     <div class="code-row" id="codeRow" hidden>
       <label class="f" for="lang">Language</label>
@@ -250,6 +256,12 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <div class="previewbar">
       <span id="pageInfo">A4 portrait</span>
       <span style="display:flex;align-items:center;gap:6px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
+      <button class="tbtn small" id="btnToggleCode" style="width:auto;margin:0" title="Hide or show the code panel">
+        <svg viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg><span id="toggleCodeLabel">Hide code</span>
+      </button>
+      <button class="tbtn small" id="btnToggleTools" style="width:auto;margin:0" title="Hide or show the tools panel">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Tools
+      </button>
       <button class="tbtn small" id="btnPrint" style="width:auto;margin:0">Print preview</button>
       <a class="tbtn small" id="btnHomeView" href="/" style="width:auto;margin:0;text-decoration:none">
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home
@@ -260,10 +272,14 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
   </section>
 </div>
 
+<button id="tourStart" title="Show me around — a 60 second tour">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>How it works
+</button>
 <div id="printHost" style="position:absolute;left:-99999px;top:0;width:0;height:0;overflow:visible;pointer-events:none"></div>
 
 <script src="/pdf-engine.js?v=2"></script>
 <script src="/office-writer.js?v=2"></script>
+<script src="/tour.js?v=2"></script>
 <script>
 (function () {
   'use strict';
@@ -316,6 +332,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
 
 
   /* ---------------- drag-to-resize / drag-to-hide panels ---------------- */
+  var PANELS = {};
   (function panels() {
     var app = document.querySelector('.app');
     var tools = $('paneTools'), editor = $('paneEditor'), preview = $('panePreview');
@@ -347,7 +364,20 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       if (!zoomTouched) fitZoom();
       applyZoom();
       paintGutter();
+      syncLabels();
     }
+    function syncLabels() {
+      var label = $('toggleCodeLabel');
+      if (label) label.textContent = editor.classList.contains('collapsed') ? 'Show code' : 'Hide code';
+      var t = $('btnToggleTools'); if (t) t.setAttribute('aria-pressed', String(tools.classList.contains('collapsed')));
+    }
+    PANELS.collapse = collapse; PANELS.expand = expand; PANELS.refresh = refreshLayout;
+    PANELS.toggle = function (el, neighbour) {
+      if (el.classList.contains('collapsed')) { expand(el); if (neighbour) neighbour.classList.remove('full'); }
+      else { collapse(el); if (neighbour) neighbour.classList.add('full'); }
+    };
+    PANELS.isCollapsed = function (el) { return el.classList.contains('collapsed'); };
+    PANELS.el = { tools: tools, editor: editor, preview: preview };
 
     /* the rail inside a collapsed panel brings it back */
     [['railTools', tools], ['railEditor', editor], ['railPreview', preview]].forEach(function (pair) {
@@ -413,6 +443,10 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
         if (target.classList.contains('collapsed')) expand(target); else collapse(target);
       });
     }
+
+    $('btnToggleCode').addEventListener('click', function () { PANELS.toggle(editor, preview); });
+    $('btnHideCode').addEventListener('click', function () { collapse(editor); preview.classList.add('full'); });
+    $('btnToggleTools').addEventListener('click', function () { PANELS.toggle(tools, null); });
 
     // tools | code : dragging right grows the tools panel
     bindDrag($('dragTools'), tools, editor, 1);
@@ -689,6 +723,25 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
   src.addEventListener('input', paintGutter);
   src.addEventListener('keyup', paintGutter);
   if (window.innerWidth < 1000) { var mo = $('moreOpts'); if (mo) mo.open = false; expandContractForPhone(); }
+
+  /* ---------------- guided tour (shared module: /tour.js) ---------------- */
+  function panelSwitch(el, on) { if (!el) return; if (on) PANELS.collapse(el); else PANELS.expand(el); }
+  var TOUR = [
+    { el: '#paneTools', place: 'right', title: 'Tools live here',
+      text: 'Everything you can do sits on this left panel: tidy the code, import a file, and download PDF, Word, Excel or PowerPoint. Tap the ☰ Tools button up there to hide it.' },
+    { el: '.tabbar', place: 'bottom', title: 'Pick what you are pasting',
+      text: 'HTML, Markdown, plain Code or Text. These arrow tabs tell the converter what your text is.' },
+    { el: '.editorwrap', place: 'right', title: 'Type or paste here',
+      text: 'Line numbers, Tab to indent, and the page on the right updates while you type.' },
+    { el: '.previewbar', place: 'bottom', title: 'Your page, live',
+      text: 'This is exactly what gets printed. Paper size and zoom are here, and “Hide code” / “Tools” collapse the panels in one tap.' },
+    { el: '#previewBox', place: 'left', title: 'Preview it big',
+      text: 'Tap “Preview (full page)” and the viewer takes the whole screen. Nothing is ever locked: drag the edge or tap “Show code” to bring the code back.' },
+    { el: '#btnDocx', place: 'right', title: 'The part other viewers cannot do',
+      text: 'Save the same document as PDF, Word, Excel or PowerPoint. Built on your phone — nothing is uploaded.' }
+  ];
+  if (window.SingVazaTour) window.SingVazaTour.wire(TOUR, { key: 'singvaza-tour-html-pdf' });
+
   paintGutter();
 
   render();
