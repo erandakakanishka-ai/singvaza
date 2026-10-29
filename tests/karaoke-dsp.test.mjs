@@ -346,3 +346,15 @@ test('the upload error names the real container, not the file extension', async 
   }
   assert.match(source, /Firefox cannot decode AAC/, 'Firefox + AAC gets an actionable message');
 });
+
+
+/* decodeAudioData DETACHES the buffer it is handed. Retrying with the same
+ * buffer threw a TypeError and hid the real reason, which is exactly what a
+ * visitor reported ("The MP3 itself looks valid (6.0 MB) but this browser
+ * refused it (TypeError)"). Every attempt must get its own copy. */
+test('every decode attempt gets its own buffer copy', async () => {
+  const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('async function decodeAudioGuarded'), source.indexOf('async function handleBackingUpload'));
+  assert.equal((body.match(/\.slice\(0\)/g) || []).length >= 2, true, 'each attempt passes a copy');
+  assert.doesNotMatch(body, /decodeAudioData\(raw\)/, 'the raw buffer is never handed over twice');
+});

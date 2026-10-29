@@ -1836,22 +1836,23 @@ const App = (() => {
     return out.buffer;
   }
 
+  /* decodeAudioData DETACHES the buffer it is given, so every attempt needs its
+   * own copy. Reusing one buffer made the retry throw a TypeError, which hid the
+   * real reason the browser refused the file. */
   async function decodeAudioGuarded(ctx, raw) {
-    const bytes = new Uint8Array(raw);
-    const looksLikeId3 = bytes.length > 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33;
-    // A frame sync (0xFF 0xEx) marks a bare MPEG audio stream. If the file has
-    // neither an ID3 tag nor a recognisable container, try the tag first.
-    const hasFrameSync = bytes.length > 1 && bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0;
+    const head = new Uint8Array(raw, 0, Math.min(16, raw.byteLength));
+    const looksLikeId3 = head.length > 3 && head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33;
+    // A frame sync (0xFF 0xEx) marks a bare MPEG stream with no tag at all.
+    const hasFrameSync = head.length > 1 && head[0] === 0xFF && (head[1] & 0xE0) === 0xE0;
+    let firstError = null;
     if (!looksLikeId3 && hasFrameSync) {
-      try { return await ctx.decodeAudioData(withEmptyId3(raw)); } catch (_) {}
+      try { return await ctx.decodeAudioData(withEmptyId3(raw.slice(0))); } catch (err) { firstError = err; }
     }
     try {
-      return await ctx.decodeAudioData(raw);
-    } catch (err) {
-      const again = await ctx.decodeAudioData(withEmptyId3(raw)).catch(() => null);
-      if (again) return again;
-      throw err;
-    }
+      return await ctx.decodeAudioData(raw.slice(0));
+    } catch (err) { if (!firstError) firstError = err; }
+    try { return await ctx.decodeAudioData(withEmptyId3(raw.slice(0))); } catch (_) {}
+    throw firstError || new Error('decode failed');
   }
 
   async function handleBackingUpload(e) {
