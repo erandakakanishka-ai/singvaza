@@ -92,16 +92,20 @@ textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;ba
 .homebig svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
 .homebig.solo{margin-bottom:10px}
 /* ---- drag handles between the panes ---- */
-.drag{position:relative;flex:none;background:transparent;cursor:col-resize;touch-action:none;z-index:3;display:flex;align-items:center;justify-content:center}
-.drag::after{content:"";width:4px;height:120px;border-radius:3px;background:#454545;transition:background .15s}
+.drag{position:relative;flex:none;background:transparent;cursor:col-resize;touch-action:none;z-index:8;display:flex;align-items:center;justify-content:center}
+.drag::after{content:"";width:5px;height:46%;max-height:180px;border-radius:3px;background:#4a4a4a;transition:background .15s}
+.drag-grip{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;width:26px;height:44px;border-radius:8px;background:#2b2b2b;border:1px solid #4a4a4a;color:#c9c9c9;pointer-events:none}
+.drag-grip svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.4}
+.drag:hover .drag-grip,.drag.active .drag-grip{background:var(--amber);border-color:var(--amber);color:#1b1207}
 .drag:hover::after,.drag.active::after{background:var(--amber)}
-.drag-v{width:12px;margin:0 -6px;cursor:col-resize}
+.drag-v{width:16px;margin:0 -8px;cursor:col-resize}
+.drag::before{content:"";position:absolute;inset:0 -6px}
 .pane{position:relative}
 /* collapsed rail: a narrow strip that stays draggable */
 .pane.collapsed{min-width:34px!important;max-width:34px!important;flex:none;overflow:hidden}
 .pane.collapsed .rail-vertical{display:flex}
 .pane.collapsed .pane-body{display:none!important}
-.rail-vertical{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+.rail-vertical{display:none;position:absolute;inset:0;touch-action:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   background:var(--panel2);border:0;color:var(--dim);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;padding:8px 0}
 .rail-vertical:hover{color:var(--amber)}
 .rail-vertical svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;transform:rotate(-90deg)}
@@ -109,8 +113,8 @@ textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;ba
 /* the editor and the viewer can go full width */
 .app{display:flex!important;width:1180px;min-width:1180px;max-width:1180px}
 .app>.pane-tools{flex:0 0 212px;width:212px;min-width:0}
-.app>.pane-editor{flex:1 1 0;min-width:0}
-.app>.pane-preview{flex:1 1 0;min-width:0}
+.app>.pane-editor{flex:1 1 0;min-width:130px}
+.app>.pane-preview{flex:1 1 0;min-width:160px}
 .pane{overflow:hidden}
 .pane.full{flex:1 1 100%!important;width:auto!important;max-width:none!important}
 /* the guided tour styles live in /tour.js */
@@ -221,7 +225,9 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <a class="homebig" href="/" style="margin-top:12px"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home</a>
     </div>
   </aside>
-  <div class="drag drag-v" id="dragTools" role="separator" aria-label="Resize or hide the tools panel" title="Drag to resize · double-click to hide"></div>
+  <div class="drag drag-v" id="dragTools" role="separator" aria-label="Resize or hide the tools panel" title="Drag to resize · double-click to hide">
+    <span class="drag-grip"><svg viewBox="0 0 24 24"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/></svg></span>
+  </div>
 
   <section class="pane pane-editor" id="paneEditor">
     <button class="rail-vertical" id="railEditor" title="Show the code panel"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span>Code</span></button>
@@ -232,7 +238,9 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       <button class="tab" data-type="code" aria-pressed="false">Code</button>
       <button class="tab" data-type="text" aria-pressed="false">Text</button>
       <span class="tabbar-right"><span id="count"></span>
-        <button class="tiny" id="btnHideCode" title="Hide the code panel (drag the edge to resize)">Hide &#10005;</button>
+        <button class="tiny" id="btnNarrowCode" title="Narrower code panel">&minus;</button>
+        <button class="tiny" id="btnWidenCode" title="Wider code panel">+</button>
+        <button class="tiny" id="btnHideCode" title="Hide the code panel">Hide &#10005;</button>
       </span>
     </div>
     <div class="code-row" id="codeRow" hidden>
@@ -248,7 +256,9 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     </div>
     </div>
   </section>
-  <div class="drag drag-v" id="dragEditor" role="separator" aria-label="Resize or hide the code panel" title="Drag left to hide the code panel · double-click to hide"></div>
+  <div class="drag drag-v" id="dragEditor" role="separator" aria-label="Resize or hide the code panel" title="Drag left to hide the code panel · double-click to hide">
+    <span class="drag-grip"><svg viewBox="0 0 24 24"><path d="M9 8l-4 4 4 4M15 8l4 4-4 4"/></svg></span>
+  </div>
 
   <section class="pane pane-preview" id="panePreview">
     <button class="rail-vertical" id="railPreview" title="Show the preview panel"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span>View</span></button>
@@ -342,12 +352,14 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     function setWidth(el, w) {
       if (w <= 56) { collapse(el); return; }
       el.classList.remove('collapsed', 'full');
+      el.style.minWidth = '';
       el.style.width = Math.round(w) + 'px';
       el.style.flex = '0 0 auto';
       el.style.maxWidth = 'none';
       refreshLayout();
     }
     function collapse(el) {
+      el.style.minWidth = '';
       el.classList.add('collapsed');
       el.classList.remove('full');
       el.style.width = '';
@@ -355,7 +367,11 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       refreshLayout();
     }
     function expand(el) {
-      el.classList.remove('collapsed');
+      el.style.minWidth = '';
+      el.style.width = '';
+      el.style.flex = '';
+      el.classList.remove('collapsed', 'full');
+      [tools, editor, preview].forEach(function (other) { if (other !== el) other.classList.remove('full'); });
       el.style.width = '';
       el.style.flex = '';
       refreshLayout();
@@ -372,6 +388,11 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       var t = $('btnToggleTools'); if (t) t.setAttribute('aria-pressed', String(tools.classList.contains('collapsed')));
     }
     PANELS.collapse = collapse; PANELS.expand = expand; PANELS.refresh = refreshLayout;
+    PANELS.nudge = function (el, dx) {
+      if (el.classList.contains('collapsed')) { expand(el); return; }
+      var w = el.getBoundingClientRect().width + dx;
+      if (w <= 90) PANELS.collapse(el); else setWidth(el, Math.max(el === tools ? 176 : 130, w));
+    };
     PANELS.toggle = function (el, neighbour) {
       if (el.classList.contains('collapsed')) { expand(el); if (neighbour) neighbour.classList.remove('full'); }
       else { collapse(el); if (neighbour) neighbour.classList.add('full'); }
@@ -386,14 +407,16 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     });
 
     /* a generic horizontal drag: it grows/shrinks `target` and its neighbour */
-    function bindDrag(handle, target, neighbour, sign) {
+    function bindDrag(handle, target, neighbour, sign, floor) {
+      var MIN = floor || 120;
       if (!handle || !target) return;
       var startX = 0, startW = 0, moved = false, active = false;
 
       function down(e) {
-        if (target.classList.contains('collapsed')) return;
         active = true; moved = false;
-        startX = e.clientX; startW = target.getBoundingClientRect().width;
+        startX = e.clientX;
+        // if the pane was hidden, start from its rail so pulling it back works too
+        startW = target.classList.contains('collapsed') ? 56 : target.getBoundingClientRect().width;
         target.style.minWidth = '0';
         handle.classList.add('active');
         document.body.style.cursor = 'col-resize';
@@ -406,7 +429,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
         var dx = (e.clientX - startX) * sign;
         if (Math.abs(dx) > 3) moved = true;
         var next = startW + dx;
-        if (next <= 56) {
+        if (next <= MIN * 0.5) {
           // dragged all the way past the edge: hide the panel, the rest goes full width
           active = false;
           handle.classList.remove('active');
@@ -418,7 +441,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
         }
         if (neighbour && neighbour.classList.contains('full')) neighbour.classList.remove('full');
         target.classList.remove('collapsed');
-        target.style.width = Math.round(Math.max(60, next)) + 'px';
+        target.style.width = Math.round(Math.max(MIN, next)) + 'px';
         target.style.flex = '0 0 auto';
         // keep the panel within the viewport
         var max = app.clientWidth - 220;
@@ -438,6 +461,9 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', up);
       handle.addEventListener('pointercancel', up);
+      // a mouse drag can leave the handle; keep tracking on the window
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
       // double-click / double-tap: hide
       handle.addEventListener('dblclick', function () {
         if (target.classList.contains('collapsed')) expand(target); else collapse(target);
@@ -446,12 +472,19 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
 
     $('btnToggleCode').addEventListener('click', function () { PANELS.toggle(editor, preview); });
     $('btnHideCode').addEventListener('click', function () { collapse(editor); preview.classList.add('full'); });
+    $('btnNarrowCode').addEventListener('click', function () { PANELS.nudge(editor, -90); });
+    $('btnWidenCode').addEventListener('click', function () { PANELS.nudge(editor, 90); });
     $('btnToggleTools').addEventListener('click', function () { PANELS.toggle(tools, null); });
 
+    // the slim rail of a hidden panel is a handle too: tap opens it, drag sizes it
+    bindDrag($('railEditor'), editor, preview, 1, 130);
+    bindDrag($('railTools'), tools, editor, 1, 176);
+    bindDrag($('railPreview'), preview, editor, -1);
+
     // tools | code : dragging right grows the tools panel
-    bindDrag($('dragTools'), tools, editor, 1);
+    bindDrag($('dragTools'), tools, editor, 1, 176);
     // code | view : dragging LEFT shrinks the code panel to nothing
-    bindDrag($('dragEditor'), editor, preview, 1);
+    bindDrag($('dragEditor'), editor, preview, 1, 130);
 
     /* the old "Preview (full page)" button now makes the viewer the whole screen */
     var fullView = false;
@@ -734,7 +767,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     { el: '.editorwrap', place: 'right', title: 'Type or paste here',
       text: 'Line numbers, Tab to indent, and the page on the right updates while you type.' },
     { el: '.previewbar', place: 'bottom', title: 'Your page, live',
-      text: 'This is exactly what gets printed. Paper size and zoom are here, and “Hide code” / “Tools” collapse the panels in one tap.' },
+      text: 'This is exactly what gets printed. Paper size and zoom are here. “Hide code” removes the code panel, and the − and + buttons in the tab bar resize it.' },
     { el: '#previewBox', place: 'left', title: 'Preview it big',
       text: 'Tap “Preview (full page)” and the viewer takes the whole screen. Nothing is ever locked: drag the edge or tap “Show code” to bring the code back.' },
     { el: '#btnDocx', place: 'right', title: 'The part other viewers cannot do',
