@@ -327,7 +327,7 @@ const App = (() => {
   function runKaraokeWorker(type, buffer, options, onStage) {
     return new Promise((resolve, reject) => {
       let worker;
-      try { worker = new Worker('/karaoke-worker.js?v=3.0'); }
+      try { worker = new Worker('/karaoke-worker.js?v=3.1'); }
       catch (_) { reject(new Error('This browser could not start audio processing.')); return; }
       state.karaokeWorker = worker;
       state.karaokeWorkerReject = reject;
@@ -1379,7 +1379,7 @@ const App = (() => {
       let message = 'AI vocal reduction is on. Compare the versions or use the karaoke backing in Sing.';
       if (processed.info?.engine === 'centre') message = 'Centre reduction is on (offline mode). Compare the versions or use the karaoke backing in Sing.';
       else if (processed.info?.backend === 'webgpu') message += ' Processed on your GPU.';
-      if (processed.info?.strength < 1) message += ` Removing ${Math.round(processed.info.strength * 100)}% of the detected vocal.`;
+      if (processed.info?.strength < 1) message += ` Using ${Math.round(processed.info.strength * 100)}% of the AI backing.`;
       if (processed.info?.safetyGain < 1) message += ' Overall level was lowered slightly to prevent clipping.';
       updateVocalRemoverUI(message);
       suspendIdleWebAudio();
@@ -1786,6 +1786,42 @@ const App = (() => {
   }
 
   // ==================== CLEAN LOW-CPU MIC RECORDING & FILE UPLOAD ====================
+  /* Some MP3 files carry no ID3 tag at all (a plain frame stream, common for
+   * files pulled out of videos or older rips). Firefox refuses those with a bare
+   * EncodingError while Chrome and Safari accept them, which made "Reduce
+   * vocals" look dead on Firefox. Giving the buffer a 1 KB empty ID3v2 header
+   * costs nothing and makes every browser agree, so the decode is retried once
+   * with that header before we give up. */
+  function withEmptyId3(buffer) {
+    const head = new Uint8Array(1024);
+    head[0] = 0x49; head[1] = 0x44; head[2] = 0x33;   // "ID3"
+    head[3] = 0x04; head[4] = 0x00;                    // version 2.4
+    head[5] = 0x00; head[6] = 0x00;                    // no flags, syncsafe size 0
+    head[7] = 0x00; head[8] = 0x00; head[9] = 0x00;
+    const out = new Uint8Array(head.length + buffer.byteLength);
+    out.set(head, 0);
+    out.set(new Uint8Array(buffer), head.length);
+    return out.buffer;
+  }
+
+  async function decodeAudioGuarded(ctx, raw) {
+    const bytes = new Uint8Array(raw);
+    const looksLikeId3 = bytes.length > 3 && bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33;
+    // A frame sync (0xFF 0xEx) marks a bare MPEG audio stream. If the file has
+    // neither an ID3 tag nor a recognisable container, try the tag first.
+    const hasFrameSync = bytes.length > 1 && bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0;
+    if (!looksLikeId3 && hasFrameSync) {
+      try { return await ctx.decodeAudioData(withEmptyId3(raw)); } catch (_) {}
+    }
+    try {
+      return await ctx.decodeAudioData(raw);
+    } catch (err) {
+      const again = await ctx.decodeAudioData(withEmptyId3(raw)).catch(() => null);
+      if (again) return again;
+      throw err;
+    }
+  }
+
   async function handleBackingUpload(e) {
     const file = e.target.files?.[0];
     if (e.target) e.target.value = '';
@@ -1833,7 +1869,8 @@ const App = (() => {
     // 3. Safely decode AudioBuffer for studio stem mixing without ever crashing if browser rejects video container
     try {
       const ctx = ensureAudioCtx();
-      const buf = await ctx.decodeAudioData(await file.arrayBuffer());
+      const raw = await file.arrayBuffer();
+      const buf = await decodeAudioGuarded(ctx, raw);
       if (loadSeq !== state.backingLoadSeq) return;
       suspendIdleWebAudio();
       state.backingDecodePending = false;
@@ -1846,14 +1883,28 @@ const App = (() => {
         drawTimeline(0);
         if (state.isPlaying) startPlayback(0);
       }
-    } catch (_) {
+    } catch (err) {
       if (loadSeq !== state.backingLoadSeq) return;
       suspendIdleWebAudio();
       state.backingDecodePending = false;
       state.originalBackingBuffer = null;
       state.backingBuffer = null;
       state.backingPeaks = null;
-      updateVocalRemoverUI('This browser could not read the audio in that file. Try a stereo MP3, WAV or M4A.');
+      // Name the real reason instead of one vague sentence: Firefox on Android
+      // cannot decode AAC at all (m4a/mp4), which is the most common failure.
+      const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
+      const aac = ['.m4a', '.aac', '.mp4', '.m4v', '.mov', '.3gp'].includes(ext);
+      const isFirefox = /firefox|fxios/i.test(navigator.userAgent || '');
+      let why;
+      if (aac && isFirefox) {
+        why = `Firefox on this device cannot decode ${ext || 'that'} audio (AAC). Open this page in Chrome, or convert the song to MP3/WAV first — then it will work here too.`;
+      } else if (aac) {
+        why = `This file's audio track (${ext}) could not be decoded. Try an MP3 or WAV version of the song.`;
+      } else {
+        why = `Could not read the audio in “${file.name}”${err?.name ? ` (${err.name})` : ''}. Try an MP3 or WAV version — a different file usually works.`;
+      }
+      updateVocalRemoverUI(why);
+      showToast('Vocal reduction needs a readable stereo file.');
       markMixDirty();
       if (state.view === 'mix') drawTimeline(0);
     }

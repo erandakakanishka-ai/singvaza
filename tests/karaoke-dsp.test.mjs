@@ -322,3 +322,17 @@ test('inverse STFT keeps the full amplitude of a pure tone (mirror spectrum rest
   assert.ok(Math.abs(got / expected - 1) < 0.03, `tone rms ${got.toFixed(4)} should be ~${expected.toFixed(4)}`);
   assert.ok(periodicHann(4).length === 4);
 });
+
+
+/* Firefox refuses an MP3 that has no ID3 tag ("could not read the audio in that
+ * file"), while Chrome and Safari accept it. The upload path therefore retries
+ * the decode once with an empty ID3v2 header in front. These pin that helper so
+ * the guard cannot be dropped silently. */
+test('a bare MP3 stream gets an empty ID3 header before the decode retry', async () => {
+  const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(source, /function withEmptyId3\(/, 'the ID3 retry helper exists');
+  assert.match(source, /decodeAudioGuarded\(/, 'the upload path uses it');
+  // The helper must be used inside handleBackingUpload's decode step.
+  const upload = source.slice(source.indexOf('async function handleBackingUpload'));
+  assert.ok(upload.indexOf('decodeAudioGuarded(ctx, raw)') > 0, 'upload decodes through the guard');
+});
