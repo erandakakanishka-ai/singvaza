@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Word, Excel & PowerPoint to PDF — no upload, works on a phone | SingVaza</title>
+<meta name="description" content="Convert .docx, .xlsx and .pptx to a clean PDF in your browser. Choose A4, A5 or Letter, portrait or landscape, printable margins or a plain PDF. Nothing is uploaded — it even works offline." />
+<meta name="color-scheme" content="dark light" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<style>
+:root{--bg:#0b1020;--panel:#121a2f;--panel2:#0e1526;--line:#22314f;--ink:#e8eefc;--dim:#9db0d0;--cyan:#38bdf8;--ok:#34d399;--bad:#f87171;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+a{color:var(--cyan)}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 64px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;text-decoration:none;color:var(--ink)}
+.brand svg{width:26px;height:26px}
+.crumbs{font-size:12.5px;color:var(--dim)}.crumbs a{color:var(--dim);text-decoration:none}
+h1{font-size:clamp(20px,3.2vw,29px);margin:6px 0;letter-spacing:-.02em}
+.lede{margin:0 0 16px;color:var(--dim);font-size:14px;max-width:72ch;line-height:1.55}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card+.card{margin-top:14px}
+.card h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;background:var(--panel2);cursor:pointer;transition:border-color .2s,background .2s}
+.drop:hover,.drop.over{border-color:var(--cyan);background:rgba(56,189,248,.08)}
+.drop strong{display:block;font-size:15px;margin-bottom:6px}
+.drop span{font-size:12.5px;color:var(--dim)}
+.drop .big{font-size:30px;line-height:1;margin-bottom:8px}
+.filelist{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.fileitem{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13px}
+.fileitem .kind{font-size:10px;font-weight:800;letter-spacing:.08em;padding:3px 7px;border-radius:6px;background:rgba(56,189,248,.15);color:#bfe9ff}
+.fileitem .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fileitem button{background:transparent;border:0;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:10px;padding:9px 13px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.btn:hover{border-color:#33507c}
+.btn-primary{background:linear-gradient(180deg,#fdba74,#f59e0b);color:#20140a;border-color:#f59e0b;font-weight:800}
+.btn-cyan{background:rgba(56,189,248,.14);border-color:var(--cyan);color:#bfe9ff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
+label.f{display:block;font-size:12px;color:var(--dim);font-weight:700;margin:0 0 5px}
+select,input[type=number],input[type=text]{width:100%;background:#080d19;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit}
+.fgroup{margin-bottom:11px}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.seg{display:grid;grid-auto-flow:column;gap:6px;background:#080d19;border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{background:transparent;border:0;color:var(--dim);font-size:12.5px;font-weight:700;padding:7px 6px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:rgba(56,189,248,.18);color:#d7f2ff}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;cursor:pointer}
+.chk input{width:17px;height:17px;accent-color:#38bdf8}
+.hint{font-size:11.5px;color:var(--dim);line-height:1.5;margin:6px 0 0}
+.status{margin-top:10px;font-size:13px;min-height:20px}
+.status.err{color:var(--bad)}.status.ok{color:var(--ok)}
+#previewWrap{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#1a2236}
+#previewBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;font-size:12px;color:var(--dim);background:#0e1526;border-bottom:1px solid var(--line);flex-wrap:wrap}
+#previewScale{flex:0 0 130px}
+#previewBox{max-height:520px;overflow:auto;padding:14px;background:#1a2236}
+#empty{color:#8fa3c4;text-align:center;padding:40px 12px;font-size:13.5px;line-height:1.6}
+.sheet{background:#fff;color:#111;margin:0 auto;box-shadow:0 8px 26px rgba(0,0,0,.45);position:relative}
+.sheet .inner{padding:var(--pad)}
+.sheet h1,.sheet h2,.sheet h3,.sheet h4{margin:.6em 0 .35em;line-height:1.25}
+.sheet h1{font-size:1.8em}.sheet h2{font-size:1.4em}.sheet h3{font-size:1.15em}
+.sheet p,.sheet li{line-height:1.6}.sheet p{margin:.5em 0}
+.sheet ul,.sheet ol{padding-left:1.4em;margin:.5em 0}
+.sheet table{border-collapse:collapse;width:100%;font-size:.9em;margin:.5em 0}
+.sheet th,.sheet td{border:1px solid #cfd8e6;padding:5px 7px;text-align:left;vertical-align:top}
+.sheet th{background:#f1f5fb;font-weight:700}
+.sheet .dochead{border-bottom:1px solid #dfe5ef;padding-bottom:8px;margin-bottom:14px;font-size:.8em;color:#5d6b83;display:flex;justify-content:space-between}
+.sheet code{font-family:var(--mono);background:#eef2f8;padding:1px 4px;border-radius:4px}
+.footnote{margin-top:22px;font-size:11.5px;color:#5b6b86;line-height:1.6}
+.note{font-size:12px;color:var(--dim);background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.25);border-radius:10px;padding:9px 11px;line-height:1.55;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>SingVaza <span style="color:var(--dim);font-weight:600">Tools</span></a>
+    <nav class="crumbs"><a href="/">Home</a> / <a href="/tools">Tools</a> / <strong style="color:var(--ink)">Office → PDF</strong></nav>
+  </div>
+
+  <h1>Word, Excel &amp; PowerPoint → PDF</h1>
+  <p class="lede">Drop a <strong>.docx</strong>, <strong>.xlsx</strong> or <strong>.pptx</strong> file and get a clean PDF: <strong>A4, A5 or Letter</strong>, <strong>portrait or landscape</strong>, printable margins and page numbers — or a plain edge-to-edge PDF. No account, no upload, no waiting queue: the file is read on your device.</p>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <h2>1 · Choose a file</h2>
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a Word, Excel or PowerPoint file">
+          <div class="big">📄</div>
+          <strong>Tap to choose a file, or drop it here</strong>
+          <span>.docx · .xlsx · .pptx — one at a time, any size</span>
+          <input type="file" id="file" hidden accept=".docx,.xlsx,.pptx" />
+        </div>
+        <div class="filelist" id="fileList"></div>
+        <div class="row">
+          <button class="btn btn-sm" id="btnSample">Load a sample</button>
+          <span class="hint" id="count" style="margin-left:auto"></span>
+        </div>
+        <p class="note" id="note" hidden></p>
+      </section>
+
+      <section class="card">
+        <h2>2 · Preview</h2>
+        <div id="previewWrap">
+          <div id="previewBar">
+            <span id="pageInfo">A4 portrait</span>
+            <span style="display:flex;align-items:center;gap:8px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
+            <button class="btn btn-sm" id="btnPrint">Print preview</button>
+          </div>
+          <div id="previewBox">
+            <div id="empty">Your converted document appears here.<br />Nothing is sent anywhere — this page works offline once loaded.</div>
+            <div class="sheet" id="sheet" hidden><div class="inner" id="sheetInner"></div></div>
+          </div>
+        </div>
+        <p class="hint">The preview shows page one. The PDF contains every page with the margins, header, footer and numbering you chose.</p>
+      </section>
+    </div>
+
+    <aside>
+      <section class="card">
+        <h2>Page setup</h2>
+        <div class="fgroup"><label class="f">Paper size</label>
+          <select id="paper">
+            <option value="a4" selected>A4 — 210 × 297 mm</option>
+            <option value="a5">A5 — 148 × 210 mm</option>
+            <option value="letter">Letter — 8.5 × 11 in</option>
+            <option value="legal">Legal — 8.5 × 14 in</option>
+            <option value="a3">A3 — 297 × 420 mm</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="f">Orientation</label>
+          <div class="seg"><button id="oriPortrait" aria-pressed="true">Portrait</button><button id="oriLand" aria-pressed="false">Landscape</button></div>
+        </div>
+        <div class="fgroup"><label class="f">Output</label>
+          <div class="seg"><button id="modePrint" aria-pressed="true">Printable</button><button id="modePdf" aria-pressed="false">Plain PDF</button></div>
+          <p class="hint" id="modeHint">Printable adds readable margins, a document header, a footer and page numbers — ready for a printer.</p>
+        </div>
+        <div class="two">
+          <div class="fgroup"><label class="f" for="margin">Margin (mm)</label><input id="margin" type="number" min="0" max="40" step="1" value="18" /></div>
+          <div class="fgroup"><label class="f" for="fontSize">Body size (pt)</label><input id="fontSize" type="number" min="7" max="20" step="0.5" value="11" /></div>
+        </div>
+        <div class="two">
+          <div class="fgroup"><label class="f" for="fontFamily">Font</label>
+            <select id="fontFamily"><option value="sans" selected>System sans</option><option value="serif">Serif</option><option value="mono">Monospace</option></select>
+          </div>
+          <div class="fgroup"><label class="f" for="lineH">Line height</label><input id="lineH" type="number" min="1.1" max="2.2" step="0.05" value="1.5" /></div>
+        </div>
+        <div class="fgroup"><label class="f" for="title">Document title</label><input id="title" type="text" placeholder="Used in the PDF title and header" /></div>
+        <div class="fgroup"><label class="f" for="footer">Footer text</label><input id="footer" type="text" placeholder="e.g. SingVaza · confidential" /></div>
+        <label class="chk"><input type="checkbox" id="optPageNumbers" checked /> Page numbers (1 / N)</label>
+        <label class="chk"><input type="checkbox" id="optHeader" checked /> Running header</label>
+        <label class="chk"><input type="checkbox" id="optAvoidBreak" checked /> Keep tables &amp; rows whole</label>
+        <label class="chk"><input type="checkbox" id="optLinkFootnotes" /> Collect links at the end</label>
+        <label class="chk"><input type="checkbox" id="optSmartQuotes" hidden /><input type="checkbox" id="highlight" hidden /><select id="lang" hidden><option value="auto">auto</option></select></label>
+      </section>
+
+      <section class="card">
+        <h2>Export</h2>
+        <div class="row" style="margin-top:0"><button class="btn btn-primary" id="btnPdf" style="flex:1 1 100%">⬇ Download PDF</button></div>
+        <div class="row">
+          <button class="btn btn-cyan" id="btnPrintDoc" style="flex:1">🖨 Print / Save as PDF</button>
+          <button class="btn" id="btnHtml" title="Download the converted HTML">HTML</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <p class="hint">On a phone, “Print / Save as PDF” is often the easiest way to keep the file — it opens the system print sheet, where “Save as PDF” is one tap away.</p>
+      </section>
+
+      <section class="card">
+        <h2>Good to know</h2>
+        <p class="hint" style="margin:0">• Text, headings, lists, tables and slide text are converted. Photos inside a Word file are not drawn yet — the text layout is.<br />
+        • Old <strong>.doc / .xls / .ppt</strong> files must be saved in the newer format first.<br />
+        • Excel: the first 400 rows of each sheet.<br />
+        • Nothing is uploaded, so there is no size limit and no queue.</p>
+      </section>
+    </aside>
+  </div>
+
+  <p class="hint" style="margin-top:18px">Have <strong>HTML, Markdown or source code</strong> instead? Use the <a href="/studio/html-to-pdf.html">HTML / Code → PDF tool</a>.</p>
+  <p class="footnote">Everything runs in your browser. Your file never leaves your device — the conversion and the PDF are made here.</p>
+</div>
+<div id="printHost" style="position:absolute;left:-99999px;top:0;width:0;height:0;overflow:visible;pointer-events:none"></div>
+
+<script src="/pdf-engine.js?v=1"></script>
+<script src="/office-reader.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { type: 'html', ori: 'portrait', mode: 'print', html: '', name: '', kind: '' };
+  var PDFE = window.SingVazaPDF;
+  var esc = PDFE.esc;
+  var src = { value: '' };
+  var sheet = $('sheet'), inner = $('sheetInner');
+
+  var LV = {
+    src: function () { return src; },
+    type: function () { return state.type; },
+    paper: function () { return $('paper'); },
+    mode: function () { return state.mode; },
+    ori: function () { return state.ori; },
+    margin: function () { return $('margin'); },
+    fontSize: function () { return $('fontSize'); },
+    lineHeight: function () { return $('lineH'); },
+    fontFamily: function () { return $('fontFamily'); },
+    title: function () { return $('title'); },
+    footer: function () { return $('footer'); },
+    opt: function (name) {
+      return $({ pageNumbers: 'optPageNumbers', header: 'optHeader', avoidBreak: 'optAvoidBreak', linkFootnotes: 'optLinkFootnotes', smartQuotes: 'optSmartQuotes' }[name]);
+    },
+    lang: function () { return $('lang'); },
+    highlight: function () { return $('highlight'); },
+    host: function () { return $('printHost'); }
+  };
+  function paperMm() { return PDFE.paperMm(LV); }
+  function marginMm() { return PDFE.marginMm(LV); }
+  function bodyCss(withPadding) { return PDFE.bodyCss(LV, withPadding); }
+  function sourceHtml() { return state.html || '<p style="color:#8894a8"><em>No file loaded yet — choose a .docx, .xlsx or .pptx on the left.</em></p>'; }
+  function decorate(html, keepHeader) { return PDFE.decorate(html, keepHeader, LV); }
+  function opts() { return { type: state.type, highlight: false, smartQuotes: false }; }
+
+  function say(msg, kind) { var s = $('status'); s.textContent = msg || ''; s.className = 'status' + (kind ? ' ' + kind : ''); }
+
+  function render() {
+    var size = paperMm(), m = marginMm();
+    var has = Boolean(state.html);
+    $('empty').hidden = has;
+    sheet.hidden = !has;
+    if (has) {
+      sheet.style.setProperty('--pad', m + 'mm');
+      sheet.style.width = size.w + 'mm';
+      sheet.style.minHeight = size.h + 'mm';
+      inner.style.cssText = bodyCss(false);
+      inner.style.padding = m + 'mm';
+      inner.innerHTML = decorate(sourceHtml(), true);
+    }
+    $('pageInfo').textContent = $('paper').value.toUpperCase() + ' ' + state.ori + ' · ' + size.w + ' × ' + size.h + ' mm';
+    applyZoom();
+  }
+  function applyZoom() {
+    var z = Number($('previewScale').value) / 100;
+    sheet.style.transform = 'scale(' + z + ')';
+    sheet.style.transformOrigin = 'top center';
+    $('previewBox').style.paddingBottom = Math.max(14, (sheet.hidden ? 0 : sheet.offsetHeight) * (1 - z) + 14) + 'px';
+  }
+
+  /* ---------------- file intake ---------------- */
+  function loadFile(file) {
+    if (!file) return;
+    var ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (['docx', 'xlsx', 'pptx'].indexOf(ext) < 0) {
+      say('Only .docx, .xlsx and .pptx work here. Old .doc/.xls/.ppt files need to be saved in the newer format first (or exported as PDF).', 'err');
+      $('note').hidden = false;
+      $('note').textContent = 'Tip: open the file, then File → Save As → Word Document (.docx) / Excel Workbook (.xlsx) / PowerPoint Presentation (.pptx).';
+      return;
+    }
+    say('Reading ' + file.name + ' on your device…');
+    $('fileList').innerHTML = '<div class="fileitem"><span class="kind">' + ext.toUpperCase() + '</span><span class="name">' + esc(file.name) + '</span><span style="color:var(--dim)">' + (file.size / 1024).toFixed(0) + ' KB</span></div>';
+    var reader = new FileReader();
+    reader.onload = function () {
+      window.SingVazaOffice.readOfficeFile(reader.result, ext).then(function (res) {
+        state.html = res.html;
+        state.kind = res.kind;
+        state.name = file.name;
+        state.type = 'html';
+        if (!$('title').value) $('title').value = file.name.replace(/\.[^.]+$/, '');
+        $('count').textContent = (file.size / 1024).toFixed(0) + ' KB · ' + res.kind.toUpperCase();
+        $('note').hidden = true;
+        render();
+        say('Converted ' + file.name + ' — check the preview, then download the PDF. Nothing left your device.', 'ok');
+      }).catch(function (err) {
+        state.html = '';
+        render();
+        say(err && err.message ? err.message : 'This file could not be read.', 'err');
+      });
+    };
+    reader.onerror = function () { say('This file could not be read from disk.', 'err'); };
+    reader.readAsArrayBuffer(file);
+  }
+
+  $('drop').addEventListener('click', function () { $('file').click(); });
+  $('drop').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } });
+  $('file').addEventListener('change', function (e) { loadFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); $('drop').classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('drop').addEventListener(ev, function (e) { e.preventDefault(); if (ev === 'drop') loadFile(e.dataTransfer.files && e.dataTransfer.files[0]); $('drop').classList.remove('over'); });
+  });
+
+  $('btnSample').addEventListener('click', function () {
+    state.html = '<h1>Quarterly review</h1><p>A sample page, so you can see the layout before choosing your own file.</p><h2>Highlights</h2><ul><li>Three new studios opened.</li><li>Exports are now 4× faster.</li></ul><h2>Numbers</h2><table><thead><tr><th>Region</th><th>Sessions</th></tr></thead><tbody><tr><td>Sri Lanka</td><td>12,480</td></tr><tr><td>India</td><td>9,120</td></tr></tbody></table>';
+    if (!$('title').value) $('title').value = 'Sample document';
+    render();
+    say('Sample loaded — now try your own .docx, .xlsx or .pptx.', 'ok');
+  });
+
+  /* ---------------- page setup wiring ---------------- */
+  function segSet(which, value) {
+    if (which === 'ori') {
+      state.ori = value;
+      $('oriPortrait').setAttribute('aria-pressed', String(value === 'portrait'));
+      $('oriLand').setAttribute('aria-pressed', String(value === 'landscape'));
+    } else {
+      state.mode = value;
+      $('modePrint').setAttribute('aria-pressed', String(value === 'print'));
+      $('modePdf').setAttribute('aria-pressed', String(value === 'pdf'));
+      $('modeHint').textContent = value === 'print'
+        ? 'Printable adds readable margins, a document header, a footer and page numbers — ready for a printer.'
+        : 'Plain PDF uses the full page edge to edge, with no header, footer or page numbers.';
+    }
+    render();
+  }
+  $('oriPortrait').addEventListener('click', function () { segSet('ori', 'portrait'); });
+  $('oriLand').addEventListener('click', function () { segSet('ori', 'landscape'); });
+  $('modePrint').addEventListener('click', function () { segSet('mode', 'print'); });
+  $('modePdf').addEventListener('click', function () { segSet('mode', 'pdf'); });
+  ['paper', 'margin', 'fontSize', 'fontFamily', 'lineH', 'title', 'footer', 'optPageNumbers', 'optHeader', 'optAvoidBreak', 'optLinkFootnotes'].forEach(function (id) {
+    $(id).addEventListener('input', render);
+    $(id).addEventListener('change', render);
+  });
+  $('previewScale').addEventListener('input', applyZoom);
+
+  /* ---------------- export ---------------- */
+  function filename(ext) {
+    var t = ($('title').value.trim() || state.name.replace(/\.[^.]+$/, '') || 'document').toLowerCase().replace(/[^a-z0-9\u0d80-\u0dff]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
+    return t + '.' + ext;
+  }
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  $('btnPdf').addEventListener('click', function () {
+    if (!state.html) { say('Choose a .docx, .xlsx or .pptx file first.', 'err'); return; }
+    var btn = this;
+    btn.disabled = true; say('Building the PDF on your device…');
+    setTimeout(function () {
+      PDFE.buildPdf(LV, { decorate: decorate, sourceHtml: sourceHtml, opts: opts, paperMm: paperMm, marginMm: marginMm })
+        .then(function (blob) {
+          download(blob, filename('pdf'));
+          say('PDF ready — ' + (blob.size / 1024).toFixed(0) + ' KB, downloaded. Nothing left your device.', 'ok');
+          btn.disabled = false;
+        })
+        .catch(function (e) {
+          say('Could not build the PDF (' + (e && e.message ? e.message : 'unknown') + '). Try Print / Save as PDF instead.', 'err');
+          btn.disabled = false;
+        });
+    }, 40);
+  });
+  function fullDocument() {
+    var size = paperMm(), m = marginMm();
+    return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc($('title').value.trim() || 'Document') + '</title><style>'
+      + '@page{size:' + size.w + 'mm ' + size.h + 'mm;margin:' + m + 'mm}html,body{margin:0;padding:0;background:#fff}'
+      + '.inner{' + bodyCss(true) + '}table{width:100%;border-collapse:collapse}th,td{border:1px solid #cfd8e6;padding:6px 8px;text-align:left}'
+      + 'th{background:#f1f5fb}</style></head><body><div class="inner">' + decorate(sourceHtml(), false) + '</div></body></html>';
+  }
+  function printDocument() {
+    if (!state.html) { say('Choose a file first.', 'err'); return; }
+    var win = window.open('', '_blank');
+    if (!win) { say('Allow pop-ups to print, or use Download PDF.', 'err'); return; }
+    win.document.write(fullDocument());
+    win.document.close();
+    win.focus();
+    setTimeout(function () { try { win.print(); } catch (_) {} }, 450);
+  }
+  $('btnPrintDoc').addEventListener('click', printDocument);
+  $('btnPrint').addEventListener('click', printDocument);
+  $('btnHtml').addEventListener('click', function () {
+    if (!state.html) { say('Choose a file first.', 'err'); return; }
+    download(new Blob([fullDocument()], { type: 'text/html' }), filename('html'));
+    say('Converted HTML downloaded.', 'ok');
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

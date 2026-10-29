@@ -8,7 +8,7 @@
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute karomix-db --local --file=./schema.sql",
     "db:remote": "wrangler d1 execute karomix-db --remote --file=./schema.sql",
-    "test": "node --test tests/security.test.mjs tests/seo.test.mjs tests/karaoke-dsp.test.mjs tests/model-route.test.mjs tests/builtin-pages.test.mjs tests/html-to-pdf.test.mjs",
+    "test": "node --test tests/security.test.mjs tests/seo.test.mjs tests/karaoke-dsp.test.mjs tests/model-route.test.mjs tests/builtin-pages.test.mjs tests/html-to-pdf.test.mjs tests/office-reader.test.mjs",
     "test:e2e": "node --test tests/browser.test.mjs tests/vocal-remover.test.mjs tests/redesign.test.mjs",
     "test:integration": "node --test tests/quota-cms.integration.mjs"
   },

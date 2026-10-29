@@ -2993,6 +2993,43 @@ const App = (() => {
     }
   }
 
+  /* ---------------- light / dark theme ---------------- */
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+  function applyTheme(theme) {
+    var next = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('singvaza-theme', next); } catch (_) {}
+    var btn = document.getElementById('btnThemeToggle');
+    if (btn) {
+      btn.setAttribute('aria-pressed', String(next === 'light'));
+      btn.title = next === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+    }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', next === 'light' ? '#f6f7fb' : '#07090f');
+    // canvases redraw from CSS colours, so let the app refresh its drawings
+    try {
+      if (typeof drawTimeline === 'function') drawTimeline();
+      if (typeof drawSpectrum === 'function') drawSpectrum();
+      if (typeof drawPitchGraph === 'function') drawPitchGraph();
+    } catch (_) {}
+  }
+  function toggleTheme() { applyTheme(currentTheme() === 'light' ? 'dark' : 'light'); }
+  function initTheme() {
+    applyTheme(currentTheme());
+    if (window.matchMedia) {
+      var mq = window.matchMedia('(prefers-color-scheme: light)');
+      var onChange = function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('singvaza-theme'); } catch (_) {}
+        if (!saved) applyTheme(e.matches ? 'light' : 'dark');
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+      else if (mq.addListener) mq.addListener(onChange);
+    }
+  }
+
   function openAuthModal(defaultMode = null) {
     if (defaultMode) setAuthMode(defaultMode);
     document.getElementById('authModal').classList.add('open');
@@ -3698,6 +3735,7 @@ const App = (() => {
 
   // ==================== ULTRA-FAST ZERO-RAM BOOT ====================
   function init() {
+    initTheme();
     if (!document.body.contains(hwAudio)) {
       document.body.appendChild(hwAudio);
     }
@@ -3810,7 +3848,7 @@ const App = (() => {
     searchLyricsOnly, clearUploadedStageTrack,
     toggleCustomLyricsEditor, saveCustomLyrics,
     onMicModeChange, handleBackingUpload, handleVocalUpload, toggleMicMonitor, toggleMicRecording, receiveNativeDualTracks,
-    openAuthModal, closeAuthModal, retryAuthSecurity, setAuthMode, startGmailQuickSignup, submitAuth, logout, deleteAccount, toggleProDemo,
+    toggleTheme, applyTheme, openAuthModal, closeAuthModal, retryAuthSecurity, setAuthMode, startGmailQuickSignup, submitAuth, logout, deleteAccount, toggleProDemo,
     saveProjectToD1, restoreProject, onExportFormatChange, exportMasteredWav, shareMasterFile,
   };
 })();
