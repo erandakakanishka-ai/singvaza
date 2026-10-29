@@ -3475,10 +3475,18 @@ const App = (() => {
     }
     const toolItems = results.filter((i) => i.kind === 'tool');
     const blogItems = results.filter((i) => i.kind === 'blog');
+    // the built-in tiles carry a data-discovery key that matches the search entries above
+    const alias = { 'builtin-office-pdf': 'homeOfficeToPdf', 'builtin-html-pdf': 'homeHtmlToPdf', 'builtin-recorder': 'homeRecorder' };
+    const matchedKeys = new Set(toolItems.map((i) => i.key));
     for (const el of cards.querySelectorAll('[data-discovery]')) {
       const builtIn = el.dataset.discovery.startsWith('builtin-');
       if (!builtIn) el.remove();
-      else el.style.display = toolItems.some((item) => item.key === el.dataset.discovery) ? 'flex' : 'none';
+      else el.style.display = matchedKeys.has(el.dataset.discovery) ? 'flex' : 'none';
+    }
+    for (const [key, id] of Object.entries(alias)) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = matchedKeys.has(key) ? '' : 'none';
+      if (el) el.hidden = !matchedKeys.has(key);
     }
     for (const item of toolItems.filter((i) => i.tool)) {
       const t = item.tool;
