@@ -1786,6 +1786,38 @@ const App = (() => {
   }
 
   // ==================== CLEAN LOW-CPU MIC RECORDING & FILE UPLOAD ====================
+  /* What is this file really? Extensions lie (an AAC-in-MP4 download renamed
+   * .mp3 is very common) and the answer decides whether any browser can decode
+   * it. The check is on the first bytes only, so it is instant. */
+  function sniffAudio(bytes) {
+    const b = bytes;
+    const ascii = (from, to) => String.fromCharCode(...b.subarray(from, to));
+    if (b.length < 12) return 'too-short';
+    if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) return 'mp3-id3';
+    if (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0) return 'mp3-bare';
+    if (ascii(4, 8) === 'ftyp') return 'mp4-aac';
+    if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return 'wav';
+    if (ascii(0, 4) === 'OggS') return 'ogg';
+    if (ascii(0, 4) === 'fLaC') return 'flac';
+    if (ascii(0, 4) === 'FORM') return 'aiff';
+    return 'unknown';
+  }
+
+  function uploadProblem(file, kind, err) {
+    const mb = (file.size / 1048576).toFixed(1);
+    const isFirefox = /firefox|fxios/i.test(navigator.userAgent || '');
+    if (kind === 'mp4-aac') {
+      return isFirefox
+        ? `This file is really an MP4/AAC audio track (${mb} MB) whatever its name says, and Firefox cannot decode AAC. Open this page in Chrome, or convert it to MP3 first.`
+        : `This file contains MP4/AAC audio (${mb} MB), which this browser could not decode. Try an MP3 or WAV version.`;
+    }
+    if (kind === 'mp3-id3' || kind === 'mp3-bare') {
+      return `The MP3 itself looks valid (${mb} MB) but this browser refused it${err?.name ? ` (${err.name})` : ''}. A ${mb} MB song is a lot for a phone to unpack at once — try Chrome, or a shorter clip.`;
+    }
+    if (kind === 'too-short') return 'That file is empty or not audio at all.';
+    return `Could not read the audio in “${file.name}” (${mb} MB${err?.name ? `, ${err.name}` : ''}). Try an MP3 or WAV version.`;
+  }
+
   /* Some MP3 files carry no ID3 tag at all (a plain frame stream, common for
    * files pulled out of videos or older rips). Firefox refuses those with a bare
    * EncodingError while Chrome and Safari accept them, which made "Reduce
@@ -1890,19 +1922,12 @@ const App = (() => {
       state.originalBackingBuffer = null;
       state.backingBuffer = null;
       state.backingPeaks = null;
-      // Name the real reason instead of one vague sentence: Firefox on Android
-      // cannot decode AAC at all (m4a/mp4), which is the most common failure.
-      const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
-      const aac = ['.m4a', '.aac', '.mp4', '.m4v', '.mov', '.3gp'].includes(ext);
-      const isFirefox = /firefox|fxios/i.test(navigator.userAgent || '');
-      let why;
-      if (aac && isFirefox) {
-        why = `Firefox on this device cannot decode ${ext || 'that'} audio (AAC). Open this page in Chrome, or convert the song to MP3/WAV first — then it will work here too.`;
-      } else if (aac) {
-        why = `This file's audio track (${ext}) could not be decoded. Try an MP3 or WAV version of the song.`;
-      } else {
-        why = `Could not read the audio in “${file.name}”${err?.name ? ` (${err.name})` : ''}. Try an MP3 or WAV version — a different file usually works.`;
-      }
+      // Name the real reason, worked out from the file's own bytes.
+      let why = `Could not read the audio in “${file.name}”. Try an MP3 or WAV version.`;
+      try {
+        const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+        why = uploadProblem(file, sniffAudio(head), err);
+      } catch (_) {}
       updateVocalRemoverUI(why);
       showToast('Vocal reduction needs a readable stereo file.');
       markMixDirty();

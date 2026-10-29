@@ -336,3 +336,13 @@ test('a bare MP3 stream gets an empty ID3 header before the decode retry', async
   const upload = source.slice(source.indexOf('async function handleBackingUpload'));
   assert.ok(upload.indexOf('decodeAudioGuarded(ctx, raw)') > 0, 'upload decodes through the guard');
 });
+
+test('the upload error names the real container, not the file extension', async () => {
+  const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.match(source, /function sniffAudio\(/, 'the container is sniffed from the bytes');
+  assert.match(source, /function uploadProblem\(/, 'the message is built from that answer');
+  for (const kind of ['ftyp', 'mp3-id3', 'mp3-bare', 'RIFF']) {
+    assert.ok(source.includes(kind), `sniffing recognises ${kind}`);
+  }
+  assert.match(source, /Firefox cannot decode AAC/, 'Firefox + AAC gets an actionable message');
+});
