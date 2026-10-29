@@ -45,4 +45,11 @@ test('the HTML to PDF page exposes the Office downloads', async () => {
   }
   assert.ok(page.includes('/office-writer.js'), 'the writer is loaded');
   assert.ok(page.includes('width=1180'), 'phones get the full desktop canvas, like onlineviewer.net');
+  for (const id of ['railEditor', 'railPreview', 'railTools', 'dragEditor', 'dragTools']) {
+    assert.ok(page.includes('id="' + id + '"'), 'missing drag/rail control ' + id);
+  }
+  assert.ok(page.includes('bindDrag'), 'panels can be dragged away');
+  assert.ok(page.includes('collapse('), 'a dragged-away panel collapses to a slim rail');
+  assert.ok(!/#38bdf8|#0b1020|#1a2236/.test(page), 'the glowing blue palette is gone');
+  assert.ok((page.match(/class="homebig/g) || []).length >= 2, 'big Home buttons on the tools panel');
 });
