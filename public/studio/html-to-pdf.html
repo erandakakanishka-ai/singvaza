@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HTML / Code to PDF — A4, A5, Letter, portrait or landscape | SingVaza</title>
+<meta name="description" content="Turn HTML, Markdown or source code into a clean PDF in your browser. Pick A4, A5, Letter, Legal or A3, portrait or landscape, printable margins or a plain PDF, page numbers and syntax colours. Nothing is uploaded." />
+<meta name="color-scheme" content="dark light" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<style>
+:root{--bg:#0b1020;--panel:#121a2f;--panel2:#0e1526;--line:#22314f;--ink:#e8eefc;--dim:#9db0d0;--cyan:#38bdf8;--amber:#fbbf24;--ok:#34d399;--bad:#f87171;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+body{min-height:100vh}a{color:var(--cyan)}
+.wrap{max-width:1240px;margin:0 auto;padding:18px 16px 64px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;text-decoration:none;color:var(--ink)}
+.brand svg{width:26px;height:26px}
+.crumbs{font-size:12.5px;color:var(--dim)}.crumbs a{color:var(--dim);text-decoration:none}
+h1{font-size:clamp(20px,3.2vw,29px);margin:6px 0;letter-spacing:-.02em}
+.lede{margin:0 0 16px;color:var(--dim);font-size:14px;max-width:70ch;line-height:1.55}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card+.card{margin-top:14px}
+.card h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tab{background:var(--panel2);border:1px solid var(--line);color:var(--dim);border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+.tab[aria-pressed="true"]{background:rgba(56,189,248,.16);border-color:var(--cyan);color:#bfe9ff}
+textarea#src{width:100%;min-height:320px;resize:vertical;background:#080d19;color:#dbe7ff;border:1px solid var(--line);border-radius:11px;padding:12px 13px;font-family:var(--mono);font-size:13px;line-height:1.55;tab-size:2}
+textarea#src:focus{outline:2px solid rgba(56,189,248,.5);outline-offset:1px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:10px;padding:9px 13px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.btn:hover{border-color:#33507c}
+.btn-primary{background:linear-gradient(180deg,#fdba74,#f59e0b);color:#20140a;border-color:#f59e0b;font-weight:800}
+.btn-cyan{background:rgba(56,189,248,.14);border-color:var(--cyan);color:#bfe9ff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
+label.f{display:block;font-size:12px;color:var(--dim);font-weight:700;margin:0 0 5px}
+select,input[type=number],input[type=text]{width:100%;background:#080d19;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit}
+.fgroup{margin-bottom:11px}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.seg{display:grid;grid-auto-flow:column;gap:6px;background:#080d19;border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{background:transparent;border:0;color:var(--dim);font-size:12.5px;font-weight:700;padding:7px 6px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:rgba(56,189,248,.18);color:#d7f2ff}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;cursor:pointer}
+.chk input{width:17px;height:17px;accent-color:#38bdf8}
+.hint{font-size:11.5px;color:var(--dim);line-height:1.5;margin:6px 0 0}
+.status{margin-top:10px;font-size:13px;min-height:20px}
+.status.err{color:var(--bad)}.status.ok{color:var(--ok)}
+#previewWrap{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#1a2236}
+#previewBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;font-size:12px;color:var(--dim);background:#0e1526;border-bottom:1px solid var(--line);flex-wrap:wrap}
+#previewScale{flex:0 0 130px}
+#previewBox{max-height:520px;overflow:auto;padding:14px;background:#1a2236}
+.sheet{background:#fff;color:#111;margin:0 auto;box-shadow:0 8px 26px rgba(0,0,0,.45);position:relative}
+.sheet .inner{padding:var(--pad)}
+.sheet h1,.sheet h2,.sheet h3,.sheet h4{margin:.6em 0 .35em;line-height:1.25}
+.sheet h1{font-size:1.9em}.sheet h2{font-size:1.45em}.sheet h3{font-size:1.18em}
+.sheet p,.sheet li{line-height:1.62}.sheet p{margin:.55em 0}
+.sheet ul,.sheet ol{padding-left:1.5em;margin:.5em 0}
+.sheet pre{background:#f4f6fa;border:1px solid #dfe5ef;border-radius:8px;padding:10px 11px;overflow:auto;font-size:.9em;line-height:1.5}
+.sheet code{font-family:var(--mono)}
+.sheet :not(pre)>code{background:#eef2f8;border:1px solid #e0e7f2;border-radius:4px;padding:1px 4px}
+.sheet table{border-collapse:collapse;width:100%;font-size:.95em;margin:.6em 0}
+.sheet th,.sheet td{border:1px solid #cfd8e6;padding:6px 8px;text-align:left;vertical-align:top}
+.sheet th{background:#f1f5fb;font-weight:700}
+.sheet img{max-width:100%;height:auto}
+.sheet blockquote{border-left:3px solid #c7d3e6;margin:.6em 0;padding:.1em 0 .1em .9em;color:#41506a}
+.sheet a{color:#0b61c4}.sheet hr{border:0;border-top:1px solid #dbe2ee;margin:1.1em 0}
+.sheet .tok-c{color:#6b7a90}.sheet .tok-s{color:#a3236b}.sheet .tok-k{color:#0a52a8;font-weight:600}.sheet .tok-n{color:#8a4b00}.sheet .tok-t{color:#7a2ea8}
+.sheet .dochead{border-bottom:1px solid #dfe5ef;padding-bottom:8px;margin-bottom:14px;font-size:.82em;color:#5d6b83;display:flex;justify-content:space-between}
+.warn{display:none;margin-top:10px;font-size:12px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:9px;padding:8px 10px}
+.footnote{margin-top:22px;font-size:11.5px;color:#5b6b86;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>SingVaza <span style="color:var(--dim);font-weight:600">Tools</span></a>
+    <nav class="crumbs"><a href="/">Home</a> / <a href="/tools">Tools</a> / <strong style="color:var(--ink)">HTML → PDF</strong></nav>
+  </div>
+
+  <h1>HTML / Code → PDF</h1>
+  <p class="lede">Paste HTML, Markdown or source code and get a clean PDF. Choose <strong>A4, A5 or Letter</strong>, <strong>portrait or landscape</strong>, margins, page numbers and syntax colours — a printable document or a plain edge-to-edge PDF. Everything runs on your device: nothing is uploaded and there is no file limit.</p>
+
+  <div class="grid">
+    <div>
+      <section class="card">
+        <h2>1 · What are you converting?</h2>
+        <div class="tabs" role="group" aria-label="Source type">
+          <button class="tab" data-type="html" aria-pressed="true">HTML</button>
+          <button class="tab" data-type="markdown" aria-pressed="false">Markdown</button>
+          <button class="tab" data-type="code" aria-pressed="false">Source code</button>
+          <button class="tab" data-type="text" aria-pressed="false">Plain text</button>
+        </div>
+        <div class="row" style="margin:0 0 8px" id="codeRow" hidden>
+          <label class="f" for="lang" style="margin:0">Language</label>
+          <select id="lang" style="width:auto;min-width:170px">
+            <option value="auto">Auto-detect</option><option value="js">JavaScript</option><option value="ts">TypeScript</option><option value="py">Python</option><option value="java">Java</option><option value="c">C / C++</option><option value="cs">C#</option><option value="php">PHP</option><option value="go">Go</option><option value="rs">Rust</option><option value="sql">SQL</option><option value="sh">Shell</option><option value="html">HTML / XML</option><option value="css">CSS</option><option value="json">JSON</option>
+          </select>
+          <label class="chk" style="margin-left:auto"><input type="checkbox" id="highlight" checked /> Syntax colours</label>
+        </div>
+        <textarea id="src" spellcheck="false" aria-label="Source to convert"></textarea>
+        <div class="row">
+          <button class="btn btn-sm" id="btnSample">Load sample</button>
+          <label class="btn btn-sm" for="fileIn">Import file…</label>
+          <input id="fileIn" type="file" hidden accept=".html,.htm,.md,.markdown,.txt,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.cs,.php,.go,.rs,.sql,.sh,.css,.json,.xml,.yml,.yaml,.csv" />
+          <button class="btn btn-sm" id="btnClear">Clear</button>
+          <span class="hint" id="count" style="margin-left:auto"></span>
+        </div>
+        <div class="warn" id="warnBox"></div>
+      </section>
+
+      <section class="card">
+        <h2>2 · Preview</h2>
+        <div id="previewWrap">
+          <div id="previewBar">
+            <span id="pageInfo">A4 portrait</span>
+            <span style="display:flex;align-items:center;gap:8px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
+            <button class="btn btn-sm" id="btnPrint">Print preview</button>
+          </div>
+          <div id="previewBox"><div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div></div>
+        </div>
+        <p class="hint">The preview shows page one scaled to fit. The PDF you download contains every page with the margins, header, footer and numbering you chose.</p>
+      </section>
+    </div>
+
+    <aside>
+      <section class="card">
+        <h2>Page setup</h2>
+        <div class="fgroup"><label class="f">Paper size</label>
+          <select id="paper">
+            <option value="a4" selected>A4 — 210 × 297 mm</option>
+            <option value="a5">A5 — 148 × 210 mm</option>
+            <option value="letter">Letter — 8.5 × 11 in</option>
+            <option value="legal">Legal — 8.5 × 14 in</option>
+            <option value="a3">A3 — 297 × 420 mm</option>
+          </select>
+        </div>
+        <div class="fgroup"><label class="f">Orientation</label>
+          <div class="seg"><button id="oriPortrait" aria-pressed="true">Portrait</button><button id="oriLand" aria-pressed="false">Landscape</button></div>
+        </div>
+        <div class="fgroup"><label class="f">Output</label>
+          <div class="seg"><button id="modePrint" aria-pressed="true">Printable</button><button id="modePdf" aria-pressed="false">Plain PDF</button></div>
+          <p class="hint" id="modeHint">Printable adds readable margins, a document header, a footer and page numbers — ready for a printer.</p>
+        </div>
+        <div class="two">
+          <div class="fgroup"><label class="f" for="margin">Margin (mm)</label><input id="margin" type="number" min="0" max="40" step="1" value="18" /></div>
+          <div class="fgroup"><label class="f" for="fontSize">Body size (pt)</label><input id="fontSize" type="number" min="7" max="20" step="0.5" value="11" /></div>
+        </div>
+        <div class="two">
+          <div class="fgroup"><label class="f" for="fontFamily">Font</label>
+            <select id="fontFamily"><option value="sans" selected>System sans</option><option value="serif">Serif</option><option value="mono">Monospace</option></select>
+          </div>
+          <div class="fgroup"><label class="f" for="lineH">Line height</label><input id="lineH" type="number" min="1.1" max="2.2" step="0.05" value="1.55" /></div>
+        </div>
+        <div class="fgroup"><label class="f" for="title">Document title</label><input id="title" type="text" placeholder="Used in the PDF title and header" /></div>
+        <div class="fgroup"><label class="f" for="footer">Footer text</label><input id="footer" type="text" placeholder="e.g. SingVaza · confidential" /></div>
+        <label class="chk"><input type="checkbox" id="optPageNumbers" checked /> Page numbers (1 / N)</label>
+        <label class="chk"><input type="checkbox" id="optHeader" checked /> Running header</label>
+        <label class="chk"><input type="checkbox" id="optAvoidBreak" checked /> Keep code blocks &amp; rows whole</label>
+        <label class="chk"><input type="checkbox" id="optLinkFootnotes" checked /> Collect links at the end</label>
+        <label class="chk"><input type="checkbox" id="optSmartQuotes" /> Smart quotes in Markdown</label>
+      </section>
+
+      <section class="card">
+        <h2>Export</h2>
+        <div class="row" style="margin-top:0"><button class="btn btn-primary" id="btnPdf" style="flex:1 1 100%">⬇ Download PDF</button></div>
+        <div class="row">
+          <button class="btn btn-cyan" id="btnPrintDoc" style="flex:1">🖨 Print / Save as PDF</button>
+          <button class="btn" id="btnHtml" title="Download the formatted HTML">HTML</button>
+        </div>
+        <div class="row"><button class="btn btn-sm" id="btnTxt">Plain text (.txt)</button><button class="btn btn-sm" id="btnCopy">Copy HTML</button></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <p class="hint">“Download PDF” builds the file here in the browser. “Print / Save as PDF” uses the browser's own PDF engine — handy on phones, where it also previews the pages exactly.</p>
+      </section>
+
+      <section class="card">
+        <h2>Good to know</h2>
+        <p class="hint" style="margin:0">• A4 / A5 / Letter / Legal / A3, portrait or landscape.<br />
+        • Printable = margins + header + footer + page numbers; Plain PDF = edge to edge.<br />
+        • Page breaks land between blocks, never through a line; long code blocks split at their own line breaks.<br />
+        • Code keeps its long lines instead of being cut.<br />
+        • Works offline once loaded. No uploads, no accounts.</p>
+      </section>
+    </aside>
+  </div>
+
+  <p class="footnote">Everything on this page runs in your browser. Your document is never sent to a server — there is no upload step, which is why the tool works offline and has no size limit.</p>
+</div>
+<div id="printHost" style="position:absolute;left:-99999px;top:0;width:0;height:0;overflow:visible;pointer-events:none"></div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var src = $('src'), sheet = $('sheet'), inner = $('sheetInner');
+  var state = { type: 'html', ori: 'portrait', mode: 'print' };
+  var PAPER = { a4: { w: 210, h: 297 }, a5: { w: 148, h: 210 }, a3: { w: 297, h: 420 }, letter: { w: 215.9, h: 279.4 }, legal: { w: 215.9, h: 355.6 } };
+  var A4PX = 96 / 25.4;
+
+  /* ---------------- helpers ---------------- */
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function binaries(str) { var out = new Uint8Array(str.length); for (var i = 0; i < str.length; i++) out[i] = str.charCodeAt(i) & 255; return out; }
+
+  /* ---------------- Markdown ---------------- */
+  function inlineMd(text, o) {
+    var t = esc(text);
+    if (o && o.smartQuotes) t = t.replace(/(^|[\s(\[])"([^"\n]+)"/g, '$1\u201c$2\u201d').replace(/(^|[\s(\[])'([^'\n]+)'/g, '$1\u2018$2\u2019');
+    t = t.replace(/`([^`]+)`/g, function (_, c) { return '<code>' + c + '</code>'; });
+    t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, function (_, alt, url) { return /^(https?:|data:image\/)/i.test(url) ? '<img src="' + url + '" alt="' + alt + '">' : esc(alt); });
+    t = t.replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, function (_, label, url) { return '<a href="' + url + '">' + label + '</a>'; });
+    t = t.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+    t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    t = t.replace(/(^|[^_])__([^_]+)__/g, '$1<strong>$2</strong>');
+    t = t.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    return t;
+  }
+  function markdownToHtml(md, o) {
+    var lines = String(md).replace(/\r\n?/g, '\n').split('\n'), out = [], i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (/^\s*$/.test(line)) { i++; continue; }
+      var fence = line.match(/^\s*(```|~~~)\s*([\w+#.-]*)/);
+      if (fence) {
+        var lang = fence[2] || '', buf = []; i++;
+        while (i < lines.length && !new RegExp('^\\s*' + fence[1]).test(lines[i])) { buf.push(lines[i]); i++; }
+        i++;
+        out.push('<pre><code>' + (o && o.highlight ? highlightCode(buf.join('\n'), lang || 'auto') : esc(buf.join('\n'))) + '</code></pre>');
+        continue;
+      }
+      var h = line.match(/^(#{1,6})\s+(.*)$/);
+      if (h) { out.push('<h' + h[1].length + '>' + inlineMd(h[2], o) + '</h' + h[1].length + '>'); i++; continue; }
+      if (/^\s*([-*_])\s*\1\s*\1[\s-]*$/.test(line)) { out.push('<hr>'); i++; continue; }
+      if (/^\s*>/.test(line)) {
+        var q = []; while (i < lines.length && /^\s*>/.test(lines[i])) { q.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+        out.push('<blockquote>' + markdownToHtml(q.join('\n'), o) + '</blockquote>'); continue;
+      }
+      if (/\|/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
+        var head = line.split('|').map(function (c) { return c.trim(); });
+        if (head[0] === '') head.shift(); if (head[head.length - 1] === '') head.pop();
+        i += 2;
+        var rows = [];
+        while (i < lines.length && /\|/.test(lines[i]) && !/^\s*$/.test(lines[i])) {
+          var cells = lines[i].split('|').map(function (c) { return c.trim(); });
+          if (cells[0] === '') cells.shift(); if (cells[cells.length - 1] === '') cells.pop();
+          rows.push(cells); i++;
+        }
+        var t = '<table><thead><tr>' + head.map(function (c) { return '<th>' + inlineMd(c, o) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        rows.forEach(function (r) { t += '<tr>' + r.map(function (c) { return '<td>' + inlineMd(c, o) + '</td>'; }).join('') + '</tr>'; });
+        out.push(t + '</tbody></table>'); continue;
+      }
+      var lm = line.match(/^(\s*)([-*+]|\d+[.)])\s+/);
+      if (lm) {
+        var ordered = /\d/.test(lm[2]), baseIndent = lm[1].length, items = [];
+        while (i < lines.length) {
+          var m2 = lines[i].match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+          if (m2 && m2[1].length === baseIndent) {
+            var itemLines = [m2[3]]; i++;
+            while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*([-*+]|\d+[.)])\s+/.test(lines[i])) { itemLines.push(lines[i].trim()); i++; }
+            items.push(itemLines.join(' ')); continue;
+          }
+          if (m2 && m2[1].length > baseIndent) {
+            var nested = [], ni = m2[1].length;
+            while (i < lines.length) {
+              var m3 = lines[i].match(/^(\s*)([-*+]|\d+[.)])\s+.*$/);
+              if (!m3 || m3[1].length < ni) break;
+              nested.push(lines[i].slice(ni)); i++;
+            }
+            items[items.length - 1] += '\n' + nested.join('\n'); continue;
+          }
+          break;
+        }
+        var lt = ordered ? '<ol>' : '<ul>';
+        items.forEach(function (it) {
+          if (it.indexOf('\n') >= 0) { var parts = it.split('\n'); lt += '<li>' + inlineMd(parts[0], o) + markdownToHtml(parts.slice(1).join('\n'), o) + '</li>'; }
+          else lt += '<li>' + inlineMd(it, o) + '</li>';
+        });
+        out.push(lt + (ordered ? '</ol>' : '</ul>')); continue;
+      }
+      var para = [];
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^\s*(#{1,6})\s/.test(lines[i]) && !/^\s*(```|~~~)/.test(lines[i])) { para.push(lines[i]); i++; }
+      out.push('<p>' + inlineMd(para.join(' '), o) + '</p>');
+    }
+    return out.join('\n');
+  }
+
+  /* ---------------- syntax colours ---------------- */
+  var KEYWORDS = {
+    js: 'const let var function return if else for while do switch case break continue class extends new this typeof instanceof try catch finally throw async await import from export default null undefined true false of in delete void yield static get set super',
+    ts: 'const let var function return if else for while class interface type enum export import from public private protected readonly async await new this try catch implements extends null undefined true false as of in',
+    py: 'def class return if elif else for while in not and or import from as try except finally with lambda None True False yield global nonlocal pass raise assert del is async await print self',
+    java: 'public private protected static final class interface extends implements return if else for while new try catch finally import package void int long double float boolean char String null true false this super throw throws abstract synchronized',
+    c: 'int long short char float double void struct union enum typedef static const unsigned signed return if else for while do switch case break continue sizeof goto extern inline class public private new delete nullptr true false using namespace template typename',
+    cs: 'public private protected internal static class struct interface return if else for foreach while new try catch finally using namespace void int string bool double float var null true false this base override virtual async await',
+    php: 'function class return if else elseif foreach for while switch new try catch finally echo print public private protected static const use namespace null true false array isset unset',
+    go: 'package import func var const type struct interface return if else for range switch case break continue go defer chan select map nil true false make new',
+    rs: 'fn let mut pub struct enum impl trait use mod return if else for while loop match break continue const static async await move ref where self Self Some None Ok Err true false',
+    sql: 'SELECT FROM WHERE INSERT INTO VALUES UPDATE SET DELETE JOIN LEFT RIGHT INNER OUTER ON GROUP BY ORDER HAVING LIMIT OFFSET CREATE TABLE ALTER DROP INDEX AS AND OR NOT NULL PRIMARY KEY FOREIGN DISTINCT COUNT SUM AVG MIN MAX CASE WHEN THEN ELSE END',
+    sh: 'if then else elif fi for while do done case esac function return echo export local cd ls cat grep sed awk rm cp mv mkdir sudo set source exit',
+    json: 'true false null'
+  };
+  function detectLang(code) {
+    if (/^\s*</.test(code) && /<\/[a-z]/i.test(code)) return 'html';
+    if (/^\s*\{[\s\S]*\}\s*$/.test(code) && /"[^"]+"\s*:/.test(code)) return 'json';
+    if (/^\s*(def |import |from |class |elif |print\()/m.test(code)) return 'py';
+    if (/(function |const |=>|let |console\.log)/.test(code)) return 'js';
+    if (/(public |private |void |System\.out)/.test(code)) return 'java';
+    if (/(#include|std::|printf\()/.test(code)) return 'c';
+    if (/(\$\w+\s*=|<\?php|namespace )/.test(code)) return 'php';
+    if (/(func |package |:=\s)/.test(code)) return 'go';
+    if (/(fn |let mut |impl )/.test(code)) return 'rs';
+    if (/(SELECT |INSERT INTO|CREATE TABLE)/i.test(code)) return 'sql';
+    if (/^\s*(#!\/|sudo |apt |npm |\$ )/m.test(code)) return 'sh';
+    if (/(\{[\s\S]*:[^;]+;\s*\})/.test(code)) return 'css';
+    return 'js';
+  }
+  function highlightCode(code, lang) {
+    var l = (!lang || lang === 'auto') ? detectLang(code) : lang;
+    if (l === 'html') {
+      var t = esc(code);
+      t = t.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="tok-c">$1</span>');
+      t = t.replace(/(&lt;\/?)([\w:-]+)/g, '$1<span class="tok-t">$2</span>');
+      t = t.replace(/([\w:-]+)=(&quot;[^&]*?&quot;)/g, '<span class="tok-k">$1</span>=<span class="tok-s">$2</span>');
+      return t;
+    }
+    if (l === 'json') {
+      return esc(code).replace(/"([^"\\]*)"(\s*:)?/g, function (m, str, colon) {
+        return colon ? '<span class="tok-t">"' + str + '"</span>' + colon : '<span class="tok-s">"' + str + '"</span>';
+      }).replace(/\b(true|false|null)\b/g, '<span class="tok-k">$1</span>');
+    }
+    var map = {}, kws = (KEYWORDS[l] || KEYWORDS.js).split(/\s+/);
+    for (var ki = 0; ki < kws.length; ki++) map[kws[ki]] = 1;
+    var out = '', i = 0, n = code.length;
+    var lineComment = (l === 'py' || l === 'sh') ? '#' : '//';
+    var blockComments = !(l === 'py' || l === 'sh');
+    while (i < n) {
+      var c = code[i];
+      if (blockComments && code.substr(i, 2) === '/*') {
+        var e0 = code.indexOf('*/', i + 2); e0 = e0 < 0 ? n : e0 + 2;
+        out += '<span class="tok-c">' + esc(code.slice(i, e0)) + '</span>'; i = e0; continue;
+      }
+      if (code.startsWith(lineComment, i)) {
+        var e1 = code.indexOf('\n', i); e1 = e1 < 0 ? n : e1;
+        out += '<span class="tok-c">' + esc(code.slice(i, e1)) + '</span>'; i = e1; continue;
+      }
+      if (c === '"' || c === "'" || (c === '`' && (l === 'js' || l === 'ts'))) {
+        var j = i + 1;
+        while (j < n) { if (code[j] === '\\') { j += 2; continue; } if (code[j] === c) { j++; break; } if (code[j] === '\n' && c !== '`') break; j++; }
+        out += '<span class="tok-s">' + esc(code.slice(i, j)) + '</span>'; i = j; continue;
+      }
+      if (/[A-Za-z_$]/.test(c)) {
+        var k = i; while (k < n && /[A-Za-z0-9_$]/.test(code[k])) k++;
+        var word = code.slice(i, k);
+        if (map[word]) out += '<span class="tok-k">' + esc(word) + '</span>';
+        else if (/^[A-Z]/.test(word) && word.length > 1) out += '<span class="tok-t">' + esc(word) + '</span>';
+        else out += esc(word);
+        i = k; continue;
+      }
+      if (/[0-9]/.test(c)) {
+        var k2 = i; while (k2 < n && /[0-9a-fAxX._]/.test(code[k2])) k2++;
+        out += '<span class="tok-n">' + esc(code.slice(i, k2)) + '</span>'; i = k2; continue;
+      }
+      out += esc(c); i++;
+    }
+    return out;
+  }
+
+  /* ---------------- document ---------------- */
+  function opts() { return { type: state.type, highlight: $('highlight').checked, smartQuotes: $('optSmartQuotes').checked }; }
+  function sourceHtml(text, o) {
+    if (!text.trim()) return '<p style="color:#8894a8"><em>Nothing to convert yet — paste something on the left.</em></p>';
+    if (o.type === 'html') return text;
+    if (o.type === 'markdown') return markdownToHtml(text, o);
+    if (o.type === 'code') return '<pre><code>' + (o.highlight ? highlightCode(text, $('lang').value) : esc(text)) + '</code></pre>';
+    return text.replace(/\r\n?/g, '\n').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
+  }
+  function sanitizeHtml(html) {
+    return html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+      .replace(/<object[\s\S]*?<\/object>/gi, '').replace(/<embed[^>]*>/gi, '')
+      .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '').replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
+      .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '').replace(/javascript:/gi, '');
+  }
+  function paperMm() {
+    var p = PAPER[$('paper').value] || PAPER.a4;
+    return state.ori === 'landscape' ? { w: p.h, h: p.w } : { w: p.w, h: p.h };
+  }
+  function marginMm() {
+    var m = Math.max(0, Number($('margin').value) || 0);
+    return state.mode === 'pdf' ? m : Math.max(8, m);
+  }
+  function bodyCss(extraMargin) {
+    var font = $('fontFamily').value === 'serif' ? 'Georgia,"Times New Roman",serif'
+      : $('fontFamily').value === 'mono' ? 'ui-monospace,Menlo,Consolas,monospace'
+      : 'system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif';
+    var fs = Number($('fontSize').value) || 11;
+    return 'font:400 ' + fs + 'pt/' + (Number($('lineH').value) || 1.55) + ' ' + font + ';color:#111'
+      + (extraMargin ? ';padding:' + marginMm() + 'mm' : '');
+  }
+  function decorate(html, keepHeader) {
+    var title = $('title').value.trim() || 'Document';
+    var body = sanitizeHtml(html);
+    if ($('optAvoidBreak').checked) {
+      body = body.replace(/<pre/g, '<pre style="page-break-inside:avoid;break-inside:avoid"')
+                 .replace(/<tr/g, '<tr style="page-break-inside:avoid;break-inside:avoid"')
+                 .replace(/<img/g, '<img style="page-break-inside:avoid;break-inside:avoid"');
+    }
+    if ($('optLinkFootnotes').checked) {
+      var links = [], seen = {};
+      body.replace(/href="([^"]+)"/g, function (_, url) { if (/^https?:/i.test(url) && !seen[url]) { seen[url] = 1; links.push(url); } return _; });
+      if (links.length) {
+        body += '<hr><p style="font-size:.8em;color:#5d6b83;margin-top:14px"><strong>Links</strong></p><ol style="font-size:.8em;color:#2b3a52">'
+          + links.map(function (u) { return '<li>' + esc(u) + '</li>'; }).join('') + '</ol>';
+      }
+    }
+    var head = '';
+    if (keepHeader && state.mode === 'print' && $('optHeader').checked) {
+      head = '<div class="dochead"><span>' + esc(title) + '</span><span>' + new Date().toLocaleDateString() + '</span></div>';
+    }
+    return head + body;
+  }
+  function fullDocument() {
+    var size = paperMm(), m = marginMm();
+    return '<!doctype html><html><head><meta charset="utf-8"><title>' + esc($('title').value.trim() || 'Document') + '</title><style>'
+      + '@page{size:' + size.w + 'mm ' + size.h + 'mm;margin:' + m + 'mm}html,body{margin:0;padding:0;background:#fff}'
+      + '.inner{' + bodyCss(true) + '}.inner pre{white-space:pre-wrap;word-break:break-word;background:#f4f6fa;border:1px solid #dfe5ef;border-radius:8px;padding:10px 11px;font-size:.9em}'
+      + '.inner code{font-family:ui-monospace,Menlo,Consolas,monospace}.inner table{width:100%;border-collapse:collapse}'
+      + '.inner th,.inner td{border:1px solid #cfd8e6;padding:6px 8px;text-align:left;vertical-align:top}.inner th{background:#f1f5fb}'
+      + '.inner img{max-width:100%;height:auto}.inner p,.inner li{line-height:1.62}'
+      + '</style></head><body><div class="inner">' + decorate(sourceHtml(src.value, opts()), false) + '</div></body></html>';
+  }
+
+  /* ---------------- preview ---------------- */
+  var renderTimer = null;
+  function updateCount() {
+    var chars = src.value.length, lines = src.value ? src.value.split('\n').length : 0;
+    $('count').textContent = chars ? (chars.toLocaleString() + ' characters · ' + lines.toLocaleString() + ' lines') : '';
+    $('warnBox').style.display = chars > 400000 ? 'block' : 'none';
+    if (chars > 400000) $('warnBox').textContent = 'Large document — the preview may lag, but the export still works.';
+  }
+  function render() {
+    updateCount();
+    var size = paperMm(), m = marginMm();
+    sheet.style.setProperty('--pad', m + 'mm');
+    sheet.style.width = size.w + 'mm';
+    sheet.style.minHeight = size.h + 'mm';
+    inner.style.cssText = bodyCss(false);
+    inner.style.padding = m + 'mm';
+    inner.innerHTML = decorate(sourceHtml(src.value, opts()), true);
+    $('pageInfo').textContent = $('paper').value.toUpperCase() + ' ' + state.ori + ' · ' + size.w + ' × ' + size.h + ' mm';
+    applyZoom();
+  }
+  function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 200); }
+  function applyZoom() {
+    var z = Number($('previewScale').value) / 100;
+    sheet.style.transform = 'scale(' + z + ')';
+    sheet.style.transformOrigin = 'top center';
+    $('previewBox').style.paddingBottom = Math.max(14, sheet.offsetHeight * (1 - z) + 14) + 'px';
+  }
+
+  /* ---------------- PDF writing ---------------- */
+  function canvasFont(cs) {
+    var style = cs.fontStyle && cs.fontStyle !== 'normal' ? cs.fontStyle + ' ' : '';
+    return style + (cs.fontWeight || '400') + ' ' + (cs.fontSize || '11pt') + ' ' + (cs.fontFamily || 'sans-serif');
+  }
+  function loadImages(root) {
+    var imgs = Array.prototype.slice.call(root.querySelectorAll('img'));
+    return Promise.all(imgs.map(function (img) {
+      if (img.complete) return Promise.resolve();
+      return new Promise(function (res) { img.onload = img.onerror = function () { res(); }; setTimeout(res, 4000); });
+    }));
+  }
+  /* A small DOM -> canvas renderer, so the export needs no library and no
+   * network. It covers what a printable document uses: headings, paragraphs,
+   * lists, tables, code blocks, rules, quotes, images and inline styles. */
+  function drawDom(ctx, root, ox, oy, plan) {
+    ctx.fillStyle = '#111';
+    ctx.textBaseline = 'alphabetic';
+    var y = oy, maxW = root.clientWidth || 600;
+    function fontOf(el) { return canvasFont(getComputedStyle(el)); }
+    function cssPx(el, prop) { return parseFloat(getComputedStyle(el)[prop]) || 0; }
+    function wrapRuns(runs, width) {
+      var lines = [[]], cur = 0;
+      runs.forEach(function (run) {
+        ctx.font = run.font;
+        run.text.split(/(\s+)/).forEach(function (word) {
+          if (!word) return;
+          var ww = ctx.measureText(word).width;
+          if (cur + ww > width && word.trim()) { lines.push([]); cur = 0; }
+          var last = lines[lines.length - 1];
+          if (last.length && last[last.length - 1].font === run.font && word !== '\n') last[last.length - 1].text += word;
+          else last.push({ text: word, font: run.font, color: run.color });
+          cur += ww;
+        });
+      });
+      return lines;
+    }
+    function collectRuns(node, parentFont, parentColor, bold, italic) {
+      var runs = [];
+      Array.prototype.forEach.call(node.childNodes, function (n) {
+        if (n.nodeType === 3) {
+          var f = parentFont;
+          if (bold) f = f.replace(/\b([1-9]00)\b/, function (m) { return String(Math.min(900, Number(m) + 200)); });
+          if (italic) f = 'italic ' + f.replace(/^italic /, '');
+          runs.push({ text: n.nodeValue.replace(/\s+/g, ' '), font: f, color: parentColor });
+          return;
+        }
+        if (n.nodeType !== 1) return;
+        var tag = n.tagName.toLowerCase();
+        if (tag === 'br') { runs.push({ text: '\n', font: parentFont, color: parentColor }); return; }
+        if (tag === 'script' || tag === 'style') return;
+        var cs = getComputedStyle(n);
+        if (cs.display === 'none') return;
+        if (tag === 'img') { runs.push({ image: n, font: parentFont, color: parentColor }); return; }
+        var f2 = canvasFont(cs), c2 = cs.color || parentColor;
+        if (tag === 'code' || tag === 'kbd' || tag === 'samp') f2 = (italic ? 'italic ' : '') + '400 ' + cs.fontSize + ' ui-monospace,Menlo,Consolas,monospace';
+        runs = runs.concat(collectRuns(n, f2, c2, bold || Number(cs.fontWeight) >= 600, italic || cs.fontStyle === 'italic'));
+      });
+      return runs;
+    }
+    function drawLines(lines, startY, lineH, leftPad) {
+      lines.forEach(function (line, li) {
+        var x = ox + leftPad;
+        line.forEach(function (r) {
+          if (r.text === '\n') return;
+          ctx.font = r.font; ctx.fillStyle = r.color || '#111';
+          ctx.fillText(r.text, x, startY + lineH * 0.8 + li * lineH);
+          x += ctx.measureText(r.text).width;
+        });
+      });
+    }
+    function drawBlock(el, startY, preRange) {
+      var tag = el.tagName.toLowerCase(), cs = getComputedStyle(el);
+      if (cs.display === 'none') return;
+      y = typeof startY === 'number' ? startY : y;
+      var mt = typeof startY === 'number' ? 0 : cssPx(el, 'marginTop');
+      var mb = cssPx(el, 'marginBottom'), ml = cssPx(el, 'marginLeft');
+      if (tag === 'hr') {
+        y += mt;
+        ctx.strokeStyle = '#dbe2ee'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(ox, y + 0.5); ctx.lineTo(ox + maxW, y + 0.5); ctx.stroke();
+        y += 8 + mb; return;
+      }
+      if (tag === 'img') {
+        y += mt;
+        try {
+          var w = Math.min(el.naturalWidth || (maxW - ml), maxW - ml);
+          var ratio = el.naturalWidth ? el.naturalHeight / el.naturalWidth : 0.6;
+          ctx.drawImage(el, ox + ml, y, w, w * ratio);
+          y += w * ratio + mb;
+        } catch (_) {}
+        return;
+      }
+      if (tag === 'pre') {
+        y += mt || 4;
+        var text = (el.innerText || '').replace(/\t/g, '  ');
+        var fs = parseFloat(cs.fontSize) || 10, lh = fs * 1.45;
+        ctx.font = '400 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
+        var raw = text.split('\n');
+        if (preRange) raw = raw.slice(preRange[0], preRange[1]);
+        var pad = 8, wrapped = [];
+        raw.forEach(function (line) {
+          if (!line) { wrapped.push(''); return; }
+          var cur = '';
+          line.split(/(\s+)/).forEach(function (wd) {
+            if (ctx.measureText(cur + wd).width > maxW - 2 * pad - ml && cur.trim()) { wrapped.push(cur); cur = wd; }
+            else cur += wd;
+          });
+          wrapped.push(cur);
+        });
+        var boxH = wrapped.length * lh + 2 * pad;
+        ctx.fillStyle = '#f4f6fa'; ctx.fillRect(ox + ml, y, maxW - ml, boxH);
+        ctx.strokeStyle = '#dfe5ef'; ctx.lineWidth = 1; ctx.strokeRect(ox + ml + 0.5, y + 0.5, maxW - ml - 1, boxH - 1);
+        ctx.fillStyle = '#1c2637'; ctx.font = '400 ' + fs + 'px ui-monospace,Menlo,Consolas,monospace';
+        wrapped.forEach(function (line, i) { ctx.fillText(line, ox + ml + pad, y + pad + lh * (i + 0.78)); });
+        y += boxH + mb + 6; return;
+      }
+      if (tag === 'table') {
+        y += mt;
+        var rows = Array.prototype.slice.call(el.querySelectorAll('tr')), cols = 0;
+        rows.forEach(function (r) { cols = Math.max(cols, r.children.length); });
+        var colW = (maxW - ml) / Math.max(1, cols);
+        var fsT = parseFloat(cs.fontSize) || 11;
+        rows.forEach(function (r) {
+          var cells = Array.prototype.slice.call(r.children);
+          var linesNeeded = 1;
+          cells.forEach(function (c) {
+            ctx.font = (Number(getComputedStyle(c).fontWeight) >= 600 ? '600 ' : '400 ') + fsT + 'px system-ui,sans-serif';
+            linesNeeded = Math.max(linesNeeded, Math.ceil(ctx.measureText(c.innerText || '').width / (colW - 12)));
+          });
+          var rowH = linesNeeded * 15 + 10;
+          if (r.querySelector('th')) { ctx.fillStyle = '#f1f5fb'; ctx.fillRect(ox + ml, y, maxW - ml, rowH); }
+          ctx.strokeStyle = '#cfd8e6'; ctx.lineWidth = 1;
+          ctx.strokeRect(ox + ml + 0.5, y + 0.5, maxW - ml - 1, rowH - 1);
+          cells.forEach(function (c, ci) {
+            var boldT = Number(getComputedStyle(c).fontWeight) >= 600;
+            ctx.font = (boldT ? '600 ' : '400 ') + fsT + 'px system-ui,sans-serif';
+            ctx.fillStyle = '#111';
+            ctx.fillText((c.innerText || '').slice(0, 120), ox + ml + ci * colW + 6, y + 16);
+            if (ci < cells.length - 1) {
+              ctx.beginPath(); ctx.moveTo(ox + ml + (ci + 1) * colW + 0.5, y); ctx.lineTo(ox + ml + (ci + 1) * colW + 0.5, y + rowH); ctx.stroke();
+            }
+          });
+          y += rowH;
+        });
+        y += mb; return;
+      }
+      if (tag === 'ul' || tag === 'ol') {
+        y += mt;
+        var idx = 1;
+        Array.prototype.forEach.call(el.children, function (li) {
+          if (li.tagName.toLowerCase() !== 'li') return;
+          var bullet = tag === 'ol' ? (idx++) + '.' : '•', indent = 18;
+          var lines = wrapRuns(collectRuns(li, fontOf(li), '#111', false, false), maxW - ml - indent);
+          ctx.font = '400 ' + (parseFloat(cs.fontSize) || 11) + 'px system-ui,sans-serif';
+          ctx.fillStyle = '#111';
+          ctx.fillText(bullet, ox + ml, y + 14);
+          drawLines(lines, y, 17, indent + ml);
+          y += Math.max(1, lines.length) * 17 + 2;
+        });
+        y += mb + 2; return;
+      }
+      if (tag === 'blockquote') {
+        y += mt;
+        var qLines = wrapRuns(collectRuns(el, fontOf(el), '#41506a', false, true), maxW - ml - 14);
+        ctx.fillStyle = '#c7d3e6'; ctx.fillRect(ox + ml, y, 3, qLines.length * 18 + 4);
+        drawLines(qLines, y, 18, 14 + ml);
+        y += qLines.length * 18 + 6 + mb; return;
+      }
+      y += mt;
+      var runs2 = collectRuns(el, fontOf(el), '#111', false, false);
+      if (!runs2.length) { y += mb; return; }
+      var fs2 = parseFloat(cs.fontSize) || 15;
+      var lineH = parseFloat(cs.lineHeight) || fs2 * 1.55;
+      var lines2 = wrapRuns(runs2, maxW - ml);
+      drawLines(lines2, y, lineH, ml);
+      y += lines2.length * lineH + mb;
+    }
+    if (plan) {
+      plan.forEach(function (item) { drawBlock(item.el, oy + item.y, item.preRange || null); });
+      return;
+    }
+    Array.prototype.forEach.call(root.children, function (el) { drawBlock(el); });
+  }
+  /* Page plan from the real DOM heights: breaks land between blocks, and code
+   * blocks taller than a page are split at their own line boundaries. */
+  function layoutPages(root, usableH) {
+    var blocks = Array.prototype.slice.call(root.children), pages = [], page = [], y = 0, pageH = usableH;
+    function newPage() { if (page.length) pages.push(page); page = []; y = 0; }
+    blocks.forEach(function (el) {
+      var cs = getComputedStyle(el);
+      if (cs.display === 'none') return;
+      var mt = parseFloat(cs.marginTop) || 0, mb = parseFloat(cs.marginBottom) || 0;
+      var h = el.getBoundingClientRect().height || 18, total = mt + h + mb;
+      if (el.tagName === 'PRE' && total > pageH * 0.92) {
+        var lines = (el.innerText || '').split('\n');
+        var approxLine = Math.max(10, h / Math.max(1, lines.length));
+        var perPage = Math.max(4, Math.floor((pageH - 8) / approxLine) - 2);
+        for (var i = 0; i < lines.length; i += perPage) {
+          if (y + 60 > pageH) newPage();
+          page.push({ el: el, y: y, preRange: [i, Math.min(lines.length, i + perPage)] });
+          y += Math.min(perPage, lines.length - i) * approxLine + 14;
+          if (y + 40 > pageH) newPage();
+        }
+        y += mb;
+        return;
+      }
+      if (y > 0 && y + total > pageH) newPage();
+      if (total > pageH) { page.push({ el: el, y: y }); newPage(); return; }
+      page.push({ el: el, y: y + mt });
+      y += total;
+    });
+    if (page.length) pages.push(page);
+    return pages.length ? pages : [[]];
+  }
+  /* Canvas -> PDF image: pixels are filtered (Up predictor) and deflated with
+   * the built-in CompressionStream, which keeps text lossless and the file
+   * small. A JPEG is used when CompressionStream is missing. */
+  function canvasToPdfImage(canvas) {
+    if (typeof CompressionStream === 'undefined') {
+      return Promise.resolve({ bytes: binaries(atob(canvas.toDataURL('image/jpeg', 0.92).split(',')[1])), filter: '/DCTDecode', parms: '', w: canvas.width, h: canvas.height });
+    }
+    var w = canvas.width, h = canvas.height;
+    var data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+    var rowLen = w * 3 + 1;
+    var raw = new Uint8Array(rowLen * h), prev = new Uint8Array(w * 3);
+    for (var y2 = 0; y2 < h; y2++) {
+      var off = y2 * rowLen, s0 = y2 * w * 4;
+      raw[off] = 2;
+      for (var x = 0; x < w; x++) {
+        var i = s0 + x * 4, o = off + 1 + x * 3, p3 = x * 3;
+        var r = data[i], g = data[i + 1], b = data[i + 2];
+        raw[o] = (r - prev[p3]) & 255; raw[o + 1] = (g - prev[p3 + 1]) & 255; raw[o + 2] = (b - prev[p3 + 2]) & 255;
+        prev[p3] = r; prev[p3 + 1] = g; prev[p3 + 2] = b;
+      }
+    }
+    var stream = new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate'));
+    return new Response(stream).arrayBuffer().then(function (ab) {
+      var packed = new Uint8Array(ab);
+      if (packed[0] !== 0x78) {
+        // raw deflate: wrap it in the zlib container PDF expects
+        var a = 1, b2 = 0;
+        for (var k = 0; k < raw.length; k++) { a = (a + raw[k]) % 65521; b2 = (b2 + a) % 65521; }
+        var adler = ((b2 << 16) | a) >>> 0;
+        var out = new Uint8Array(packed.length + 6);
+        out[0] = 0x78; out[1] = 0x9c; out.set(packed, 2);
+        out[packed.length + 2] = (adler >>> 24) & 255; out[packed.length + 3] = (adler >>> 16) & 255;
+        out[packed.length + 4] = (adler >>> 8) & 255; out[packed.length + 5] = adler & 255;
+        packed = out;
+      }
+      return { bytes: packed, filter: '/FlateDecode', parms: ' /DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns ' + w + ' >>', w: w, h: h };
+    });
+  }
+  function wrapPdf(images, size) {
+    var mmToPt = 72 / 25.4, wPt = size.w * mmToPt, hPt = size.h * mmToPt;
+    var objs = [], pageIds = [];
+    objs[1] = { dict: '<< /Type /Catalog /Pages 2 0 R >>' };
+    objs[2] = { dict: null };
+    for (var i = 0; i < images.length; i++) {
+      var base = 3 + i * 3, pageId = base, contentId = base + 1, imgId = base + 2;
+      var ops = 'q ' + wPt.toFixed(2) + ' 0 0 ' + hPt.toFixed(2) + ' 0 0 cm /Im0 Do Q';
+      objs[pageId] = { dict: '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + wPt.toFixed(2) + ' ' + hPt.toFixed(2) + '] /Resources << /XObject << /Im0 ' + imgId + ' 0 R >> /ProcSet [/PDF /ImageC] >> /Contents ' + contentId + ' 0 R >>' };
+      objs[contentId] = { dict: '<< /Length ' + ops.length + ' >>', stream: binaries(ops) };
+      var im = images[i];
+      objs[imgId] = { dict: '<< /Type /XObject /Subtype /Image /Width ' + im.w + ' /Height ' + im.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ' + im.filter + (im.parms || '') + ' /Length ' + im.bytes.length + ' >>', stream: im.bytes };
+      pageIds.push(pageId);
+    }
+    objs[2].dict = '<< /Type /Pages /Count ' + pageIds.length + ' /Kids [' + pageIds.map(function (id) { return id + ' 0 R'; }).join(' ') + '] >>';
+    var chunks = [], pos = 0, offsets = [];
+    function pushStr(s2) { chunks.push(s2); pos += s2.length; }
+    function pushBytes(arr) { chunks.push(arr); pos += arr.length; }
+    pushStr('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    for (var id = 1; id < objs.length; id++) {
+      var o = objs[id];
+      offsets[id] = pos;
+      if (o.stream) { pushStr(id + ' 0 obj\n' + o.dict + '\nstream\n'); pushBytes(o.stream); pushStr('\nendstream\nendobj\n'); }
+      else pushStr(id + ' 0 obj\n' + o.dict + '\nendobj\n');
+    }
+    var xrefPos = pos, xref = 'xref\n0 ' + objs.length + '\n0000000000 65535 f \n';
+    for (var k = 1; k < objs.length; k++) xref += String(offsets[k]).padStart(10, '0') + ' 00000 n \n';
+    pushStr(xref);
+    pushStr('trailer\n<< /Size ' + objs.length + ' /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF\n');
+    return new Blob(chunks.map(function (c) { return typeof c === 'string' ? binaries(c) : c; }), { type: 'application/pdf' });
+  }
+  function buildPdf() {
+    var size = paperMm(), m = marginMm();
+    var pageW = size.w * A4PX, pageH = size.h * A4PX, marginPx = m * A4PX, usableH = pageH - 2 * marginPx;
+    var host = $('printHost');
+    host.innerHTML = '';
+    var clone = document.createElement('div');
+    clone.style.cssText = 'width:' + (pageW - 2 * marginPx) + 'px;background:#fff;color:#111;' + bodyCss(false);
+    clone.innerHTML = decorate(sourceHtml(src.value, opts()), false);
+    var frame = document.createElement('div');
+    frame.style.cssText = 'width:' + pageW + 'px;padding:' + marginPx + 'px;background:#fff';
+    frame.appendChild(clone);
+    host.appendChild(frame);
+
+    return loadImages(clone).then(function () {
+      var plan = layoutPages(clone, usableH), count = plan.length;
+      var scale = count > 120 ? 1.15 : count > 60 ? 1.4 : count > 24 ? 1.7 : 2.1;
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(pageW * scale);
+      canvas.height = Math.round(pageH * scale);
+      var ctx = canvas.getContext('2d');
+      var title = $('title').value.trim() || 'Document';
+      var pages = [], step = Promise.resolve();
+      for (var p = 0; p < count; p++) {
+        step = step.then(function (pi) { return function () {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.scale(scale, scale);
+          ctx.beginPath(); ctx.rect(0, marginPx, pageW, usableH); ctx.clip();
+          ctx.translate(marginPx, marginPx);
+          drawDom(ctx, clone, 0, 0, plan[pi]);
+          ctx.restore();
+          if (state.mode === 'print') {
+            ctx.save();
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#7d8aa0';
+            ctx.font = '8.5px system-ui,sans-serif';
+            if ($('optHeader').checked) {
+              ctx.fillText(title, marginPx, marginPx - 7);
+              var d = new Date().toLocaleDateString();
+              ctx.fillText(d, pageW - marginPx - ctx.measureText(d).width, marginPx - 7);
+              ctx.strokeStyle = '#e2e8f2'; ctx.lineWidth = 0.8;
+              ctx.beginPath(); ctx.moveTo(marginPx, marginPx - 3.5); ctx.lineTo(pageW - marginPx, marginPx - 3.5); ctx.stroke();
+            }
+            ctx.fillText($('footer').value.trim() || title, marginPx, pageH - marginPx + 13);
+            if ($('optPageNumbers').checked) {
+              var label = 'Page ' + (pi + 1) + ' / ' + count;
+              ctx.fillText(label, pageW - marginPx - ctx.measureText(label).width, pageH - marginPx + 13);
+            }
+            ctx.restore();
+          }
+          return canvasToPdfImage(canvas).then(function (img) { pages.push(img); });
+        }; }(p));
+      }
+      return step.then(function () {
+        host.innerHTML = '';
+        return wrapPdf(pages, size);
+      });
+    });
+  }
+
+  /* ---------------- actions ---------------- */
+  function say(msg, kind) { var s = $('status'); s.textContent = msg || ''; s.className = 'status' + (kind ? ' ' + kind : ''); }
+  function filename(ext) {
+    var t = ($('title').value.trim() || 'document').toLowerCase().replace(/[^a-z0-9\u0d80-\u0dff]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
+    return t + '.' + ext;
+  }
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  $('btnPdf').addEventListener('click', function () {
+    if (!src.value.trim()) { say('Paste or import something first.', 'err'); return; }
+    var btn = this;
+    btn.disabled = true; say('Building the PDF on your device…');
+    setTimeout(function () {
+      buildPdf().then(function (blob) {
+        download(blob, filename('pdf'));
+        say('PDF ready — ' + (blob.size / 1024).toFixed(0) + ' KB, downloaded. Nothing left your device.', 'ok');
+        btn.disabled = false;
+      }).catch(function (e) {
+        say('Could not build the PDF (' + (e && e.message ? e.message : 'unknown') + '). Use Print / Save as PDF instead.', 'err');
+        btn.disabled = false;
+      });
+    }, 40);
+  });
+  function printDocument() {
+    var win = window.open('', '_blank');
+    if (!win) { say('Allow pop-ups to print, or use Download PDF.', 'err'); return; }
+    win.document.write(fullDocument());
+    win.document.close();
+    win.focus();
+    setTimeout(function () { try { win.print(); } catch (_) {} }, 450);
+  }
+  $('btnPrintDoc').addEventListener('click', printDocument);
+  $('btnPrint').addEventListener('click', printDocument);
+  $('btnHtml').addEventListener('click', function () { download(new Blob([fullDocument()], { type: 'text/html' }), filename('html')); say('Formatted HTML downloaded.', 'ok'); });
+  $('btnTxt').addEventListener('click', function () { download(new Blob([src.value], { type: 'text/plain' }), filename('txt')); say('Plain text downloaded.', 'ok'); });
+  $('btnCopy').addEventListener('click', function () {
+    var html = fullDocument();
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(html).then(function () { say('Formatted HTML copied to the clipboard.', 'ok'); });
+    else say('Clipboard is not available in this browser.', 'err');
+  });
+
+  /* ---------------- wiring ---------------- */
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      state.type = t.dataset.type;
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-pressed', String(x === t)); });
+      $('codeRow').hidden = state.type !== 'code';
+      render();
+    });
+  });
+  function segSet(which, value) {
+    if (which === 'ori') {
+      state.ori = value;
+      $('oriPortrait').setAttribute('aria-pressed', String(value === 'portrait'));
+      $('oriLand').setAttribute('aria-pressed', String(value === 'landscape'));
+    } else {
+      state.mode = value;
+      $('modePrint').setAttribute('aria-pressed', String(value === 'print'));
+      $('modePdf').setAttribute('aria-pressed', String(value === 'pdf'));
+      $('modeHint').textContent = value === 'print'
+        ? 'Printable adds readable margins, a document header, a footer and page numbers — ready for a printer.'
+        : 'Plain PDF uses the full page edge to edge, with no header, footer or page numbers.';
+    }
+    render();
+  }
+  $('oriPortrait').addEventListener('click', function () { segSet('ori', 'portrait'); });
+  $('oriLand').addEventListener('click', function () { segSet('ori', 'landscape'); });
+  $('modePrint').addEventListener('click', function () { segSet('mode', 'print'); });
+  $('modePdf').addEventListener('click', function () { segSet('mode', 'pdf'); });
+  ['paper', 'margin', 'fontSize', 'fontFamily', 'lineH', 'title', 'footer', 'optPageNumbers', 'optHeader', 'optAvoidBreak', 'optLinkFootnotes', 'optSmartQuotes', 'lang', 'highlight'].forEach(function (id) {
+    var el = $(id); if (!el) return;
+    el.addEventListener('input', scheduleRender);
+    el.addEventListener('change', scheduleRender);
+  });
+  src.addEventListener('input', scheduleRender);
+  $('previewScale').addEventListener('input', applyZoom);
+  $('btnClear').addEventListener('click', function () { src.value = ''; render(); });
+  $('fileIn').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    if (!f) return;
+    var name = f.name.toLowerCase(), reader = new FileReader();
+    reader.onload = function () {
+      src.value = String(reader.result);
+      if (/\.(html?|xml)$/.test(name)) state.type = 'html';
+      else if (/\.(md|markdown)$/.test(name)) state.type = 'markdown';
+      else if (/\.txt$/.test(name)) state.type = 'text';
+      else state.type = 'code';
+      if (state.type === 'code') {
+        var ext = name.split('.').pop();
+        var map = { js: 'js', mjs: 'js', ts: 'ts', tsx: 'ts', jsx: 'js', py: 'py', java: 'java', c: 'c', cpp: 'c', h: 'c', cs: 'cs', php: 'php', go: 'go', rs: 'rs', sql: 'sql', sh: 'sh', css: 'css', json: 'json', yml: 'sh', yaml: 'sh' };
+        $('lang').value = map[ext] || 'auto';
+      }
+      if (!$('title').value) $('title').value = f.name.replace(/\.[^.]+$/, '');
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-pressed', String(x.dataset.type === state.type)); });
+      $('codeRow').hidden = state.type !== 'code';
+      render();
+      say('Imported ' + f.name + ' (' + (f.size / 1024).toFixed(0) + ' KB) — it never left your device.', 'ok');
+    };
+    reader.readAsText(f);
+    e.target.value = '';
+  });
+
+  var SAMPLES = {
+    html: '<h1>Quarterly summary</h1>\n<p>This is a <strong>printable</strong> document built from HTML. Tables, lists and code all work.</p>\n<h2>Highlights</h2>\n<ul>\n  <li>Revenue up <strong>18%</strong> quarter on quarter.</li>\n  <li>Two new studios opened in Colombo.</li>\n  <li>Latency cut to 42&nbsp;ms.</li>\n</ul>\n<h2>Numbers</h2>\n<table>\n  <thead><tr><th>Region</th><th>Sessions</th><th>Change</th></tr></thead>\n  <tbody>\n    <tr><td>Sri Lanka</td><td>12,480</td><td>+22%</td></tr>\n    <tr><td>India</td><td>9,120</td><td>+11%</td></tr>\n    <tr><td>Global</td><td>48,300</td><td>+18%</td></tr>\n  </tbody>\n</table>\n<blockquote>Keep the intro short and the chorus loud.</blockquote>\n<pre><code>const backing = await removeVocals(song);\nconsole.log(backing.gain);</code></pre>',
+    markdown: '# Meeting notes\n\n**Attendees:** Kasun, Nimali, Ravi\n\n## Decisions\n\n1. Ship the HTML to PDF tool first.\n2. Karaoke work is paused.\n3. Code blocks must keep long lines intact.\n\n## Code sample\n\n```js\nfunction toPdf(html, { paper = "a4", landscape = false }) {\n  const size = landscape ? [842, 595] : [595, 842];\n  return render(html, size);\n}\n```\n\n> Quote from the client: "make it printable, not just a PDF".\n\n| Task | Owner | Due |\n| --- | --- | --- |\n| PDF export | Kasun | Fri |\n| Print CSS | Nimali | Mon |\n\nSee [the docs](https://example.com/docs) for details.',
+    code: 'export async function buildReport(rows, options = {}) {\n  const { title = "Report", pages = "A4", landscape = false } = options;\n  // group rows by region and total the amounts\n  const totals = new Map();\n  for (const row of rows) {\n    const key = row.region || "unknown";\n    totals.set(key, (totals.get(key) || 0) + (row.amount ?? 0));\n  }\n  return {\n    title,\n    pages,\n    landscape,\n    totals: Object.fromEntries(totals),\n    generatedAt: new Date().toISOString(),\n  };\n}',
+    text: 'Plain text works too.\n\nPaste a script, a story or notes and get a clean PDF.\n\nBlank lines become paragraphs, single line breaks become line breaks, and every line is kept exactly as written.'
+  };
+  $('btnSample').addEventListener('click', function () { src.value = SAMPLES[state.type] || SAMPLES.html; render(); });
+  var params = new URLSearchParams(location.search);
+  if (params.get('type') && SAMPLES[params.get('type')]) {
+    state.type = params.get('type');
+    src.value = SAMPLES[state.type];
+    document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-pressed', String(x.dataset.type === state.type)); });
+    $('codeRow').hidden = state.type !== 'code';
+  }
+  if (params.get('title')) $('title').value = params.get('title');
+  if (!src.value) src.value = SAMPLES.html;
+  render();
+})();
+</script>
+</body>
+</html>
