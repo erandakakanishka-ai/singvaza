@@ -1836,22 +1836,30 @@ const App = (() => {
     return out.buffer;
   }
 
-  /* decodeAudioData DETACHES the buffer it is given, so every attempt needs its
-   * own copy. Reusing one buffer made the retry throw a TypeError, which hid the
-   * real reason the browser refused the file. */
-  async function decodeAudioGuarded(ctx, raw) {
+  /* decodeAudioData DETACHES the buffer it is given, so a retry needs a fresh
+   * copy. Copying up front, though, doubles the memory a phone must hold while
+   * it unpacks a whole song - and that is what makes Firefox on Android throw
+   * EncodingError on a perfectly good MP3. So: hand over the caller's buffer
+   * directly for the first attempt (no copy at all), and only rebuild a copy
+   * from the file if that genuinely fails. */
+  async function decodeAudioGuarded(ctx, file, raw) {
     const head = new Uint8Array(raw, 0, Math.min(16, raw.byteLength));
     const looksLikeId3 = head.length > 3 && head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33;
     // A frame sync (0xFF 0xEx) marks a bare MPEG stream with no tag at all.
     const hasFrameSync = head.length > 1 && head[0] === 0xFF && (head[1] & 0xE0) === 0xE0;
     let firstError = null;
     if (!looksLikeId3 && hasFrameSync) {
-      try { return await ctx.decodeAudioData(withEmptyId3(raw.slice(0))); } catch (err) { firstError = err; }
+      try { return await ctx.decodeAudioData(withEmptyId3(raw)); } catch (err) { firstError = err; }
     }
     try {
-      return await ctx.decodeAudioData(raw.slice(0));
+      return await ctx.decodeAudioData(raw);           // no extra copy: lowest peak memory
     } catch (err) { if (!firstError) firstError = err; }
-    try { return await ctx.decodeAudioData(withEmptyId3(raw.slice(0))); } catch (_) {}
+    // Second chance for files with an odd header. raw is detached by now, so a
+    // fresh copy comes from the file itself.
+    try {
+      const again = await file.arrayBuffer();
+      return await ctx.decodeAudioData(withEmptyId3(again));
+    } catch (_) {}
     throw firstError || new Error('decode failed');
   }
 
@@ -1903,7 +1911,7 @@ const App = (() => {
     try {
       const ctx = ensureAudioCtx();
       const raw = await file.arrayBuffer();
-      const buf = await decodeAudioGuarded(ctx, raw);
+      const buf = await decodeAudioGuarded(ctx, file, raw);
       if (loadSeq !== state.backingLoadSeq) return;
       suspendIdleWebAudio();
       state.backingDecodePending = false;

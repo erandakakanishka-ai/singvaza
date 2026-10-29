@@ -334,7 +334,7 @@ test('a bare MP3 stream gets an empty ID3 header before the decode retry', async
   assert.match(source, /decodeAudioGuarded\(/, 'the upload path uses it');
   // The helper must be used inside handleBackingUpload's decode step.
   const upload = source.slice(source.indexOf('async function handleBackingUpload'));
-  assert.ok(upload.indexOf('decodeAudioGuarded(ctx, raw)') > 0, 'upload decodes through the guard');
+  assert.ok(upload.indexOf('decodeAudioGuarded(ctx, file, raw)') > 0, 'upload decodes through the guard');
 });
 
 test('the upload error names the real container, not the file extension', async () => {
@@ -352,9 +352,11 @@ test('the upload error names the real container, not the file extension', async 
  * buffer threw a TypeError and hid the real reason, which is exactly what a
  * visitor reported ("The MP3 itself looks valid (6.0 MB) but this browser
  * refused it (TypeError)"). Every attempt must get its own copy. */
-test('every decode attempt gets its own buffer copy', async () => {
+test('the first decode attempt hands over the buffer without copying it', async () => {
   const source = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf('async function decodeAudioGuarded'), source.indexOf('async function handleBackingUpload'));
-  assert.equal((body.match(/\.slice\(0\)/g) || []).length >= 2, true, 'each attempt passes a copy');
-  assert.doesNotMatch(body, /decodeAudioData\(raw\)/, 'the raw buffer is never handed over twice');
+  // Peak memory matters on a phone: the common path must not double the buffer.
+  assert.match(body, /decodeAudioData\(raw\)/, 'no extra copy on the first attempt');
+  assert.match(body, /file\.arrayBuffer\(\)/, 'the retry rebuilds its copy from the file');
+  assert.doesNotMatch(body, /decodeAudioData\(raw\.slice/, 'never copies up front');
 });
