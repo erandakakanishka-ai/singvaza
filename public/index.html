@@ -935,7 +935,7 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
 .discover-kicker{color:#fbbf24;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 .discover-copy h1{font-size:clamp(30px,4.1vw,52px);line-height:1.1;max-width:550px;letter-spacing:-.045em;margin:13px 0}
 .discover-copy p{color:var(--text-secondary);max-width:520px;line-height:1.65;font-size:15px}
-.discover-art{position:relative;min-height:220px;background:linear-gradient(90deg,var(--surface-2) 0%,transparent 45%),linear-gradient(0deg,rgba(9,12,20,.55),transparent 70%),url('/assets/vocal-remover-studio.jpg') center/cover}
+.discover-art{position:relative;min-height:220px;background:linear-gradient(90deg,var(--surface-2) 0%,transparent 45%),linear-gradient(0deg,rgba(9,12,20,.55),transparent 70%),url('/assets/hero-documents.jpg') center/cover}
 .discover-art span{position:absolute;bottom:20px;right:22px;color: var(--text);font-size:11px;letter-spacing:.1em;font-weight:800;background:rgba(8,12,18,.72);border:1px solid var(--hairline);padding:8px 12px;border-radius:99px}
 .discovery-search{display:flex;align-items:center;gap:10px;max-width:570px;margin-top:24px;padding:5px 6px 5px 15px;background:var(--input-bg);border:1px solid var(--hairline);border-radius:13px;box-shadow:0 12px 28px rgba(0,0,0,.16)}
 .discovery-search svg{color:#fbbf24;flex:none}.discovery-search input{width:100%;min-width:0;outline:none;border:0;background:transparent;color: var(--text);padding:11px 0;font:inherit}
@@ -966,6 +966,22 @@ details.pro-drawer > summary::-webkit-details-marker { display: none; }
   .navbar [aria-label="Share SingVaza"]{display:none}
   #topPlanBadge,#authTriggerBtn{font-size:11px;padding:7px 8px;white-space:nowrap}
 }
+.roadmap{margin-top:6px;border:1px solid var(--hairline);border-radius:16px;background:linear-gradient(180deg,var(--surface),var(--surface-2));padding:4px 16px}
+.roadmap>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 2px;font-weight:800;font-size:14px;color:var(--text)}
+.roadmap>summary::-webkit-details-marker{display:none}
+.roadmap>summary .chev{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.4;transition:transform .2s;margin-left:auto;opacity:.7}
+.roadmap[open]>summary .chev{transform:rotate(180deg)}
+.roadmap>summary small{font-weight:600;color:var(--text-secondary);font-size:11.5px}
+.roadmap-group{padding:2px 0 12px}
+.roadmap-group h4{margin:8px 0 8px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fbbf24;font-weight:800}
+.roadmap ul{list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.roadmap li{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--text);padding:7px 10px;border:1px solid var(--hairline);border-radius:10px;background:var(--tile-top)}
+.roadmap li b{font-weight:700}
+.roadmap li span{color:var(--text-secondary);font-size:11.5px;line-height:1.35}
+.roadmap li i{flex:none;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#0b1220;background:#fbbf24;border-radius:5px;padding:2px 5px}
+.roadmap li i.soon{background:transparent;border:1px solid var(--hairline);color:var(--text-secondary)}
+.roadmap .roadmap-note{color:var(--text-secondary);font-size:11.5px;line-height:1.5;padding:0 2px 14px;margin:0}
+@media(max-width:600px){.roadmap ul{grid-template-columns:1fr}.roadmap{padding:2px 12px}.roadmap li{font-size:12.5px}}
 @media(prefers-reduced-motion:reduce){.tool-tile{transition:none}.tool-tile:hover{transform:none}}
 
 </style>
@@ -1308,15 +1324,12 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
           </form>
           <div class="discovery-meta"><span>Made for mobile</span><span>No install needed</span><span>Free to explore</span></div>
         </div>
-        <div class="discover-art" role="img" aria-label="A music creator in a recording studio"><span>YOUR IDEAS, IN MOTION ✦</span></div>
+        <div class="discover-art" role="img" aria-label="A desk with documents being converted on a phone"><span>DOCUMENTS, NOT UPLOADS ✦</span></div>
       </div>
       <section class="directory-section" id="toolDirectory" aria-labelledby="toolsHeading">
         <div class="section-head"><div><span class="section-eyebrow">EXPLORE &amp; CREATE</span><h2 id="toolsHeading">Tools for your next idea.</h2><p>Practical tools, ready whenever you are.</p></div><span id="toolCount" style="color:#9eacbc;font-size:12px;"></span></div>
         <div class="tools-grid" id="toolCards">
-          <button class="tool-tile" id="homeVocalRemover" type="button" data-discovery="builtin-vocal" onclick="App.openVocalRemover()">
-            <span class="tool-tile-top"><span class="tool-tile-icon"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg></span><span class="tool-tile-label">Audio tool</span></span>
-            <h3>Vocal Remover</h3><p>Reduce vocals in a stereo song and make a karaoke-style backing track.</p><span class="tool-tile-link">Open tool →</span>
-          </button>
+          <button class="tool-tile" id="homeVocalRemover" type="button" data-discovery="builtin-vocal" onclick="App.openVocalRemover()" hidden aria-hidden="true" style="display:none"><h3>Vocal Remover</h3></button>
           <a class="tool-tile" id="homeOfficeToPdf" href="/studio/office-to-pdf.html">
             <span class="tool-tile-top"><span class="tool-tile-icon cyan"><svg viewBox="0 0 24 24"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M15 4v5h5M7 13h6M7 17h4"/></svg></span><span class="tool-tile-label">Office tool</span></span>
             <h3>Word / Excel / PowerPoint to PDF</h3><p>Turn .docx, .xlsx or .pptx into a PDF on your phone — A4, A5 or Letter, portrait or landscape.</p><span class="tool-tile-link">Open tool →</span>
@@ -1331,6 +1344,57 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
           </button>
         </div>
         <p id="discoveryStatus" role="status" aria-live="polite" style="font-size:12px;color:#aab7c8;margin-top:12px;"></p>
+
+        <details class="roadmap" id="roadmapTools">
+          <summary>
+            <span>Tools we can build next <small>· the most searched, all on-device</small></span>
+            <svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="roadmap-group">
+            <h4>Documents &amp; PDF</h4>
+            <ul>
+              <li><b>Photos → PDF</b><span>Pick 1–30 photos, get one A4 PDF</span><i>easy</i></li>
+              <li><b>Word → HTML / Text</b><span>Already reads .docx on-device</span><i>easy</i></li>
+              <li><b>Excel → CSV</b><span>Any sheet, first 400 rows</span><i>easy</i></li>
+              <li><b>CSV → Excel</b><span>Real .xlsx from a CSV paste</span><i>easy</i></li>
+              <li><b>Invoice → PDF</b><span>Fill a form, download a clean invoice</span><i>easy</i></li>
+              <li><b>CV / résumé → PDF</b><span>Template, type, export</span><i>medium</i></li>
+              <li><b>PDF merge / split</b><span>Combine or cut pages, no upload</span><i>hard</i></li>
+            </ul>
+          </div>
+          <div class="roadmap-group">
+            <h4>Photos</h4>
+            <ul>
+              <li><b>Passport-size photo sheet</b><span>Crop + tile on a 4×6 sheet, print</span><i>easy</i></li>
+              <li><b>Image compressor</b><span>Shrink JPG/PNG before sending</span><i>easy</i></li>
+              <li><b>JPG → WebP</b><span>Smaller files, same look</span><i>easy</i></li>
+              <li><b>Photo resizer</b><span>Exact pixels for forms and visas</span><i>easy</i></li>
+            </ul>
+          </div>
+          <div class="roadmap-group">
+            <h4>Text &amp; code</h4>
+            <ul>
+              <li><b>Word &amp; character counter</b><span>Limits for essays and posts</span><i>easy</i></li>
+              <li><b>Case converter</b><span>UPPER, lower, Title, sentence</span><i>easy</i></li>
+              <li><b>JSON formatter</b><span>Pretty-print and validate</span><i>easy</i></li>
+              <li><b>Base64 / URL encode</b><span>Encode and decode safely</span><i>easy</i></li>
+              <li><b>QR code maker</b><span>Wi-Fi, links, text → PNG</span><i>easy</i></li>
+              <li><b>Markdown → Word</b><span>Uses the same writer as HTML → Word</span><i>easy</i></li>
+            </ul>
+          </div>
+          <div class="roadmap-group">
+            <h4>Sri Lanka &amp; everyday</h4>
+            <ul>
+              <li><b>Loan / EMI calculator</b><span>Monthly payment + full schedule</span><i>easy</i></li>
+              <li><b>EPF / ETF salary calculator</b><span>Take-home from gross pay</span><i>easy</i></li>
+              <li><b>Age &amp; date difference</b><span>Years, months, days</span><i>easy</i></li>
+              <li><b>Unit &amp; currency converter</b><span>mm ↔ inch, kg ↔ lb, LKR rates</span><i>soon</i></li>
+              <li><b>NIC birthday / gender check</b><span>Old and new NIC numbers</span><i>soon</i></li>
+              <li><b>Sinhala ↔ legacy font converter</b><span>FM fonts to Unicode</span><i>soon</i></li>
+            </ul>
+          </div>
+          <p class="roadmap-note">Every one of these runs on your own device: no server, no upload, no account — the same rule as the two tools above. Tell me which one to build first and it goes live next.</p>
+        </details>
       </section>
       <section class="directory-section" aria-labelledby="homeBlogHeading">
         <div class="section-head"><div><span class="section-eyebrow">THE SINGVAZA JOURNAL</span><h2 id="homeBlogHeading">A little inspiration.</h2><p>Guides, ideas and stories from the blog.</p></div><button class="btn btn-sm" onclick="App.switchView('blog')">Visit the blog →</button></div>
@@ -1878,7 +1942,7 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
   <script src="/dsp-engine.js?v=21.2"></script>
   <script src="/vendor/fuse.basic-7.5.0.min.js"></script>
   <script src="/tour.js?v=2"></script>
-  <script src="/app.js?v=25.9"></script>
+  <script src="/app.js?v=26.0"></script>
 <script>
   // a gentle first-visit walkthrough: theme, tools, and the two document converters
   if (window.SingVazaTour) window.SingVazaTour.wire([

@@ -73,7 +73,8 @@ const stereo = { name: 'stereo-test.wav', mimeType: 'audio/wav', buffer: wav(2) 
 const mono = { name: 'mono-test.wav', mimeType: 'audio/wav', buffer: wav(1) };
 
 async function openRemover(page) {
-  await page.locator('#homeVocalRemover').click();
+  // the tile is no longer on the discover grid, so open the tool by its own URL
+  await page.evaluate(() => window.App.openVocalRemover());
   await page.locator('#vocalRemoverPanel').waitFor({ state: 'visible' });
   await page.waitForFunction(() => document.getElementById('vocalRemoverPanel').contains(document.activeElement));
   assert.equal(await page.locator('#vocalRemoverPanel').evaluate((el) => el.contains(document.activeElement)), true);
@@ -83,9 +84,9 @@ test('the homepage shortcut and focused tool panel work on phone, tablet and des
   for (const [width, height] of [[320, 780], [390, 844], [768, 1024], [1440, 900]]) {
     const { context, page } = await newPage(width, height);
     try {
-      const shortcut = page.locator('#homeVocalRemover');
-      assert.equal(await shortcut.isVisible(), true, `${width}: homepage shortcut`);
-      assert.equal(await page.locator('#homeRecorder').isVisible(), true);
+      assert.equal(await page.locator('#homeOfficeToPdf').isVisible(), true, `${width}: office tool tile`);
+      assert.equal(await page.locator('#homeHtmlToPdf').isVisible(), true, `${width}: html tool tile`);
+      assert.equal(await page.locator('#toolCards .tool-tile:visible').count(), 3, `${width}: three tools shown`);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}: homepage overflow`);
       await openRemover(page);
       assert.match(page.url(), /\/studio\/vocal-remover$/);

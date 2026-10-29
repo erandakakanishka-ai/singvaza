@@ -3451,7 +3451,8 @@ const App = (() => {
   }
   function discoveryItems() {
     return [
-      { key: 'builtin-vocal', kind: 'tool', title: 'Vocal Remover', description: 'Reduce vocals and make a karaoke backing from a stereo song.', keywords: 'vocal karaoke voice remover reduce music කටහඬ ඉවත්' },
+      { key: 'builtin-office-pdf', kind: 'tool', title: 'Word / Excel / PowerPoint to PDF', description: 'Turn .docx, .xlsx or .pptx into a clean PDF with your paper size and margins.', keywords: 'word excel powerpoint docx xlsx pptx office pdf convert document' },
+      { key: 'builtin-html-pdf', kind: 'tool', title: 'HTML / Code to PDF', description: 'Turn HTML, Markdown or code into a PDF, Word, Excel or PowerPoint file.', keywords: 'html markdown code pdf word excel pptx convert document' },
       { key: 'builtin-recorder', kind: 'tool', title: 'Karaoke Recorder', description: 'Sing, record and mix your voice.', keywords: 'sing record karaoke audio microphone ගීත' },
       ...liveTools.map((t) => ({ key: `tool-${t.id}`, kind: 'tool', title: String(t.title || ''), description: String(t.description || ''), keywords: `${t.category || ''} ${t.seo_tags || ''}`, tool: t })),
       ...liveBlogPosts.map((b) => ({ key: `blog-${b.id}`, kind: 'blog', title: String(b.title || ''), description: String(b.excerpt || ''), keywords: `${b.category || ''} ${b.seo_tags || ''}`, post: b })),
@@ -3491,7 +3492,11 @@ const App = (() => {
       const empty = document.createElement('div'); empty.className = 'empty-discovery'; empty.dataset.discovery = 'empty';
       empty.textContent = query ? 'No tools match your search.' : 'More tools are coming soon.'; cards.appendChild(empty);
     }
-    document.getElementById('toolCount').textContent = `${toolItems.length} ${toolItems.length === 1 ? 'tool' : 'tools'}`;
+    // count what the visitor can actually see: hidden/removed tiles do not count
+    const visibleTiles = Array.from(cards.querySelectorAll('.tool-tile')).filter((el) => el.style.display !== 'none' && !el.hidden).length;
+    const emptyBlock = cards.querySelector('.empty-discovery');
+    const shown = emptyBlock ? 0 : (visibleTiles || toolItems.length);
+    document.getElementById('toolCount').textContent = `${shown} ${shown === 1 ? 'tool' : 'tools'}`;
     const showBlogs = query ? blogItems : blogItems.slice(0, 3);
     preview.innerHTML = showBlogs.length ? showBlogs.map((i) => `<a class="home-blog-card" href="/blog/${encodeURIComponent(i.post.slug)}"><span class="section-eyebrow">${escHtml(i.post.category || 'Guide')}</span><strong>${escHtml(i.title)}</strong><p>${escHtml(i.description)}</p><span class="tool-tile-link">Read article →</span></a>`).join('') : `<div class="empty-discovery">${query ? 'No articles match your search.' : 'Articles will appear here when they are published.'}</div>`;
     const status = document.getElementById('discoveryStatus');

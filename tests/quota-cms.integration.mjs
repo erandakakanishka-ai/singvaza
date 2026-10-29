@@ -151,7 +151,7 @@ test('signed-in recorder and remover charge the same D1 counter and fail closed 
   await page.evaluate(token => localStorage.setItem('singvaza_token', token), freeToken);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.getElementById('topPlanBadge').textContent === '0/9 Free');
-  await page.locator('#homeVocalRemover').click();
+  await page.evaluate(() => window.App.openVocalRemover());
   await page.locator('#vocalRemoverFileInput').setInputFiles({ name: 'auth-song.wav', mimeType: 'audio/wav', buffer: stereoWav() });
   await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
   await page.locator('#btnKaraokeCut').click();

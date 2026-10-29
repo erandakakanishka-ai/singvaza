@@ -47,7 +47,8 @@ test('built-in tools have separate shareable URLs, home navigation and history o
   for (const width of [320, 390, 768, 1440]) {
     const { context, page, errors } = await pageFor(width);
     try {
-      assert.equal(await page.locator('#homeVocalRemover').isVisible(), true);
+      assert.equal(await page.locator('#homeOfficeToPdf').isVisible(), true);
+      assert.equal(await page.locator('#homeHtmlToPdf').isVisible(), true);
       assert.equal(await page.locator('#homeRecorder').isVisible(), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       for (const selector of ['#btnMenuDrawer', '#topPlanBadge', '#authTriggerBtn']) {
@@ -96,7 +97,7 @@ test('the directory automatically discovers published tools and blogs and search
     await page.locator('#siteSearch').fill('rhythm');
     assert.equal(await page.getByRole('link', { name: /Rhythm Tuner/ }).isVisible(), true);
     assert.equal(await page.getByRole('link', { name: /Rhythm guide/ }).isVisible(), true);
-    assert.equal(await page.locator('#homeVocalRemover').isHidden(), true);
+    assert.equal(await page.locator('#homeVocalRemover').isHidden(), true, 'the vocal tile stays off the discover grid');
     assert.equal(await page.locator('#toolCards a[href="/tools/rhythm-tuner"]').count(), 1);
     assert.equal(await page.locator('#homeBlogPreview a[href="/blog/rhythm-guide"]').count(), 1);
     await page.locator('#siteSearch').fill('zzzxxyynotfound');
@@ -123,7 +124,7 @@ test('the directory automatically discovers published tools and blogs and search
 test('guest downloads share nine slots across karaoke WAV and recorder, then reset on the next local day', async () => {
   const { context, page, errors } = await pageFor();
   try {
-    await page.locator('#homeVocalRemover').click();
+    await page.evaluate(() => window.App.openVocalRemover());
     await page.locator('#vocalRemoverFileInput').setInputFiles({ name: 'our-song.wav', mimeType: 'audio/wav', buffer: stereoWav() });
     await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.startsWith('Ready:'));
     await page.locator('#btnKaraokeCut').click();
