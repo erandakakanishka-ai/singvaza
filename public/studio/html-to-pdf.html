@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=1180" />
 <title>HTML / Code to PDF — live editor and preview, A4 / A5 / Letter | SingVaza</title>
 <meta name="description" content="Turn HTML, Markdown or source code into a clean PDF in your browser. Pick A4, A5, Letter, Legal or A3, portrait or landscape, printable margins or a plain PDF, page numbers and syntax colours. Nothing is uploaded." />
 <meta name="color-scheme" content="dark light" />
@@ -16,16 +16,14 @@ a{color:var(--cyan)}
 button,select,input{font-family:inherit}
 /* three panes: toolbar | editor | preview */
 .app{display:grid;grid-template-columns:212px minmax(240px,1fr) minmax(320px,1.15fr);height:100vh}
-@media(max-width:1000px){
-  body{overflow:auto}
-  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
-  .pane-tools{border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:0 8px;align-items:start}
-  .pane-tools .brand,.pane-tools .status,.pane-tools .warn,.pane-tools .hint,.pane-tools .tools-title{grid-column:1/-1}
-  .pane-editor{border-right:0;border-bottom:1px solid var(--line);height:46vh}
-  .pane-preview{height:54vh}
+@media(max-width:820px){
+  /* phones: same desktop canvas as onlineviewer.net — the browser zooms out instead of stacking */
+  .app{grid-template-columns:200px minmax(300px,1fr) minmax(330px,1.1fr);height:100vh}
+  .pane-tools{display:flex}
 }
 .pane{display:flex;flex-direction:column;min-width:0;min-height:0}
 .pane-tools{background:var(--panel2);border-right:1px solid var(--line);padding:10px;overflow:auto}
+.pane-tools>*{flex:none}
 .pane-editor{border-right:1px solid var(--line);background:#0a0f1d}
 .pane-preview{background:#1a2236}
 .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;color:var(--ink);text-decoration:none;padding:4px 2px 10px}
@@ -131,6 +129,17 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <button class="tbtn tbtn-cyan" id="btnPrintDoc">
       <svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H5a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v7H7z"/></svg>Print / Save as PDF
     </button>
+    <div class="tbtn-row" style="margin-top:8px">
+      <button class="tbtn small" id="btnDocx" title="Download a real Word document (.docx)">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM7 8l1.6 8L12 9.5 15.4 16 17 8"/></svg>Word
+      </button>
+      <button class="tbtn small" id="btnXlsx" title="Download a real Excel workbook (.xlsx)">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8l8 8M16 8l-8 8"/></svg>Excel
+      </button>
+    </div>
+    <button class="tbtn small" id="btnPptx" title="Download a real PowerPoint deck (.pptx)">
+      <svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zM12 16v4M8 20h8"/></svg>PowerPoint
+    </button>
     <p class="status" id="status" role="status" aria-live="polite"></p>
 
     <div class="tools-title">Page setup</div>
@@ -208,6 +217,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
 <div id="printHost" style="position:absolute;left:-99999px;top:0;width:0;height:0;overflow:visible;pointer-events:none"></div>
 
 <script src="/pdf-engine.js?v=2"></script>
+<script src="/office-writer.js?v=1"></script>
 <script>
 (function () {
   'use strict';
@@ -330,6 +340,31 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     win.focus();
     setTimeout(function () { try { win.print(); } catch (_) {} }, 450);
   }
+  /* ---------------- Word / Excel / PowerPoint export (office-writer.js) ---------------- */
+  function officeHtml() {
+    return '<div>' + sourceHtml(src.value, opts()) + '</div>';
+  }
+  function saveOffice(kind, label, ext) {
+    if (!src.value.trim()) { say('Paste or import something first.', 'err'); return; }
+    var W = window.SingVazaOfficeWrite;
+    if (!W) { say('The Office writer did not load — reload the page.', 'err'); return; }
+    say('Building the ' + label + ' file on your device…');
+    W.write(kind, {
+      title: $('title').value.trim() || 'SingVaza document',
+      html: officeHtml(),
+      paper: $('paper').value,
+      ori: state.ori,
+      footer: $('footer').value.trim() || $('title').value.trim()
+    }).then(function (blob) {
+      download(blob, filename(ext));
+      say(label + ' ready — ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB. Nothing left your device.', 'ok');
+    }).catch(function (err) {
+      say('Could not build the ' + label + ' file: ' + (err && err.message ? err.message : 'unknown error'), 'err');
+    });
+  }
+  $('btnDocx').addEventListener('click', function () { saveOffice('docx', 'Word document', 'docx'); });
+  $('btnXlsx').addEventListener('click', function () { saveOffice('xlsx', 'Excel workbook', 'xlsx'); });
+  $('btnPptx').addEventListener('click', function () { saveOffice('pptx', 'PowerPoint deck', 'pptx'); });
   $('btnPrintDoc').addEventListener('click', printDocument);
   $('btnPrint').addEventListener('click', printDocument);
   $('btnHtml').addEventListener('click', function () { download(new Blob([fullDocument()], { type: 'text/html' }), filename('html')); say('Formatted HTML downloaded.', 'ok'); });
