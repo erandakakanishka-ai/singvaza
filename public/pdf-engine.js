@@ -247,12 +247,12 @@
   }
   
   /* ---------------- PDF writing ---------------- */
-  function sourceHtml(text, o) {
+  function sourceHtml(text, o, LV) {
     o = o || {};
     if (!text.trim()) return '<p style="color:#8894a8"><em>Nothing to convert yet — paste something on the left.</em></p>';
     if (o.type === 'html') return text;
     if (o.type === 'markdown') return markdownToHtml(text, o);
-    if (o.type === 'code') return '<pre><code>' + (o.highlight ? highlightCode(text, LV.lang().value) : esc(text)) + '</code></pre>';
+    if (o.type === 'code') return '<pre><code>' + (o.highlight ? highlightCode(text, (LV && LV.lang) ? LV.lang().value : 'auto') : esc(text)) + '</code></pre>';
     return text.replace(/\r\n?/g, '\n').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
   function sanitizeHtml(html) {

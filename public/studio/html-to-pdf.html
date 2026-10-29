@@ -3,55 +3,71 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>HTML / Code to PDF — A4, A5, Letter, portrait or landscape | SingVaza</title>
+<title>HTML / Code to PDF — live editor and preview, A4 / A5 / Letter | SingVaza</title>
 <meta name="description" content="Turn HTML, Markdown or source code into a clean PDF in your browser. Pick A4, A5, Letter, Legal or A3, portrait or landscape, printable margins or a plain PDF, page numbers and syntax colours. Nothing is uploaded." />
 <meta name="color-scheme" content="dark light" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
 <style>
-:root{--bg:#0b1020;--panel:#121a2f;--panel2:#0e1526;--line:#22314f;--ink:#e8eefc;--dim:#9db0d0;--cyan:#38bdf8;--amber:#fbbf24;--ok:#34d399;--bad:#f87171;
+:root{--bg:#0b1020;--panel:#121a2f;--panel2:#0e1526;--line:#22314f;--ink:#e8eefc;--dim:#9db0d0;--cyan:#38bdf8;--ok:#34d399;--bad:#f87171;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif}
-*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
-body{min-height:100vh}a{color:var(--cyan)}
-.wrap{max-width:1240px;margin:0 auto;padding:18px 16px 64px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
-.brand{display:flex;align-items:center;gap:9px;font-weight:800;text-decoration:none;color:var(--ink)}
-.brand svg{width:26px;height:26px}
-.crumbs{font-size:12.5px;color:var(--dim)}.crumbs a{color:var(--dim);text-decoration:none}
-h1{font-size:clamp(20px,3.2vw,29px);margin:6px 0;letter-spacing:-.02em}
-.lede{margin:0 0 16px;color:var(--dim);font-size:14px;max-width:70ch;line-height:1.55}
-.grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
-@media(max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
-.card+.card{margin-top:14px}
-.card h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin:0 0 10px}
-.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-.tab{background:var(--panel2);border:1px solid var(--line);color:var(--dim);border-radius:9px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
-.tab[aria-pressed="true"]{background:rgba(56,189,248,.16);border-color:var(--cyan);color:#bfe9ff}
-textarea#src{width:100%;min-height:320px;resize:vertical;background:#080d19;color:#dbe7ff;border:1px solid var(--line);border-radius:11px;padding:12px 13px;font-family:var(--mono);font-size:13px;line-height:1.55;tab-size:2}
-textarea#src:focus{outline:2px solid rgba(56,189,248,.5);outline-offset:1px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-.btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:10px;padding:9px 13px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
-.btn:hover{border-color:#33507c}
-.btn-primary{background:linear-gradient(180deg,#fdba74,#f59e0b);color:#20140a;border-color:#f59e0b;font-weight:800}
-.btn-cyan{background:rgba(56,189,248,.14);border-color:var(--cyan);color:#bfe9ff}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-sm{padding:6px 10px;font-size:12px;border-radius:8px}
-label.f{display:block;font-size:12px;color:var(--dim);font-weight:700;margin:0 0 5px}
-select,input[type=number],input[type=text]{width:100%;background:#080d19;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit}
-.fgroup{margin-bottom:11px}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-.seg{display:grid;grid-auto-flow:column;gap:6px;background:#080d19;border:1px solid var(--line);border-radius:9px;padding:3px}
-.seg button{background:transparent;border:0;color:var(--dim);font-size:12.5px;font-weight:700;padding:7px 6px;border-radius:7px;cursor:pointer}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);height:100%}
+body{overflow:hidden}
+a{color:var(--cyan)}
+button,select,input{font-family:inherit}
+/* three panes: toolbar | editor | preview */
+.app{display:grid;grid-template-columns:212px minmax(240px,1fr) minmax(320px,1.15fr);height:100vh}
+@media(max-width:1000px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+  .pane-tools{border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:0 8px;align-items:start}
+  .pane-tools .brand,.pane-tools .status,.pane-tools .warn,.pane-tools .hint,.pane-tools .tools-title{grid-column:1/-1}
+  .pane-editor{border-right:0;border-bottom:1px solid var(--line);height:46vh}
+  .pane-preview{height:54vh}
+}
+.pane{display:flex;flex-direction:column;min-width:0;min-height:0}
+.pane-tools{background:var(--panel2);border-right:1px solid var(--line);padding:10px;overflow:auto}
+.pane-editor{border-right:1px solid var(--line);background:#0a0f1d}
+.pane-preview{background:#1a2236}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;color:var(--ink);text-decoration:none;padding:4px 2px 10px}
+.brand svg{width:22px;height:22px;flex:none}
+.tools-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:12px 2px 6px}
+.tbtn{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:6px;text-align:left}
+.tbtn:hover{border-color:#33507c}
+.tbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex:none;opacity:.85}
+.tbtn.small{padding:6px 8px;font-size:12px}
+.tbtn-primary{background:linear-gradient(180deg,#fdba74,#f59e0b);color:#20140a;border-color:#f59e0b}
+.tbtn-cyan{background:rgba(56,189,248,.14);border-color:var(--cyan);color:#bfe9ff}
+.tbtn:disabled{opacity:.5;cursor:not-allowed}
+.tbtn-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tbtn-row .tbtn{margin-bottom:0}
+label.f{display:block;font-size:11px;color:var(--dim);font-weight:700;margin:0 0 4px}
+select,input[type=number],input[type=text]{width:100%;background:#080d19;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12px}
+.fgroup{margin-bottom:8px}.two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg{display:grid;grid-auto-flow:column;gap:4px;background:#080d19;border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{background:transparent;border:0;color:var(--dim);font-size:11.5px;font-weight:700;padding:6px 4px;border-radius:6px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:rgba(56,189,248,.18);color:#d7f2ff}
-.chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0;cursor:pointer}
-.chk input{width:17px;height:17px;accent-color:#38bdf8}
-.hint{font-size:11.5px;color:var(--dim);line-height:1.5;margin:6px 0 0}
-.status{margin-top:10px;font-size:13px;min-height:20px}
+.chk{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;cursor:pointer;color:var(--ink)}
+.chk input{width:15px;height:15px;accent-color:#38bdf8}
+.hint{font-size:11px;color:var(--dim);line-height:1.45;margin:5px 0 0}
+.status{margin-top:8px;font-size:11.5px;min-height:16px;line-height:1.4}
 .status.err{color:var(--bad)}.status.ok{color:var(--ok)}
-#previewWrap{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#1a2236}
-#previewBar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;font-size:12px;color:var(--dim);background:#0e1526;border-bottom:1px solid var(--line);flex-wrap:wrap}
-#previewScale{flex:0 0 130px}
-#previewBox{max-height:520px;overflow:auto;padding:14px;background:#1a2236}
-.sheet{background:#fff;color:#111;margin:0 auto;box-shadow:0 8px 26px rgba(0,0,0,.45);position:relative}
+/* tabs at the top of the editor */
+.tabbar{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--line);background:var(--panel2);padding:0 6px;flex:none}
+.tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dim);font-size:12px;font-weight:700;padding:9px 11px;cursor:pointer}
+.tab[aria-pressed="true"]{color:#d7f2ff;border-bottom-color:var(--cyan)}
+.tabbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px;padding:4px 2px}
+.editorwrap{position:relative;flex:1;min-height:0;display:flex}
+.gutter{flex:none;width:42px;overflow:hidden;background:#080d19;border-right:1px solid var(--line);color:#4b5d7e;font:12px/1.55 var(--mono);padding:8px 0;text-align:right}
+.gutter div{padding-right:7px;height:18.6px}
+textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;background:#0a0f1d;color:#dbe7ff;padding:8px 10px;font:12.5px/1.55 var(--mono);tab-size:2;white-space:pre;overflow:auto}
+.code-row{display:flex;align-items:center;gap:7px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
+.code-row select{width:auto;min-width:130px}
+.code-row label.f{margin:0}
+.previewbar{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:11.5px;color:var(--dim);background:#0e1526;border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+#previewScale{width:110px}
+#previewBox{flex:1;overflow:auto;padding:14px;min-height:0}
+#sheetWrap{margin:0 auto;position:relative}
+.sheet{background:#fff;color:#111;box-shadow:0 8px 26px rgba(0,0,0,.45);position:absolute;top:0;left:0;transform-origin:0 0}
 .sheet .inner{padding:var(--pad)}
 .sheet h1,.sheet h2,.sheet h3,.sheet h4{margin:.6em 0 .35em;line-height:1.25}
 .sheet h1{font-size:1.9em}.sheet h2{font-size:1.45em}.sheet h3{font-size:1.18em}
@@ -68,129 +84,130 @@ select,input[type=number],input[type=text]{width:100%;background:#080d19;color:v
 .sheet a{color:#0b61c4}.sheet hr{border:0;border-top:1px solid #dbe2ee;margin:1.1em 0}
 .sheet .tok-c{color:#6b7a90}.sheet .tok-s{color:#a3236b}.sheet .tok-k{color:#0a52a8;font-weight:600}.sheet .tok-n{color:#8a4b00}.sheet .tok-t{color:#7a2ea8}
 .sheet .dochead{border-bottom:1px solid #dfe5ef;padding-bottom:8px;margin-bottom:14px;font-size:.82em;color:#5d6b83;display:flex;justify-content:space-between}
-.warn{display:none;margin-top:10px;font-size:12px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:9px;padding:8px 10px}
+details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:6px 0}
+.warn{display:none;margin-top:6px;font-size:11px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:6px 8px}
 .footnote{margin-top:22px;font-size:11.5px;color:#5b6b86;line-height:1.6}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="top">
-    <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>SingVaza <span style="color:var(--dim);font-weight:600">Tools</span></a>
-    <nav class="crumbs"><a href="/">Home</a> / <a href="/tools">Tools</a> / <strong style="color:var(--ink)">HTML → PDF</strong></nav>
-  </div>
-
-  <h1>HTML / Code → PDF</h1>
-  <p class="lede">Paste HTML, Markdown or source code and get a clean PDF. Choose <strong>A4, A5 or Letter</strong>, <strong>portrait or landscape</strong>, margins, page numbers and syntax colours — a printable document or a plain edge-to-edge PDF. Everything runs on your device: nothing is uploaded and there is no file limit.</p>
-
-  <div class="grid">
-    <div>
-      <section class="card">
-        <h2>1 · What are you converting?</h2>
-        <div class="tabs" role="group" aria-label="Source type">
-          <button class="tab" data-type="html" aria-pressed="true">HTML</button>
-          <button class="tab" data-type="markdown" aria-pressed="false">Markdown</button>
-          <button class="tab" data-type="code" aria-pressed="false">Source code</button>
-          <button class="tab" data-type="text" aria-pressed="false">Plain text</button>
-        </div>
-        <div class="row" style="margin:0 0 8px" id="codeRow" hidden>
-          <label class="f" for="lang" style="margin:0">Language</label>
-          <select id="lang" style="width:auto;min-width:170px">
-            <option value="auto">Auto-detect</option><option value="js">JavaScript</option><option value="ts">TypeScript</option><option value="py">Python</option><option value="java">Java</option><option value="c">C / C++</option><option value="cs">C#</option><option value="php">PHP</option><option value="go">Go</option><option value="rs">Rust</option><option value="sql">SQL</option><option value="sh">Shell</option><option value="html">HTML / XML</option><option value="css">CSS</option><option value="json">JSON</option>
-          </select>
-          <label class="chk" style="margin-left:auto"><input type="checkbox" id="highlight" checked /> Syntax colours</label>
-        </div>
-        <textarea id="src" spellcheck="false" aria-label="Source to convert"></textarea>
-        <div class="row">
-          <button class="btn btn-sm" id="btnSample">Load sample</button>
-          <label class="btn btn-sm" for="fileIn">Import file…</label>
-          <input id="fileIn" type="file" hidden accept=".html,.htm,.md,.markdown,.txt,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.cs,.php,.go,.rs,.sql,.sh,.css,.json,.xml,.yml,.yaml,.csv" />
-          <button class="btn btn-sm" id="btnClear">Clear</button>
-          <span class="hint" id="count" style="margin-left:auto"></span>
-        </div>
-        <div class="warn" id="warnBox"></div>
-      </section>
-
-      <section class="card">
-        <h2>2 · Preview</h2>
-        <div id="previewWrap">
-          <div id="previewBar">
-            <span id="pageInfo">A4 portrait</span>
-            <span style="display:flex;align-items:center;gap:8px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
-            <button class="btn btn-sm" id="btnPrint">Print preview</button>
-          </div>
-          <div id="previewBox"><div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div></div>
-        </div>
-        <p class="hint">The preview shows page one scaled to fit. The PDF you download contains every page with the margins, header, footer and numbering you chose.</p>
-      </section>
+<div class="app">
+  <aside class="pane pane-tools">
+    <a class="brand" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"><path d="M3 10v4m4-7v10m4-14v18m4-15v12m4-8v4"/></svg>SingVaza</a>
+    <div class="tools-title">View</div>
+    <button class="tbtn" id="btnPreviewFull" title="Preview the document full screen">
+      <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg>Preview (full page)
+    </button>
+    <div class="tbtn-row" style="margin-bottom:6px">
+      <button class="tbtn small" id="btnFormat" title="Re-indent the code">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg>Format
+      </button>
+      <button class="tbtn small" id="btnMinify" title="Remove extra whitespace">
+        <svg viewBox="0 0 24 24"><path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg>Minify
+      </button>
     </div>
+    <button class="tbtn small" id="btnWrap" aria-pressed="false" title="Wrap long lines">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h13a3 3 0 1 1 0 6h-3M4 18h5"/></svg>Toggle word wrap
+    </button>
 
-    <aside>
-      <section class="card">
-        <h2>Page setup</h2>
-        <div class="fgroup"><label class="f">Paper size</label>
-          <select id="paper">
-            <option value="a4" selected>A4 — 210 × 297 mm</option>
-            <option value="a5">A5 — 148 × 210 mm</option>
-            <option value="letter">Letter — 8.5 × 11 in</option>
-            <option value="legal">Legal — 8.5 × 14 in</option>
-            <option value="a3">A3 — 297 × 420 mm</option>
-          </select>
-        </div>
-        <div class="fgroup"><label class="f">Orientation</label>
-          <div class="seg"><button id="oriPortrait" aria-pressed="true">Portrait</button><button id="oriLand" aria-pressed="false">Landscape</button></div>
-        </div>
-        <div class="fgroup"><label class="f">Output</label>
-          <div class="seg"><button id="modePrint" aria-pressed="true">Printable</button><button id="modePdf" aria-pressed="false">Plain PDF</button></div>
-          <p class="hint" id="modeHint">Printable adds readable margins, a document header, a footer and page numbers — ready for a printer.</p>
-        </div>
-        <div class="two">
-          <div class="fgroup"><label class="f" for="margin">Margin (mm)</label><input id="margin" type="number" min="0" max="40" step="1" value="18" /></div>
-          <div class="fgroup"><label class="f" for="fontSize">Body size (pt)</label><input id="fontSize" type="number" min="7" max="20" step="0.5" value="11" /></div>
-        </div>
-        <div class="two">
-          <div class="fgroup"><label class="f" for="fontFamily">Font</label>
-            <select id="fontFamily"><option value="sans" selected>System sans</option><option value="serif">Serif</option><option value="mono">Monospace</option></select>
-          </div>
-          <div class="fgroup"><label class="f" for="lineH">Line height</label><input id="lineH" type="number" min="1.1" max="2.2" step="0.05" value="1.55" /></div>
-        </div>
-        <div class="fgroup"><label class="f" for="title">Document title</label><input id="title" type="text" placeholder="Used in the PDF title and header" /></div>
-        <div class="fgroup"><label class="f" for="footer">Footer text</label><input id="footer" type="text" placeholder="e.g. SingVaza · confidential" /></div>
-        <label class="chk"><input type="checkbox" id="optPageNumbers" checked /> Page numbers (1 / N)</label>
-        <label class="chk"><input type="checkbox" id="optHeader" checked /> Running header</label>
-        <label class="chk"><input type="checkbox" id="optAvoidBreak" checked /> Keep code blocks &amp; rows whole</label>
-        <label class="chk"><input type="checkbox" id="optLinkFootnotes" checked /> Collect links at the end</label>
-        <label class="chk"><input type="checkbox" id="optSmartQuotes" /> Smart quotes in Markdown</label>
-      </section>
+    <div class="tools-title">File</div>
+    <button class="tbtn small" id="btnSample">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg>Sample
+    </button>
+    <label class="tbtn small" for="fileIn">
+      <svg viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>Import from file
+      <input id="fileIn" type="file" hidden accept=".html,.htm,.md,.markdown,.txt,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.cs,.php,.go,.rs,.sql,.sh,.css,.json,.xml,.yml,.yaml,.csv" />
+    </label>
+    <button class="tbtn small" id="btnHtml">
+      <svg viewBox="0 0 24 24"><path d="M12 4v12m-4-4 4 4 4-4M4 20h16"/></svg>Export to file
+    </button>
+    <button class="tbtn small" id="btnClear">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Clear
+    </button>
 
-      <section class="card">
-        <h2>Export</h2>
-        <div class="row" style="margin-top:0"><button class="btn btn-primary" id="btnPdf" style="flex:1 1 100%">⬇ Download PDF</button></div>
-        <div class="row">
-          <button class="btn btn-cyan" id="btnPrintDoc" style="flex:1">🖨 Print / Save as PDF</button>
-          <button class="btn" id="btnHtml" title="Download the formatted HTML">HTML</button>
-        </div>
-        <div class="row"><button class="btn btn-sm" id="btnTxt">Plain text (.txt)</button><button class="btn btn-sm" id="btnCopy">Copy HTML</button></div>
-        <p class="status" id="status" role="status" aria-live="polite"></p>
-        <p class="hint">“Download PDF” builds the file here in the browser. “Print / Save as PDF” uses the browser's own PDF engine — handy on phones, where it also previews the pages exactly.</p>
-      </section>
+    <div class="tools-title">PDF</div>
+    <button class="tbtn tbtn-primary" id="btnPdf">
+      <svg viewBox="0 0 24 24"><path d="M12 4v10m-4-4 4 4 4-4M5 20h14"/></svg>Download PDF
+    </button>
+    <button class="tbtn tbtn-cyan" id="btnPrintDoc">
+      <svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H5a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v7H7z"/></svg>Print / Save as PDF
+    </button>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
 
-      <section class="card">
-        <h2>Good to know</h2>
-        <p class="hint" style="margin:0">• A4 / A5 / Letter / Legal / A3, portrait or landscape.<br />
-        • Printable = margins + header + footer + page numbers; Plain PDF = edge to edge.<br />
-        • Page breaks land between blocks, never through a line; long code blocks split at their own line breaks.<br />
-        • Code keeps its long lines instead of being cut.<br />
-        • Works offline once loaded. No uploads, no accounts.</p>
-      </section>
-    </aside>
-  </div>
+    <div class="tools-title">Page setup</div>
+    <div class="fgroup"><label class="f">Paper</label>
+      <select id="paper">
+        <option value="a4" selected>A4 — 210 × 297 mm</option>
+        <option value="a5">A5 — 148 × 210 mm</option>
+        <option value="letter">Letter — 8.5 × 11 in</option>
+        <option value="legal">Legal — 8.5 × 14 in</option>
+        <option value="a3">A3 — 297 × 420 mm</option>
+      </select>
+    </div>
+    <div class="fgroup"><label class="f">Orientation</label>
+      <div class="seg"><button id="oriPortrait" aria-pressed="true">Portrait</button><button id="oriLand" aria-pressed="false">Landscape</button></div>
+    </div>
+    <div class="fgroup"><label class="f">Output</label>
+      <div class="seg"><button id="modePrint" aria-pressed="true">Printable</button><button id="modePdf" aria-pressed="false">Plain</button></div>
+      <p class="hint" id="modeHint">Printable: margins, header, footer and page numbers.</p>
+    </div>
+    <div class="two">
+      <div class="fgroup"><label class="f" for="margin">Margin mm</label><input id="margin" type="number" min="0" max="40" step="1" value="18" /></div>
+      <div class="fgroup"><label class="f" for="fontSize">Text pt</label><input id="fontSize" type="number" min="7" max="20" step="0.5" value="11" /></div>
+    </div>
+    <div class="two">
+      <div class="fgroup"><label class="f" for="fontFamily">Font</label>
+        <select id="fontFamily"><option value="sans" selected>Sans</option><option value="serif">Serif</option><option value="mono">Mono</option></select>
+      </div>
+      <div class="fgroup"><label class="f" for="lineH">Line</label><input id="lineH" type="number" min="1.1" max="2.2" step="0.05" value="1.55" /></div>
+    </div>
+    <details class="more" id="moreOpts" open>
+      <summary>More options</summary>
+    <div class="fgroup"><label class="f" for="title">Title</label><input id="title" type="text" placeholder="Document title" /></div>
+    <div class="fgroup"><label class="f" for="footer">Footer</label><input id="footer" type="text" placeholder="Footer text" /></div>
+    <label class="chk"><input type="checkbox" id="optPageNumbers" checked /> Page numbers</label>
+    <label class="chk"><input type="checkbox" id="optHeader" checked /> Running header</label>
+    <label class="chk"><input type="checkbox" id="optAvoidBreak" checked /> Keep blocks whole</label>
+    <label class="chk"><input type="checkbox" id="optLinkFootnotes" checked /> Collect links</label>
+    <label class="chk"><input type="checkbox" id="optSmartQuotes" /> Smart quotes</label>
+    </details>
+    <div class="warn" id="warnBox"></div>
+    <p class="hint" style="margin-top:12px">Post a Word or Excel file? <a href="/studio/office-to-pdf.html">Office → PDF</a>. Everything runs on this device — nothing is uploaded.</p>
+  </aside>
 
-  <p class="hint" style="margin-top:18px">Have a <strong>Word, Excel or PowerPoint</strong> file instead? Use the <a href="/studio/office-to-pdf.html">Office → PDF tool</a> — it converts .docx, .xlsx and .pptx the same way.</p>
-  <p class="footnote">Everything on this page runs in your browser. Your document is never sent to a server — there is no upload step, which is why the tool works offline and has no size limit.</p>
+  <section class="pane pane-editor">
+    <div class="tabbar" role="tablist" aria-label="Source type">
+      <button class="tab" data-type="html" aria-pressed="true">HTML</button>
+      <button class="tab" data-type="markdown" aria-pressed="false">Markdown</button>
+      <button class="tab" data-type="code" aria-pressed="false">Code</button>
+      <button class="tab" data-type="text" aria-pressed="false">Text</button>
+      <span class="tabbar-right"><span id="count"></span></span>
+    </div>
+    <div class="code-row" id="codeRow" hidden>
+      <label class="f" for="lang">Language</label>
+      <select id="lang">
+        <option value="auto">Auto-detect</option><option value="js">JavaScript</option><option value="ts">TypeScript</option><option value="py">Python</option><option value="java">Java</option><option value="c">C / C++</option><option value="cs">C#</option><option value="php">PHP</option><option value="go">Go</option><option value="rs">Rust</option><option value="sql">SQL</option><option value="sh">Shell</option><option value="html">HTML / XML</option><option value="css">CSS</option><option value="json">JSON</option>
+      </select>
+      <label class="chk" style="margin-left:auto"><input type="checkbox" id="highlight" checked /> Colours</label>
+    </div>
+    <div class="editorwrap">
+      <div class="gutter" id="gutter" aria-hidden="true"></div>
+      <textarea id="src" spellcheck="false" aria-label="Source to convert" wrap="off"></textarea>
+    </div>
+  </section>
+
+  <section class="pane pane-preview">
+    <div class="previewbar">
+      <span id="pageInfo">A4 portrait</span>
+      <span style="display:flex;align-items:center;gap:6px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
+      <button class="tbtn small" id="btnPrint" style="width:auto;margin:0">Print preview</button>
+    </div>
+    <div id="previewBox"><div id="sheetWrap"><div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div></div></div>
+  </section>
 </div>
+
 <div id="printHost" style="position:absolute;left:-99999px;top:0;width:0;height:0;overflow:visible;pointer-events:none"></div>
 
-<script src="/pdf-engine.js?v=1"></script>
+<script src="/pdf-engine.js?v=2"></script>
 <script>
 (function () {
   'use strict';
@@ -259,14 +276,23 @@ select,input[type=number],input[type=text]{width:100%;background:#080d19;color:v
     inner.style.padding = m + 'mm';
     inner.innerHTML = decorate(sourceHtml(src.value, opts()), true);
     $('pageInfo').textContent = $('paper').value.toUpperCase() + ' ' + state.ori + ' · ' + size.w + ' × ' + size.h + ' mm';
+    if (!zoomTouched) fitZoom();
     applyZoom();
   }
   function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 200); }
+  var zoomTouched = false;
+  function fitZoom() {
+    var box = $('previewBox');
+    if (!box || !sheet.offsetWidth) return;
+    var z = Math.min(1.3, Math.max(0.3, (box.clientWidth - 34) / sheet.offsetWidth));
+    $('previewScale').value = Math.round(z * 100);
+  }
   function applyZoom() {
-    var z = Number($('previewScale').value) / 100;
+    var z = Number($('previewScale').value) / 100, wrap = $('sheetWrap');
     sheet.style.transform = 'scale(' + z + ')';
-    sheet.style.transformOrigin = 'top center';
-    $('previewBox').style.paddingBottom = Math.max(14, sheet.offsetHeight * (1 - z) + 14) + 'px';
+    // the scaled sheet is absolutely positioned, so the wrapper reserves the visual size
+    wrap.style.width = Math.round(sheet.offsetWidth * z) + 'px';
+    wrap.style.height = Math.round(sheet.offsetHeight * z) + 'px';
   }
 
   /* ---------------- actions ---------------- */
@@ -307,8 +333,10 @@ select,input[type=number],input[type=text]{width:100%;background:#080d19;color:v
   $('btnPrintDoc').addEventListener('click', printDocument);
   $('btnPrint').addEventListener('click', printDocument);
   $('btnHtml').addEventListener('click', function () { download(new Blob([fullDocument()], { type: 'text/html' }), filename('html')); say('Formatted HTML downloaded.', 'ok'); });
-  $('btnTxt').addEventListener('click', function () { download(new Blob([src.value], { type: 'text/plain' }), filename('txt')); say('Plain text downloaded.', 'ok'); });
-  $('btnCopy').addEventListener('click', function () {
+  var btnTxt = $('btnTxt');
+  if (btnTxt) btnTxt.addEventListener('click', function () { download(new Blob([src.value], { type: 'text/plain' }), filename('txt')); say('Plain text downloaded.', 'ok'); });
+  var btnCopy = $('btnCopy');
+  if (btnCopy) btnCopy.addEventListener('click', function () {
     var html = fullDocument();
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(html).then(function () { say('Formatted HTML copied to the clipboard.', 'ok'); });
     else say('Clipboard is not available in this browser.', 'err');
@@ -348,7 +376,8 @@ select,input[type=number],input[type=text]{width:100%;background:#080d19;color:v
     el.addEventListener('change', scheduleRender);
   });
   src.addEventListener('input', scheduleRender);
-  $('previewScale').addEventListener('input', applyZoom);
+  $('previewScale').addEventListener('input', function () { zoomTouched = true; applyZoom(); });
+  window.addEventListener('resize', function () { if (!zoomTouched) fitZoom(); applyZoom(); });
   $('btnClear').addEventListener('click', function () { src.value = ''; render(); });
   $('fileIn').addEventListener('change', function (e) {
     var f = e.target.files && e.target.files[0];
@@ -391,6 +420,73 @@ select,input[type=number],input[type=text]{width:100%;background:#080d19;color:v
   }
   if (params.get('title')) $('title').value = params.get('title');
   if (!src.value) src.value = SAMPLES.html;
+
+  /* ---------------- editor helpers (gutter, keys, view) ---------------- */
+  function lineCount() { return src.value.split('\n').length; }
+  function paintGutter() {
+    var g = $('gutter');
+    if (!g) return;
+    var n = lineCount(), html = '';
+    for (var i = 1; i <= n; i++) html += '<div>' + i + '</div>';
+    g.innerHTML = html;
+    g.scrollTop = src.scrollTop;
+  }
+  src.addEventListener('scroll', function () { $('gutter').scrollTop = src.scrollTop; });
+  src.addEventListener('keydown', function (e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      var start = src.selectionStart, end = src.selectionEnd;
+      src.value = src.value.slice(0, start) + '  ' + src.value.slice(end);
+      src.selectionStart = src.selectionEnd = start + 2;
+      scheduleRender();
+    }
+  });
+  function wrapSource() {
+    var wrapped = src.getAttribute('wrap') !== 'soft';
+    src.setAttribute('wrap', wrapped ? 'soft' : 'off');
+    src.style.whiteSpace = wrapped ? 'pre-wrap' : 'pre';
+    $('btnWrap').setAttribute('aria-pressed', String(!wrapped));
+  }
+  function simpleFormat() {
+    var lines = src.value.split('\n'), out = [], depth = 0;
+    var type = state.type;
+    lines.forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) { out.push(''); return; }
+      var opens = (line.match(/[\{\(\[]/g) || []).length;
+      var closes = (line.match(/[\}\)\]]/g) || []).length;
+      var closesFirst = /^[\}\)\]]/.test(line);
+      if (closesFirst && depth > 0) depth--;
+      out.push(new Array(depth + 1).join((type === 'code' ? '  ' : '  ')) + line);
+      depth += opens - closes;
+      if (depth < 0) depth = 0;
+    });
+    src.value = out.join('\n');
+    paintGutter(); render();
+    say('Re-indented. Undo with your browser if it was better before.', 'ok');
+  }
+  function simpleMinify() {
+    src.value = src.value.replace(/\n\s*\n+/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n /g, '\n').trim();
+    paintGutter(); render();
+    say('Minified — blank lines and padding removed.', 'ok');
+  }
+  $('btnFormat').addEventListener('click', simpleFormat);
+  $('btnMinify').addEventListener('click', simpleMinify);
+  $('btnWrap').addEventListener('click', function () { wrapSource(); });
+  $('btnPreviewFull').addEventListener('click', function () {
+    var box = $('previewBox');
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    if (box.requestFullscreen) box.requestFullscreen().catch(function () { say('Full screen is blocked in this browser.', 'err'); });
+    else say('Full screen is not available in this browser.', 'err');
+  });
+  // keep the gutter in step with typing and every render
+  var _render = render;
+  render = function () { _render(); paintGutter(); };
+  src.addEventListener('input', paintGutter);
+  src.addEventListener('keyup', paintGutter);
+  if (window.innerWidth < 1000) { var mo = $('moreOpts'); if (mo) mo.open = false; }
+  paintGutter();
+
   render();
 })();
 </script>
