@@ -1,4 +1,5 @@
 import { builtinPage, builtinResponse } from '../src/builtin-pages';
+import { insertBeforeBodyClose } from '../src/html-insert';
 import worker from './api/_worker_core';
 
 const request_HEAD = (request: Request) => request.method === 'HEAD';
@@ -90,9 +91,8 @@ export const onRequest: PagesFunction<any> = async (context) => {
     if (!res.ok || !type.includes('text/html') || cleanPath === '/admin' || cleanPath.startsWith('/admin')) return res;
     try {
       let html = await res.text();
-      if (!html.includes('/holiday.js') && /<\/body>/i.test(html)) {
-        html = html.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>');
-      }
+      // Never insert by regex: a page may contain '</body>' inside a script.
+      if (!html.includes('/holiday.js')) html = insertBeforeBodyClose(html, '<script src="/holiday.js?v=1" defer></script>');
       const headers = new Headers(res.headers);
       headers.delete('Content-Length');
       headers.delete('ETag');
@@ -125,9 +125,7 @@ export const onRequest: PagesFunction<any> = async (context) => {
         if (map.seo_home_tags) {
           html = html.replace(/<meta name="keywords" content="[^"]*"\s*\/?>/i, `<meta name="keywords" content="${esc(map.seo_home_tags)}" />`);
         }
-        if (!html.includes('/holiday.js') && /<\/body>/i.test(html)) {
-          html = html.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>');
-        }
+        if (!html.includes('/holiday.js')) html = insertBeforeBodyClose(html, '<script src="/holiday.js?v=1" defer></script>');
         const outHeaders = new Headers(res.headers);
         outHeaders.delete('Content-Length');
         outHeaders.delete('ETag');
@@ -138,11 +136,11 @@ export const onRequest: PagesFunction<any> = async (context) => {
       // No SEO overrides: still add the seasonal tag once.
       try {
         const page = await res.clone().text();
-        if (page.includes('/holiday.js') || !/<\/body>/i.test(page)) return res;
+        if (page.includes('/holiday.js')) return res;
         const headers = new Headers(res.headers);
         headers.delete('Content-Length');
         headers.delete('ETag');
-        return new Response(page.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>'), { status: res.status, headers });
+        return new Response(insertBeforeBodyClose(page, '<script src="/holiday.js?v=1" defer></script>'), { status: res.status, headers });
       } catch (_) {}
     }
     return res;

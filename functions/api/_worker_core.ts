@@ -4,6 +4,7 @@ import { templateById, templateList } from '../../src/templates';
 import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from '../../src/occasions';
 import { HOLIDAYS, activeHoliday, proWindow, decorPayload, upcoming, HOLIDAY_TAG, windowsAround } from '../../src/holidays';
 import { buildZip } from '../../src/zip';
+import { insertBeforeBodyClose } from '../../src/html-insert';
 import {
   isDownloadableSiteFile, isPublishableTextFile, MAX_TEXT_FILE_BYTES, MAX_FILES_PER_UPLOAD,
   liveKey, undoKey, stageKey, normalizeSitePath, pagePathForFile, summarizeChanges, contentTypeFor,
@@ -402,9 +403,7 @@ async function applyPageOverride(path: string, html: string, env: Env, isAdmin =
     }
     // Seasonal decoration (see src/holidays.ts): a tiny deferred script, added to
     // every page the worker serves too. Without a holiday it costs nothing.
-    if (/<\/body\s*>/i.test(page) && !page.includes('/holiday.js')) {
-      page = page.replace(/<\/body\s*>/i, HOLIDAY_TAG + '</body>');
-    }
+    if (!page.includes('/holiday.js')) page = insertBeforeBodyClose(page, HOLIDAY_TAG);
     return page;
   } catch (_) {
     return html;

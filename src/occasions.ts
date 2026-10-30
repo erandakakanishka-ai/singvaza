@@ -93,5 +93,7 @@ export function injectOccasionBanner(html: string, config: any): string {
   const match = /<body[^>]*>/i.exec(html);
   if (!match) return banner + html;
   const at = match.index + match[0].length;
+  // Opening tag: the first <body> is always the real one (a page cannot contain a
+  // second), so no scanning is needed here — the closing side is handled elsewhere.
   return html.slice(0, at) + banner + html.slice(at);
 }
