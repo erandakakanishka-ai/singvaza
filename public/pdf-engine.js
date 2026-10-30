@@ -195,7 +195,9 @@
     DOC_FONTS = null; DOC_TITLE = '';
     if (isFullDocument(source)) { DOC_FONTS = documentCss(source); DOC_TITLE = documentTitle(source); source = bodyOf(source); }
     clone.innerHTML = fn.decorate(source, false, LV);
-    flattenBlocks(clone);
+    // A pasted whole page keeps its own layout in the PDF too: its letterhead, its
+    // address block, its signature space. Flattening it would run the blocks together.
+    if (fn.keepLayout && fn.keepLayout()) expandContainers(clone); else flattenBlocks(clone);
     var frame = document.createElement('div');
     frame.style.cssText = 'width:' + pageW + 'px;padding:' + marginPx + 'px;background:#fff';
     frame.appendChild(clone);
@@ -304,6 +306,28 @@
    * run together and the whole document would be squeezed onto the first page.
    * Pure wrappers are therefore replaced by their children, so every paragraph,
    * table and heading is laid out (and page-broken) on its own. */
+
+  /* The PDF lays out top-level blocks. A pasted page nests everything inside .sheet >
+   * .page > header/p/address/.sign/footer, so a single block was drawn as one fused
+   * paragraph. This expands those containers into their block children (their words,
+   * order and spacing survive; flex side-by-side becomes one under the other). */
+  function expandContainers(root) {
+    var containers = { div: 1, section: 1, article: 1, main: 1, header: 1, footer: 1, figure: 1, form: 1 };
+    var guard = 0;
+    while (guard++ < 25) {
+      var changed = false;
+      Array.prototype.slice.call(root.querySelectorAll('div,section,article,main,header,footer,figure,form')).forEach(function (el) {
+        if (!el.parentNode || !containers[el.tagName.toLowerCase()]) return;
+        if (!el.children.length) return;
+        var parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+        changed = true;
+      });
+      if (!changed) break;
+    }
+    return root;
+  }
   function flattenBlocks(root) {
     var containers = { div: 1, section: 1, article: 1, main: 1, header: 1, footer: 1, figure: 1, form: 1, body: 1 };
     var guard = 0;
@@ -552,7 +576,12 @@
       }
       y += mt;
       var runs2 = collectRuns(el, fontOf(el), '#111', false, false);
-      if (!runs2.length) { y += mb; return; }
+      if (!runs2.length) {
+        // an empty div with a height is a real gap (the space left for a signature)
+        var ownH = el.getBoundingClientRect ? el.getBoundingClientRect().height : 0;
+        if (ownH > 8) y += ownH;
+        y += mb; return;
+      }
       var fs2 = parseFloat(cs.fontSize) || 15;
       var lineH = parseFloat(cs.lineHeight) || fs2 * 1.55;
       var lines2 = wrapRuns(runs2, maxW - ml);
@@ -669,7 +698,7 @@
     esc: esc, binaries: binaries, markdownToHtml: markdownToHtml, inlineMd: inlineMd,
     highlightCode: highlightCode, detectLang: detectLang, sourceHtml: sourceHtml,
     sanitizeHtml: sanitizeHtml, bodyCss: bodyCss, paperMm: paperMm, marginMm: marginMm,
-    decorate: decorate, drawDom: drawDom, isFullDocument: isFullDocument, bodyOf: bodyOf, documentCss: documentCss, documentTitle: documentTitle, flattenBlocks: flattenBlocks, layoutPages: layoutPages,
+    decorate: decorate, drawDom: drawDom, isFullDocument: isFullDocument, bodyOf: bodyOf, documentCss: documentCss, documentTitle: documentTitle, flattenBlocks: flattenBlocks, expandContainers: expandContainers, layoutPages: layoutPages,
     canvasToPdfImage: canvasToPdfImage, wrapPdf: wrapPdf, buildPdf: buildPdf, loadImages: loadImages,
   };
 })(window);

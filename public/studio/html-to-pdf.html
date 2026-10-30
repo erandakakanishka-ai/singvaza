@@ -332,7 +332,10 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       + '.inner th{background:#f1f5fb}.inner img{max-width:100%;height:auto}'
       + '</style></head><body><div class="inner">' + decorate(sourceHtml(src.value, opts()), false) + '</div></body></html>';
   }
-  function buildPdf() { return PDFE.buildPdf(LV, { decorate: decorate, sourceHtml: sourceHtml, opts: opts, paperMm: paperMm, marginMm: marginMm }); }
+  function buildPdf() {
+    var keep = !!(state.mode === 'print' && window.SingVazaPDF.isFullDocument(src.value));
+    return PDFE.buildPdf(LV, { decorate: decorate, sourceHtml: sourceHtml, opts: opts, paperMm: paperMm, marginMm: marginMm, keepLayout: function () { return keep; } });
+  }
 
 
   /* ---------------- drag-to-resize / drag-to-hide panels ---------------- */
