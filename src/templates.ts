@@ -125,6 +125,7 @@ ${sharedStyle}  </style>
     kind: 'blog',
     description: 'A readable article body with a lead paragraph, sections and a closing note. Paste it as the content of a new blog post.',
     tags: ['blog', 'article', 'guide'],
+    fragment: true,
     html: `<h1>Article title</h1>
 <p><strong>Lead paragraph.</strong> Two or three sentences that answer the question in the title, so a reader can stop here if that is all they needed.</p>
 
