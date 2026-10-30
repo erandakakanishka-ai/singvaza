@@ -92,7 +92,8 @@ test('the homepage shortcut and focused tool panel work on phone, tablet and des
       assert.match(page.url(), /\/studio\/vocal-remover$/);
       assert.equal(await page.locator('#view-mix #vocalRemoverPanel').count(), 0);
       assert.equal(await page.locator('#btnKaraokeCut').isDisabled(), true);
-      assert.match(await page.locator('#vocalRemoverPanel').innerText(), /AI separation/i);
+      // the panel now advertises the instant, on-device reduction instead of a model download
+      assert.match(await page.locator('#vocalRemoverPanel').innerText(), /vocal removal/i);
       assert.equal(await page.locator('#karaokePresetBalanced').getAttribute('aria-pressed'), 'true');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width}: mixer overflow`);
     } finally { await context.close(); }
@@ -207,11 +208,17 @@ test('replacing a song resets the toggle; mono and unreadable files do not claim
     assert.equal(await cut.getAttribute('aria-pressed'), 'false');
     assert.equal(await cut.isEnabled(), true);
     await input.setInputFiles(mono);
-    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.includes('mono'));
+    // the status line starts with "This track is mono.", so the check has to be
+    // case-insensitive (it used to wait 30 s for a lowercase match that never came)
+    await page.waitForFunction(() => /mono/i.test(document.getElementById('vocalRemoverStatus').textContent));
     assert.equal(await cut.isDisabled(), true);
     assert.equal(await cut.getAttribute('aria-pressed'), 'false');
-    await input.setInputFiles({ name: 'broken.mp4', mimeType: 'video/mp4', buffer: Buffer.from('not a real video') });
-    await page.waitForFunction(() => document.getElementById('vocalRemoverStatus').textContent.includes('could not read'));
+    // a real (if broken) mp4 is never 11 bytes long: sniffing needs at least 12 bytes
+    // to recognise a container, so the fixture has to be big enough to reach the
+    // "could not read" branch instead of the "empty file" one.
+    await input.setInputFiles({ name: 'broken.mp4', mimeType: 'video/mp4', buffer: Buffer.alloc(4096, 0x7a) });
+    // the status reads "Could not read the audio in …", so match case-insensitively
+    await page.waitForFunction(() => /could not read/i.test(document.getElementById('vocalRemoverStatus').textContent));
     assert.equal(await cut.isDisabled(), true);
   } finally { await context.close(); }
 });
@@ -449,7 +456,8 @@ test('the AI worker keeps a vocal-free backing untouched and reports engine meta
       await ac.close();
       return result;
     });
-    assert.ok(['mdx', 'centre'].includes(info.info.engine), `engine reported: ${info.info.engine}`);
+    // without an explicit engine the worker reports its instant centre-based reducer
+    assert.ok(['mdx', 'centre', 'instant'].includes(info.info.engine), `engine reported: ${info.info.engine}`);
     assert.ok(info.len > 0, 'produced audio');
     assert.ok(info.wavBytes > info.len, 'produced a WAV');
     assert.ok(info.info.seconds > 1);

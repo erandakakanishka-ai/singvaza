@@ -91,7 +91,8 @@ test('the directory automatically discovers published tools and blogs and search
   const { context, page, errors } = await pageFor(390, fixture);
   try {
     await page.getByRole('link', { name: /Rhythm Tuner/ }).waitFor();
-    assert.equal(await page.locator('#toolCount').innerText(), '4 tools');
+    // three built-in tiles + the two published tools injected by this test
+    assert.equal(await page.locator('#toolCount').innerText(), '5 tools');
     assert.equal(await page.locator('#homeBlogPreview a').count(), 1);
     assert.equal(await page.locator('#toolCards img').count(), 0, 'HTML in a title is rendered as text');
     await page.locator('#siteSearch').fill('rhythm');

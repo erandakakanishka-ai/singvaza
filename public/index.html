@@ -102,8 +102,8 @@
   --border: var(--hairline);
   --border-strong: var(--hairline);
   --text: #f8fafc;
-  --text-secondary: var(--text-secondary);
-  --text-muted: var(--text-muted);
+  /* --text-secondary / --text-muted come from the theme palette below; a
+     self-referencing fallback here would be invalid at computed-value time. */
   --amber: #f59e0b;
   --amber-bright: #fbbf24;
   --amber-soft: rgba(245, 158, 11, 0.14);
@@ -1972,7 +1972,7 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
   <script src="/dsp-engine.js?v=21.2"></script>
   <script src="/vendor/fuse.basic-7.5.0.min.js"></script>
   <script src="/tour.js?v=2"></script>
-  <script src="/app.js?v=26.2"></script>
+  <script src="/app.js?v=26.3"></script>
 <script>
   // a gentle first-visit walkthrough: theme, tools, and the two document converters
   if (window.SingVazaTour) window.SingVazaTour.wire([

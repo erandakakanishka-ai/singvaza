@@ -3865,3 +3865,7 @@ const App = (() => {
     saveProjectToD1, restoreProject, onExportFormatChange, exportMasteredWav, shareMasterFile,
   };
 })();
+
+// Expose the controller so standalone pages, tests and the console can reach it.
+// (A top-level `const` is not a property of window, so `window.App` used to be undefined.)
+window.App = App;

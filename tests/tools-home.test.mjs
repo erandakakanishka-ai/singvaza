@@ -41,3 +41,18 @@ test('the cover is drawn, not a stock photo', () => {
   assert.ok(!/hero-documents|vocal-remover-studio\.jpg[^)]*\) center\/cover/.test(html.slice(html.indexOf('.discover-art'), html.indexOf('.discover-art') + 400)), 'no photo file behind the hero');
   assert.ok(html.includes('html[data-theme="light"] .discover-art .art-page'), 'the cover has a light-theme variant');
 });
+
+test('the controller is reachable as window.App for tool URLs, tests and the console', () => {
+  // A top-level `const App = (() => {…})();` is not a property of window, so every
+  // `window.App.openVocalRemover()` call used to throw. Keep the explicit export.
+  assert.match(app, /window\.App\s*=\s*App;/, 'app.js must publish the controller on window');
+});
+
+test('no inline theme variable refers to itself', () => {
+  // `--text-secondary: var(--text-secondary)` is invalid at computed-value time and
+  // silently loses the theme colour, so the inline CSS must never do it.
+  const style = html.slice(html.indexOf('<style id="singvaza-inline-css"'), html.indexOf('</style>', html.indexOf('<style id="singvaza-inline-css"')));
+  for (const match of style.matchAll(/(--[a-z0-9-]+)\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)/g)) {
+    assert.notEqual(match[1], match[2], `${match[1]} refers to itself`);
+  }
+});
