@@ -18,6 +18,8 @@ button,select,input{font-family:inherit}
 /* three panes: toolbar | editor | preview */
 .app{display:grid;grid-template-columns:212px minmax(240px,1fr) minmax(320px,1.15fr);height:100vh;height:100dvh}
 @media(max-width:820px){
+  .tbtn{padding:10px 9px;font-size:13px}
+  .homebig{padding:13px 10px}
   /* phones: same desktop canvas as onlineviewer.net — the browser zooms out instead of stacking */
   .app{grid-template-columns:200px minmax(300px,1fr) minmax(330px,1.1fr);height:100vh;height:100dvh}
   .pane-tools{display:flex}
@@ -30,12 +32,13 @@ button,select,input{font-family:inherit}
 .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13.5px;color:var(--ink);text-decoration:none;padding:4px 2px 10px}
 .brand svg{width:22px;height:22px;flex:none}
 .tools-title{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:12px 2px 6px}
-.tbtn{display:flex;align-items:center;gap:8px;width:100%;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:6px;text-align:left}
+.tbtn{display:flex;align-items:center;gap:8px;width:100%;min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 9px;font-size:12.5px;font-weight:700;cursor:pointer;margin-bottom:6px;text-align:left;line-height:1.3;overflow-wrap:anywhere}
 .tbtn:hover{border-color:#4a4a4a;background:#242424}
 .tbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex:none;opacity:.85}
 .tbtn.small{padding:6px 8px;font-size:12px}
 .tbtn-primary{background:linear-gradient(180deg,#f6bd63,#e39422);color:#1b1207;border-color:#e39422}
 .tbtn-cyan{background:#232323;border-color:#3d3d3d;color:var(--ink)}
+.tbtn>span{min-width:0;overflow-wrap:anywhere}
 .tbtn:disabled{opacity:.5;cursor:not-allowed}
 .tbtn-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .tbtn-row .tbtn{margin-bottom:0}
@@ -133,54 +136,30 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
       <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home
     </a>
     <div class="tools-title">View</div>
-    <button class="tbtn" id="btnPreviewFull" title="Preview the document full screen">
-      <svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg>Preview (full page)
-    </button>
+    <button class="tbtn" id="btnPreviewFull" title="Preview the document full screen"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg><span>Preview (full page)</span></button>
     <div class="tbtn-row" style="margin-bottom:6px">
-      <button class="tbtn small" id="btnFormat" title="Re-indent the code">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg>Format
-      </button>
-      <button class="tbtn small" id="btnMinify" title="Remove extra whitespace">
-        <svg viewBox="0 0 24 24"><path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg>Minify
-      </button>
+      <button class="tbtn small" id="btnFormat" title="Re-indent the code"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg><span>Format</span></button>
+      <button class="tbtn small" id="btnMinify" title="Remove extra whitespace"><svg viewBox="0 0 24 24"><path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5"/></svg><span>Minify</span></button>
     </div>
-    <button class="tbtn small" id="btnWrap" aria-pressed="false" title="Wrap long lines">
-      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h13a3 3 0 1 1 0 6h-3M4 18h5"/></svg>Toggle word wrap
-    </button>
+    <button class="tbtn small" id="btnWrap" aria-pressed="false" title="Wrap long lines"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h13a3 3 0 1 1 0 6h-3M4 18h5"/></svg><span>Toggle word wrap</span></button>
 
     <div class="tools-title">File</div>
-    <button class="tbtn small" id="btnSample">
-      <svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg>Sample
-    </button>
+    <button class="tbtn small" id="btnSample"><svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h9l6 6v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg><span>Sample</span></button>
     <label class="tbtn small" for="fileIn">
       <svg viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>Import from file
       <input id="fileIn" type="file" hidden accept=".html,.htm,.md,.markdown,.txt,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.cs,.php,.go,.rs,.sql,.sh,.css,.json,.xml,.yml,.yaml,.csv" />
     </label>
-    <button class="tbtn small" id="btnHtml">
-      <svg viewBox="0 0 24 24"><path d="M12 4v12m-4-4 4 4 4-4M4 20h16"/></svg>Export to file
-    </button>
-    <button class="tbtn small" id="btnClear">
-      <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>Clear
-    </button>
+    <button class="tbtn small" id="btnHtml"><svg viewBox="0 0 24 24"><path d="M12 4v12m-4-4 4 4 4-4M4 20h16"/></svg><span>Export to file</span></button>
+    <button class="tbtn small" id="btnClear"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span>Clear</span></button>
 
     <div class="tools-title">PDF</div>
-    <button class="tbtn tbtn-primary" id="btnPdf">
-      <svg viewBox="0 0 24 24"><path d="M12 4v10m-4-4 4 4 4-4M5 20h14"/></svg>Download PDF
-    </button>
-    <button class="tbtn tbtn-cyan" id="btnPrintDoc">
-      <svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H5a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v7H7z"/></svg>Print / Save as PDF
-    </button>
+    <button class="tbtn tbtn-primary" id="btnPdf"><svg viewBox="0 0 24 24"><path d="M12 4v10m-4-4 4 4 4-4M5 20h14"/></svg><span>Download PDF</span></button>
+    <button class="tbtn tbtn-cyan" id="btnPrintDoc"><svg viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H5a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><path d="M7 14h10v7H7z"/></svg><span>Print / Save as PDF</span></button>
     <div class="tbtn-row" style="margin-top:8px">
-      <button class="tbtn small" id="btnDocx" title="Download a real Word document (.docx)">
-        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM7 8l1.6 8L12 9.5 15.4 16 17 8"/></svg>Word
-      </button>
-      <button class="tbtn small" id="btnXlsx" title="Download a real Excel workbook (.xlsx)">
-        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8l8 8M16 8l-8 8"/></svg>Excel
-      </button>
+      <button class="tbtn small" id="btnDocx" title="Download a real Word document (.docx)"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM7 8l1.6 8L12 9.5 15.4 16 17 8"/></svg><span>Word</span></button>
+      <button class="tbtn small" id="btnXlsx" title="Download a real Excel workbook (.xlsx)"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8l8 8M16 8l-8 8"/></svg><span>Excel</span></button>
     </div>
-    <button class="tbtn small" id="btnPptx" title="Download a real PowerPoint deck (.pptx)">
-      <svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zM12 16v4M8 20h8"/></svg>PowerPoint
-    </button>
+    <button class="tbtn small" id="btnPptx" title="Download a real PowerPoint deck (.pptx)"><svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zM12 16v4M8 20h8"/></svg><span>PowerPoint</span></button>
     <p class="status" id="status" role="status" aria-live="polite"></p>
 
     <div class="tools-title">Page setup</div>
@@ -267,12 +246,10 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <div class="previewbar">
       <span id="pageInfo">A4 portrait</span>
       <span style="display:flex;align-items:center;gap:6px">Zoom <input id="previewScale" type="range" min="30" max="130" value="70" aria-label="Preview zoom" /></span>
-      <button class="tbtn small" id="btnToggleCode" style="width:auto;margin:0" title="Hide or show the code panel">
-        <svg viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg><span id="toggleCodeLabel">Hide code</span>
+      <button class="tbtn small" id="btnToggleCode" style="width:auto;margin:0" title="Hide or show the code panel"><svg viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg><span id="toggleCodeLabel">Hide code</span>
       </button>
       <button class="tbtn small" id="btnToggleTools" style="width:auto;margin:0" title="Hide or show the tools panel">
-        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Tools
-      </button>
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>Tools</span></button>
       <button class="tbtn small" id="btnPrint" style="width:auto;margin:0">Print preview</button>
       <a class="tbtn small" id="btnHomeView" href="/" style="width:auto;margin:0;text-decoration:none">
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home
