@@ -16,10 +16,10 @@ body{overflow-x:auto;overflow-y:hidden}
 a{color:var(--cyan)}
 button,select,input{font-family:inherit}
 /* three panes: toolbar | editor | preview */
-.app{display:grid;grid-template-columns:212px minmax(240px,1fr) minmax(320px,1.15fr);height:100vh}
+.app{display:grid;grid-template-columns:212px minmax(240px,1fr) minmax(320px,1.15fr);height:100vh;height:100dvh}
 @media(max-width:820px){
   /* phones: same desktop canvas as onlineviewer.net — the browser zooms out instead of stacking */
-  .app{grid-template-columns:200px minmax(300px,1fr) minmax(330px,1.1fr);height:100vh}
+  .app{grid-template-columns:200px minmax(300px,1fr) minmax(330px,1.1fr);height:100vh;height:100dvh}
   .pane-tools{display:flex}
 }
 .pane{display:flex;flex-direction:column;min-width:0;min-height:0}
@@ -57,10 +57,10 @@ select,input[type=number],input[type=text]{width:100%;background:#101010;color:v
 .tabbar-right{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--dim);font-size:11px;padding:4px 2px}
 .tiny{background:#242424;border:1px solid #3d3d3d;color:var(--dim);font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:6px;cursor:pointer}
 .tiny:hover{color:var(--ink);border-color:#5a5a5a}
-.editorwrap{position:relative;flex:1;min-height:0;display:flex}
+.editorwrap{position:relative;flex:1;min-height:240px;display:flex}
 .gutter{flex:none;width:42px;overflow:hidden;background:#101010;border-right:1px solid var(--line);color:#5a5a5a;font:12px/1.55 var(--mono);padding:8px 0;text-align:right}
 .gutter div{padding-right:7px;height:18.6px}
-textarea#src{flex:1;min-width:0;height:100%;resize:none;border:0;outline:none;background:#121212;color:#e6e6e6;padding:8px 10px;font:12.5px/1.55 var(--mono);tab-size:2;white-space:pre;overflow:auto}
+textarea#src{flex:1;min-width:0;height:100%;min-height:150px;resize:none;border:0;outline:none;background:#121212;color:#e6e6e6;padding:8px 10px;font:12.5px/1.55 var(--mono);tab-size:2;white-space:pre;overflow:auto;-webkit-text-size-adjust:100%}
 .code-row{display:flex;align-items:center;gap:7px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
 .code-row select{width:auto;min-width:130px}
 .code-row label.f{margin:0}
@@ -221,6 +221,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <label class="chk"><input type="checkbox" id="optSmartQuotes" /> Smart quotes</label>
     </details>
     <div class="warn" id="warnBox"></div>
+    <p id="wholeNote" class="hint" style="display:none;margin:6px 0 0">Whole HTML file detected — only the page body is printed, with your own font, size and page settings. Colours and background from the pasted page are not copied.</p>
     <p class="hint" style="margin-top:12px">Post a Word or Excel file? <a href="/studio/office-to-pdf.html">Office → PDF</a>. Everything runs on this device — nothing is uploaded.</p>
     <a class="homebig" href="/" style="margin-top:12px"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home</a>
     </div>
@@ -514,6 +515,10 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
   }
   function render() {
     updateCount();
+    // a pasted whole page is printed as text: say so, so the colours are not a surprise
+    var whole = !!(window.SingVazaPDF && window.SingVazaPDF.isFullDocument(src.value));
+    var note = $('wholeNote');
+    if (note) { note.style.display = whole ? 'block' : 'none'; }
     var size = paperMm(), m = marginMm();
     sheet.style.setProperty('--pad', m + 'mm');
     sheet.style.width = size.w + 'mm';

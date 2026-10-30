@@ -191,7 +191,11 @@
     host.innerHTML = '';
     var clone = document.createElement('div');
     clone.style.cssText = 'width:' + (pageW - 2 * marginPx) + 'px;background:#fff;color:#111;' + bodyCss(LV, false);
-    clone.innerHTML = fn.decorate(fn.sourceHtml(LV.src().value, fn.opts()), false, LV);
+    var source = fn.sourceHtml(LV.src().value, fn.opts());
+    DOC_FONTS = null; DOC_TITLE = '';
+    if (isFullDocument(source)) { DOC_FONTS = documentCss(source); DOC_TITLE = documentTitle(source); source = bodyOf(source); }
+    clone.innerHTML = fn.decorate(source, false, LV);
+    flattenBlocks(clone);
     var frame = document.createElement('div');
     frame.style.cssText = 'width:' + pageW + 'px;padding:' + marginPx + 'px;background:#fff';
     frame.appendChild(clone);
@@ -204,7 +208,7 @@
       canvas.width = Math.round(pageW * scale);
       canvas.height = Math.round(pageH * scale);
       var ctx = canvas.getContext('2d');
-      var title = LV.title().value.trim() || 'Document';
+      var title = LV.title().value.trim() || DOC_TITLE || 'Document';
       var pages = [], step = Promise.resolve();
       for (var p = 0; p < count; p++) {
         step = step.then(function (pi) { return function () {
@@ -255,6 +259,77 @@
     if (o.type === 'code') return '<pre><code>' + (o.highlight ? highlightCode(text, (LV && LV.lang) ? LV.lang().value : 'auto') : esc(text)) + '</code></pre>';
     return text.replace(/\r\n?/g, '\n').split(/\n{2,}/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
+  /* A pasted page is usually a whole HTML file (doctype, head, <style>, comments).
+   * Only its body belongs on the page — otherwise the markup tags and the CSS are
+   * printed as text. Browsers accept an unclosed <style>, so the head is cut out
+   * rather than parsed. */
+  var DOC_FONTS = null, DOC_TITLE = '';
+  function documentTitle(html) { var m = String(html).match(/<title[^>]*>([\s\S]*?)<\/title>/i); return m ? m[1].replace(/\s+/g, ' ').trim() : ''; }
+  function documentCss(html) {
+    var stacks = [];
+    var m = /<style[^>]*>([\s\S]*?)<\/style>/gi, match;
+    while ((match = m.exec(html))) {
+      var css = match[1];
+      var fam = /font-family\s*:\s*([^;}\n]+)/gi, f;
+      while ((f = fam.exec(css))) {
+        var stack = f[1].replace(/!important/g, '').trim().replace(/^['"]|['"]$/g, '');
+        var first = stack.split(',')[0].trim().replace(/['"]/g, '');
+        stack = stack.replace(new RegExp("(['\"]?)" + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "(['\"]?)"), '"' + first + '"');
+        if (stack && stacks.indexOf(stack) < 0) stacks.push(stack);
+      }
+    }
+    return stacks;
+  }
+  function bodyOf(html) {
+    var text = String(html);
+    var body = text.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (body) return body[1];
+    text = text.replace(/<!--[\s\S]*?-->/g, '');
+    text = text.replace(/<\/head\s*>/gi, '');
+    text = text.replace(/<head[\s\S]*?<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    text = text.replace(/<head[\s\S]*?<\/head>/gi, '');
+    // then any leftover head furniture, then the tags themselves
+    text = text.replace(/<!doctype[^>]*>/gi, '').replace(/<\/?html[^>]*>/gi, '');
+    text = text.replace(/<meta[^>]*>/gi, '').replace(/<\/?head[^>]*>/gi, '').replace(/<\/?body[^>]*>/gi, '');
+    text = text.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
+    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    text = text.replace(/<link[^>]*>/gi, '');
+    return text;
+  }
+  function isFullDocument(html) {
+    return /<\s*(!doctype|html|head|body)\b/i.test(String(html));
+  }
+  /* A pasted page usually wraps everything in one container (".sheet", ".page",
+   * "#content"). Left alone, that wrapper is a single block: its paragraphs would
+   * run together and the whole document would be squeezed onto the first page.
+   * Pure wrappers are therefore replaced by their children, so every paragraph,
+   * table and heading is laid out (and page-broken) on its own. */
+  function flattenBlocks(root) {
+    var containers = { div: 1, section: 1, article: 1, main: 1, header: 1, footer: 1, figure: 1, form: 1, body: 1 };
+    var guard = 0;
+    function isPureWrapper(el) {
+      if (!containers[el.tagName.toLowerCase()]) return false;
+      if (!el.children.length) return false;
+      for (var i = 0; i < el.childNodes.length; i++) {
+        var n = el.childNodes[i];
+        if (n.nodeType === 3 && n.nodeValue.trim()) return false;
+        if (n.nodeType === 1 && !containers[n.tagName.toLowerCase()] && !/^(h[1-6]|p|ul|ol|table|pre|blockquote|hr|img|dl|figure)$/i.test(n.tagName)) return false;
+      }
+      return true;
+    }
+    while (guard++ < 20) {
+      var changed = false;
+      Array.prototype.slice.call(root.querySelectorAll('div,section,article,main,header,footer,figure,form')).forEach(function (el) {
+        if (!el.parentNode || !isPureWrapper(el)) return;
+        var parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+        changed = true;
+      });
+      if (!changed) break;
+    }
+    return root;
+  }
   function sanitizeHtml(html) {
     return html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
       .replace(/<object[\s\S]*?<\/object>/gi, '').replace(/<embed[^>]*>/gi, '')
@@ -273,6 +348,7 @@
     var font = LV.fontFamily().value === 'serif' ? 'Georgia,"Times New Roman",serif'
       : LV.fontFamily().value === 'mono' ? 'ui-monospace,Menlo,Consolas,monospace'
       : 'system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif';
+    if (DOC_FONTS && DOC_FONTS.length) font = DOC_FONTS.slice(0, 3).join(',') + ',' + font;
     var fs = Number(LV.fontSize().value) || 11;
     return 'font:400 ' + fs + 'pt/' + (Number(LV.lineHeight().value) || 1.55) + ' ' + font + ';color:#111'
       + (extraMargin ? ';padding:' + marginMm(LV) + 'mm' : '');
@@ -326,6 +402,8 @@
         ctx.font = run.font;
         run.text.split(/(\s+)/).forEach(function (word) {
           if (!word) return;
+          // a <br> is a real line break inside a paragraph (addresses, signatures)
+          if (/\n/.test(word)) { lines.push([]); cur = 0; return; }
           var ww = ctx.measureText(word).width;
           if (cur + ww > width && word.trim()) { lines.push([]); cur = 0; }
           var last = lines[lines.length - 1];
@@ -587,7 +665,7 @@
     esc: esc, binaries: binaries, markdownToHtml: markdownToHtml, inlineMd: inlineMd,
     highlightCode: highlightCode, detectLang: detectLang, sourceHtml: sourceHtml,
     sanitizeHtml: sanitizeHtml, bodyCss: bodyCss, paperMm: paperMm, marginMm: marginMm,
-    decorate: decorate, drawDom: drawDom, layoutPages: layoutPages,
+    decorate: decorate, drawDom: drawDom, isFullDocument: isFullDocument, bodyOf: bodyOf, documentCss: documentCss, documentTitle: documentTitle, flattenBlocks: flattenBlocks, layoutPages: layoutPages,
     canvasToPdfImage: canvasToPdfImage, wrapPdf: wrapPdf, buildPdf: buildPdf, loadImages: loadImages,
   };
 })(window);
