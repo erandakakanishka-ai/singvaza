@@ -73,6 +73,7 @@ textarea#src{flex:1;min-width:0;height:100%;min-height:150px;resize:none;border:
 #sheetWrap{margin:0 auto;position:relative}
 .sheet{background:#fff;color:#111;box-shadow:0 8px 26px rgba(0,0,0,.45);position:absolute;top:0;left:0;transform-origin:0 0}
 .sheet .inner{padding:var(--pad)}
+.sheet #sheetFrame{display:none;width:100%;height:100%;min-height:inherit;border:0;background:#fff}
 .sheet h1,.sheet h2,.sheet h3,.sheet h4{margin:.6em 0 .35em;line-height:1.25}
 .sheet h1{font-size:1.9em}.sheet h2{font-size:1.45em}.sheet h3{font-size:1.18em}
 .sheet p,.sheet li{line-height:1.62}.sheet p{margin:.55em 0}
@@ -215,7 +216,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     <label class="chk"><input type="checkbox" id="optSmartQuotes" /> Smart quotes</label>
     </details>
     <div class="warn" id="warnBox"></div>
-    <p id="wholeNote" class="hint" style="display:none;margin:6px 0 0">Whole HTML file detected — only the page body is printed, in your chosen font and size. The file's own colours and background are left out, so the text stays black on white and easy to read.</p>
+    <p id="wholeNote" class="hint" style="display:none;margin:6px 0 0">Whole HTML file detected — the preview shows your page exactly as written (letterhead, spacing, colours). The downloaded PDF prints a clean text version: your words, in the font and size chosen below, black on white.</p>
     <p class="hint" style="margin-top:12px">Post a Word or Excel file? <a href="/studio/office-to-pdf.html">Office → PDF</a>. Everything runs on this device — nothing is uploaded.</p>
     <a class="homebig" href="/" style="margin-top:12px"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home</a>
     </div>
@@ -270,7 +271,7 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M6 10v10h12V10"/></svg>Home
       </a>
     </div>
-    <div id="previewBox"><div id="sheetWrap"><div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div></div></div>
+    <div id="previewBox"><div id="sheetWrap"><div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div><iframe id="sheetFrame" sandbox="allow-same-origin" title="Preview of the pasted page"></iframe></div></div></div>
     </div>
   </section>
 </div>
@@ -512,17 +513,57 @@ details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px
     var note = $('wholeNote');
     if (note) { note.style.display = whole ? 'block' : 'none'; }
     var size = paperMm(), m = marginMm();
+    var template = documentCss(src.value);
+    var useTemplate = !!(template && window.SingVazaPDF.isFullDocument(src.value));
+    // "Same as the file": the pasted page's own layout is previewed, so the letterhead,
+    // the address block, the signature space and the footer look the way the file says.
+    var frame = $('sheetFrame');
+    if (frame) {
+      frame.srcdoc = useTemplate ? previewDocument(src.value, template.fonts, size, m) : '';
+      frame.style.display = useTemplate ? 'block' : 'none';
+    }
+    $('sheetInner').style.display = useTemplate ? 'none' : 'block';
+    if (useTemplate) {
+      $('pageInfo').textContent = $('paper').value.toUpperCase() + ' ' + state.ori + ' · ' + size.w + ' × ' + size.h + ' mm · layout from the file';
+    }
     sheet.style.setProperty('--pad', m + 'mm');
     sheet.style.width = size.w + 'mm';
     sheet.style.minHeight = size.h + 'mm';
-    inner.style.cssText = bodyCss(false);
-    inner.style.padding = m + 'mm';
-    inner.innerHTML = decorate(sourceHtml(src.value, opts()), true);
+    if (!useTemplate) {
+      inner.style.cssText = bodyCss(false);
+      inner.style.padding = m + 'mm';
+      inner.innerHTML = decorate(sourceHtml(src.value, opts()), true);
+    }
     $('pageInfo').textContent = $('paper').value.toUpperCase() + ' ' + state.ori + ' · ' + size.w + ' × ' + size.h + ' mm';
     if (!zoomTouched) fitZoom();
     applyZoom();
   }
   function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 200); }
+
+  /* the pasted page's stylesheet, rebuilt for the preview frame */
+  function documentCss(text) {
+    var css = '';
+    var m = /<style[^>]*>([\s\S]*?)<\/style>/gi, match;
+    while ((match = m.exec(text))) css += match[1] + '\n';
+    var links = [];
+    var l = /<link[^>]+href=["']([^"']+)["'][^>]*>/gi, lm;
+    while ((lm = l.exec(text))) if (/fonts\.googleapis\.com/.test(lm[1])) links.push(lm[1]);
+    return { css: css, fonts: links };
+  }
+  function previewDocument(text, fonts, size, margin) {
+    var body = text.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    var head = '';
+    var hm = text.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+    if (hm) head = hm[1];
+    var css = (head.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || []).join('\n');
+    var bodyTag = (text.match(/<body([^>]*)>/i) || ['', ''])[1];
+    return '<!doctype html><html><head><meta charset="utf-8">'
+      + (fonts || []).map(function (href) { return '<link rel="stylesheet" href="' + href + '">'; }).join('')
+      + css
+      + '<style>html,body{margin:0;padding:0;background:#fff}'
+      + '.svpage{width:' + size.w + 'mm;min-height:' + size.h + 'mm}'
+      + '</style></head><body' + bodyTag + '>' + (body ? body[1] : text) + '</body></html>';
+  }
   var zoomTouched = false;
   function fitZoom() {
     var box = $('previewBox');

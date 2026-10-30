@@ -60,3 +60,14 @@ test('on a phone the preview fits the whole sheet, not just its width', () => {
   assert.match(page, /realW < 900/, 'the phone path is explicit');
   assert.match(page, /#previewBox\{height:70vh/, 'the preview slot gets the height of a phone screen and a half');
 });
+
+test("a pasted page is previewed exactly as written, inside a sandboxed frame", () => {
+  // the reported bug: the preview fused every block into one column, so a designed
+  // letter (letterhead, right-aligned contact, signature space, footer) looked wrecked
+  assert.match(page, /id="sheetFrame"/, 'there is a frame for the file\'s own layout');
+  assert.match(page, /sandbox="allow-same-origin"/, 'the pasted page runs in a sandbox');
+  assert.match(page, /function previewDocument\(/, 'the page is rebuilt from its own head + body');
+  assert.match(page, /frame\.srcdoc = useTemplate/, 'a whole HTML file is previewed through it');
+  assert.match(page, /\$\('sheetInner'\)\.style\.display = useTemplate \? 'none' : 'block'/, 'the plain preview steps aside');
+  assert.match(page, /layout from the file/, 'the info line says which layout is shown');
+});
