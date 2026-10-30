@@ -13,7 +13,7 @@
   var CSS = [
     '#tourLayer{position:fixed;inset:0;z-index:90;display:none;pointer-events:none;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Sinhala",sans-serif}',
     '#tourLayer.on{display:block}',
-    '#tourSpot{position:fixed;border:2px solid #f2a93b;border-radius:10px;box-shadow:0 0 0 9999px rgba(6,6,6,.74);transition:all .25s ease;pointer-events:none}',
+    '#tourSpot{position:fixed;border:2px solid #f2a93b;border-radius:10px;box-shadow:0 0 0 9999px rgba(6,6,6,.55);transition:all .25s ease;pointer-events:none}',
     '#tourCard{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;width:min(480px,calc(100% - 24px));background:#1d1d1d;border:1px solid #3d3d3d;border-radius:14px;padding:14px 14px 12px;box-shadow:0 18px 50px rgba(0,0,0,.6);pointer-events:auto;color:#ededed}',
     '#tourCard h4{margin:0 0 5px;font-size:14.5px;color:#ededed;display:flex;align-items:center;gap:8px;line-height:1.3}',
     '#tourCard h4 .step{font-size:10.5px;font-weight:800;color:#f2a93b;letter-spacing:.1em;white-space:nowrap;flex:none}',
@@ -150,7 +150,13 @@
     if (btn) btn.addEventListener('click', function () { start(list, { key: key, restart: true }); });
     var seen = false;
     try { seen = !!localStorage.getItem(key); } catch (e) {}
-    if (opts.auto !== false && !seen) {
+    // auto-open only on a wide screen; on a phone the page is mostly the dimmed
+    // overlay, which looks like the tool itself has gone dark
+    // (the studio pages declare width=1180, so an inner width test says "desktop"
+    // even on a phone — the real screen size is the honest one)
+    var realW = Math.min(window.screen && window.screen.width ? window.screen.width : 0, window.innerWidth || 0);
+    var roomForTour = realW >= 900;
+    if (opts.auto !== false && !seen && roomForTour) {
       setTimeout(function () { if (!isOpen()) start(list, { key: key }); }, opts.delay || 800);
     }
   }

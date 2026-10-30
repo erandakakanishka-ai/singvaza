@@ -41,6 +41,13 @@ test('the guided tour is shared, remembers itself and needs no network', () => {
   assert.ok(tourSrc.includes('scrollIntoView'), 'slides a wide panel into view on a phone');
 });
 
+test('the tour never dims the tool on a phone by itself', () => {
+  assert.ok(tourSrc.includes('roomForTour'), 'a screen-size check guards the auto-open');
+  assert.ok(/realW\s*>=\s*900/.test(tourSrc), 'only a wide screen opens it unasked');
+  assert.ok(tourSrc.includes('screen.width'), 'the declared width=1180 must not fake a desktop');
+  assert.ok(!/rgba\(6,6,6,\.74\)/.test(tourSrc), 'the dim is lighter, so the tool stays readable');
+});
+
 test('every format the UI offers is implemented', () => {
   for (const kind of ['docx', 'xlsx', 'pptx']) {
     assert.ok(writerSrc.includes("kind === '" + kind + "'"), 'missing ' + kind + ' branch');
