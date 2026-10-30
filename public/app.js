@@ -2860,11 +2860,11 @@ const App = (() => {
     const quotaLine = document.getElementById('quotaStatusLine');
     if (quotaLine) {
       if (pro && daysLeft > 0) {
-        quotaLine.textContent = `🎁 30-Day Welcome Pro Pass Active (${daysLeft} days remaining) • Unlimited MP3 & WAV downloads unlocked.`;
+        quotaLine.textContent = `🎁 30-Day Welcome Pro Pass Active (${daysLeft} days remaining) • No daily download limit on any tool.`;
       } else if (pro) {
-        quotaLine.textContent = `✓ Temporary Pro Studio Access Active • Unlimited MP3 & WAV downloads unlocked.`;
+        quotaLine.textContent = `✓ Pro access active • No daily download limit on any tool.`;
       } else {
-        quotaLine.textContent = `Daily Free Trial: ${Math.min(limit, usedToday)}/${limit} downloads used today • ${formatResetCountdown()}`;
+        quotaLine.textContent = `Free plan: ${Math.min(limit, usedToday)}/${limit} downloads used today • ${formatResetCountdown()}`;
       }
     }
 
@@ -2872,7 +2872,7 @@ const App = (() => {
     if (userPlanPill && state.user) {
       userPlanPill.textContent = daysLeft > 0
         ? `🎁 Free Pro Welcome Pass Active (${daysLeft} days left)`
-        : `Daily Free Quota: ${Math.min(limit, usedToday)}/${limit} today (${state.quota?.timezone || clientTimezone})`;
+        : `Free plan: ${Math.min(limit, usedToday)}/${limit} downloads today (${state.quota?.timezone || clientTimezone})`;
     }
   }
 
@@ -2919,7 +2919,7 @@ const App = (() => {
               localStorage.setItem('singvaza_token', data.token);
               updateAccountUI();
               closeAuthModal();
-              showToast(`Welcome ${data.user.display_name}! 30-Day Free Pro Pass activated!`);
+              showToast(`Welcome ${data.user.display_name}! 30-Day Free Pro Pass activated — no daily download limit on any tool.`);
             } catch (_) {
               showToast('Could not sign in. Please check your connection and try again.');
             } finally {
@@ -3151,7 +3151,7 @@ const App = (() => {
       state.isProDemo = next;
       localStorage.setItem('singvaza_pro_demo', next ? '1' : '0');
       await refreshServerState();
-      showToast(next ? 'Temporary Free Pro Month activated!' : `Switched to ${state.dailyLimit}/day Free Tier`);
+      showToast(next ? 'Free Pro Month activated — no daily download limit on any tool!' : `Back to the Free plan: ${state.dailyLimit} downloads a day`);
     } catch (_) { showToast('Could not change your plan. Check your connection.'); }
   }
 

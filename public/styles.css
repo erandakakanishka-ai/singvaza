@@ -29,7 +29,7 @@ html, body {
   overflow-x: hidden;
 }
 
-body { padding-bottom: 80px; }
+body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) { body { padding-bottom: 36px; } }
 
 h1, h2, h3 {

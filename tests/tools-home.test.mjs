@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const app = await readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+const css = await readFile(new URL('../public/styles.css', import.meta.url), 'utf8');
+const index = html;
 
 test('the discover grid shows three tools and no Vocal Remover tile', () => {
   const tiles = html.match(/class="tool-tile"/g) || [];
@@ -55,4 +57,21 @@ test('no inline theme variable refers to itself', () => {
   for (const match of style.matchAll(/(--[a-z0-9-]+)\s*:\s*var\(\s*(--[a-z0-9-]+)\s*\)/g)) {
     assert.notEqual(match[1], match[2], `${match[1]} refers to itself`);
   }
+});
+
+test('the plan card speaks for the whole site, not only the singing studio', () => {
+  // the operator: "those lines are about music — they must cover everything, this is a
+  // blog-and-tools website, not one corner of it"
+  assert.ok(index.includes('Your SingVaza Access Plan'), 'the card is about the whole site');
+  assert.ok(index.includes('every tool and every article, not only the singing studio'), 'it says so plainly');
+  assert.ok(index.includes('Every article, guide and template'), 'articles are included');
+  assert.ok(index.includes('Every tool on the site'), 'tools are included');
+  assert.ok(index.includes('PDF / Word / MP3 / WAV'), 'the download limit names other file types too');
+  assert.ok(!/Unlimited karaoke singing & lyrics/.test(index), 'the music-only wording is gone');
+  assert.ok(/No daily limit<\/strong> on finished-file downloads, on every tool/.test(index), 'one promise for every tool');
+});
+
+test('the plan card is not hidden behind the phone bottom bar', () => {
+  assert.match(css, /body \{ padding-bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)/, 'the page reserves room for the fixed bar');
+  assert.match(index, /padding-bottom: calc\(96px \+ env\(safe-area-inset-bottom\)\)/, 'and the inlined copy matches');
 });

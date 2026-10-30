@@ -125,7 +125,7 @@ html, body {
   overflow-x: hidden;
 }
 
-body { padding-bottom: 80px; }
+body { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) { body { padding-bottom: 36px; } }
 
 h1, h2, h3 {
@@ -1139,7 +1139,7 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
         </div>
         <div id="authCredentialFields" hidden>
         <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.38);border-radius:10px;padding:9px 11px;font-size:12px;color:var(--amber-bright);margin-bottom:12px;line-height:1.45;">
-          🎁 <strong>New Member Launch Gift:</strong> Sign in with your Gmail to unlock <strong>30 Days Unlimited Pro FREE</strong> (then <span class="daily-limit-value">9</span> free downloads every day).
+          🎁 <strong>New Member Launch Gift:</strong> Sign in with your Gmail to unlock <strong>30 Days Pro FREE</strong> — no daily limit on finished-file downloads anywhere on the site (then <span class="daily-limit-value">9</span> free downloads every day).
         </div>
         <div id="googleGsiMount" style="display:flex;justify-content:center;margin-bottom:8px;"></div>
         <button type="button" class="btn" id="btnQuickGmailSignup" style="width:100%;margin-bottom:12px;border-color:rgba(56,189,248,0.4);" onclick="App.startGmailQuickSignup()">
@@ -1887,16 +1887,18 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
       </div>
 
       <div class="card" style="border-color:rgba(245,158,11,0.4);">
-        <span class="step-badge">FREE STUDIO ACCESS & WELCOME PRO PASS</span>
-        <h3 style="font-size:19px;margin-bottom:12px;">Your Studio Access Plan</h3>
+        <span class="step-badge">FREE MEMBER ACCESS &amp; WELCOME PRO PASS</span>
+        <h3 style="font-size:19px;margin-bottom:4px;">Your SingVaza Access Plan</h3>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">One account covers the whole site — every tool and every article, not only the singing studio.</p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:14px;">
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;">
-            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">DAILY FREE TRIAL (ALL COUNTRIES)</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">FREE — EVERY DAY, ALL COUNTRIES</div>
             <div style="font-size:22px;font-weight:800;margin:4px 0 8px;"><span class="daily-limit-value">9</span> / Day <span style="font-size:12px;font-weight:500;color:var(--text-muted);">• Free Forever</span></div>
             <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;">
-              ✓ Unlimited karaoke singing & lyrics<br />
-              ✓ All 6 studio reverb, clarity & pitch chains<br />
-              ✓ <span class="daily-limit-value">9</span> shared karaoke WAV and mastered MP3 / WAV downloads daily (resets automatically at 12:00 AM local midnight in your timezone)
+              ✓ Every tool on the site, unchanged and without a limit<br />
+              ✓ Every article, guide and template — read or use as often as you like<br />
+              ✓ <span class="daily-limit-value">9</span> finished PDF / Word / MP3 / WAV files to download each day (resets at 12:00 AM in your own timezone)<br />
+              ✓ Your own work: a browser tool never uploads what you open in it
             </div>
           </div>
           <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.45);border-radius:12px;padding:14px;">
@@ -1904,13 +1906,14 @@ html[data-theme="light"] .theme-toggle .icon-moon { display: block; }
             <div style="font-size:22px;font-weight:800;margin:4px 0 8px;">30 Days FREE <span style="font-size:12px;font-weight:500;color:var(--text-muted);">• Pro Pass</span></div>
             <div style="font-size:12.5px;color:var(--text);line-height:1.7;">
               ✓ Instant <strong>1 Month Unlimited Pro</strong> when you sign in with Gmail<br />
-              ✓ Unlimited Compact MP3 & Lossless WAV downloads<br />
-              ✓ Cloud mix & preset sync across all devices
+              ✓ <strong>No daily limit</strong> on finished-file downloads, on every tool<br />
+              ✓ Cloud library: your saved work and presets follow you to any device<br />
+              ✓ Everything above is kept — the Pro pass only lifts the daily download limit
             </div>
           </div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-          <span style="font-size:12px;color:var(--cyan);" id="quotaStatusLine">Daily Free Trial: 0/9 downloads used today • Resets at 12:00 AM local midnight</span>
+          <span style="font-size:12px;color:var(--cyan);" id="quotaStatusLine">Free plan: 0/9 downloads used today • Resets at 12:00 AM local midnight</span>
           <button class="btn btn-amber" id="proActionBtn" onclick="App.toggleProDemo()">Sign In with Gmail — Get 30 Days Free Pro</button>
         </div>
       </div>
