@@ -160,3 +160,27 @@ test('hidden content is filtered on the server, never only in the browser', asyn
   assert.match(worker, /compareVersions\(String\(existing\.html_code/, 'updates are diffed against the stored file');
   assert.ok(worker.includes('body.force !== true'), 'a blocked update can only pass when forced');
 });
+
+test('the admin panel keeps lists and editors apart, with explicit New buttons', async () => {
+  const html = await readFile(new URL('../public/admin.html', import.meta.url), 'utf8');
+  // lists
+  assert.ok(html.includes('id="tab-tools"'), 'tools list tab');
+  assert.ok(html.includes('id="tab-blog"'), 'blog list tab');
+  // editors are separate tabs, never below the upload box
+  assert.ok(html.includes('id="tab-tools-new"'), 'new-tool tab');
+  assert.ok(html.includes('id="tab-blog-new"'), 'new-article tab');
+  assert.ok(html.indexOf('id="tab-tools"') < html.indexOf('id="tab-tools-new"'), 'list comes before the editor');
+  // a "New" entry in both the sidebar and the mobile tab bar
+  assert.ok((html.match(/AdminApp\.newTool\(\)/g) || []).length >= 2, 'new tool entry points');
+  assert.ok((html.match(/AdminApp\.newBlog\(\)/g) || []).length >= 2, 'new article entry points');
+  // diagnostics surface a missing table or column instead of an empty list
+  assert.ok(html.includes('id="diagBox"'), 'diagnostics pane');
+  assert.ok(html.includes('/api/admin/diagnostics'), 'diagnostics endpoint');
+});
+
+test('the schema migration cannot stop early on a duplicate column', async () => {
+  const worker = await readFile(new URL('../src/worker.ts', import.meta.url), 'utf8');
+  assert.match(worker, /for \(const sql of statements\) \{\s*try \{ await db\.prepare\(sql\)\.run\(\); \} catch \(_\) \{\}\s*\}/);
+  assert.match(worker, /duplicate column name/i);
+  assert.ok(worker.includes("PRAGMA table_info("), 'diagnostics reads the real columns');
+});

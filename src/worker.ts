@@ -22,6 +22,8 @@ const DEFAULT_ADMIN_SHA256 = 'b5098ccafc515b07d2d7033a3102e61dcd6ea5d61e91b77d1f
 let schemaChecked = false;
 let memSlIndex: Array<{ t: string; w: string[]; p: string }> | null = null;
 
+let lastSchemaProblems: string[] = [];
+
 async function ensureSchema(db?: D1Database) {
   if (!db || schemaChecked) return;
   const statements = [
@@ -106,8 +108,23 @@ async function ensureSchema(db?: D1Database) {
     `CREATE INDEX IF NOT EXISTS idx_blog_created ON blog_posts(created_at DESC)`,
     `CREATE INDEX IF NOT EXISTS idx_tools_created ON html_tools(created_at DESC)`,
   ];
+  // D1 can run only one statement per call, so each one is issued on its own. A
+  // statement that fails (typically ALTER ... ADD COLUMN on a column that already
+  // exists) must not stop the ones after it, or a single duplicate could leave the
+  // whole schema half-applied.
   for (const sql of statements) {
     try { await db.prepare(sql).run(); } catch (_) {}
+  }
+  const schemaProblems: string[] = [];
+  for (const sql of statements) {
+    try { await db.prepare(sql).run(); } catch (err) {
+      const message = String((err as any)?.message || err);
+      if (!/duplicate column name|already exists/i.test(message)) schemaProblems.push(message);
+    }
+  }
+  if (schemaProblems.length) {
+    // Surfaced through /api/health so a broken migration is visible instead of silent.
+    lastSchemaProblems = schemaProblems.slice(0, 8);
   }
   schemaChecked = true;
 }
@@ -283,10 +300,10 @@ function buildQuotaSummary(user: Record<string, any> | null, authenticated: bool
   };
 }
 
-function json(data: unknown, status = 200): Response {
+function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, ...extraHeaders },
   });
 }
 
@@ -1180,6 +1197,49 @@ export default {
           await env.DB.prepare('DELETE FROM admin_sessions WHERE token != ?').bind(curBearer).run();
         }
         return json({ ok: true });
+      }
+
+      if (url.pathname === '/api/admin/diagnostics' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const result: any = { db: Boolean(env.DB), schemaProblems: lastSchemaProblems, tables: {}, columns: {}, counts: {} };
+        if (env.DB) {
+          for (const table of ['html_tools', 'blog_posts', 'site_settings', 'users']) {
+            try {
+              const info: any = await env.DB.prepare(`PRAGMA table_info(${table})`).all();
+              const cols = ((info.results || []) as any[]).map((c) => String(c.name));
+              result.tables[table] = cols.length > 0;
+              result.columns[table] = cols;
+            } catch (err) {
+              result.tables[table] = false;
+              result.columns[table] = [];
+              result.columnError = String((err as any)?.message || err);
+            }
+          }
+          try {
+            const [tools, toolsPublished, posts, postsPublished] = await Promise.all([
+              env.DB.prepare('SELECT COUNT(*) AS c FROM html_tools').first(),
+              env.DB.prepare("SELECT COUNT(*) AS c FROM html_tools WHERE COALESCE(visibility, 'published') = 'published'").first(),
+              env.DB.prepare('SELECT COUNT(*) AS c FROM blog_posts').first(),
+              env.DB.prepare("SELECT COUNT(*) AS c FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published'").first(),
+            ]);
+            result.counts = {
+              tools: Number((tools as any)?.c || 0),
+              toolsPublished: Number((toolsPublished as any)?.c || 0),
+              posts: Number((posts as any)?.c || 0),
+              postsPublished: Number((postsPublished as any)?.c || 0),
+            };
+          } catch (err) {
+            result.countError = String((err as any)?.message || err);
+          }
+        }
+        const problems: string[] = [...(result.schemaProblems || [])];
+        for (const table of ['html_tools', 'blog_posts']) {
+          if (result.db && !(result.columns[table] || []).length) problems.push(`table ${table} is missing`);
+        }
+        result.ok = problems.length === 0;
+        result.problems = problems;
+        return json(result, 200, { 'Cache-Control': 'no-store' });
       }
 
       // ==================== CONTENT HEALTH: CHECK / SAVE / PRIVACY / EXPORT ====================

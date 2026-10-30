@@ -408,6 +408,20 @@
             <span class="badge-pill" id="badgeTools">0</span>
           </button>
 
+          <button class="nav-btn nav-btn-new" data-tab="blog-new" onclick="AdminApp.newBlog()">
+            <span class="nav-btn-left">
+              <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>New Article</span>
+            </span>
+          </button>
+
+          <button class="nav-btn nav-btn-new" data-tab="tools-new" onclick="AdminApp.newTool()">
+            <span class="nav-btn-left">
+              <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>New Tool</span>
+            </span>
+          </button>
+
           <button class="nav-btn" data-tab="users" onclick="AdminApp.switchTab('users')">
             <span class="nav-btn-left">
               <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -446,6 +460,8 @@
       <button class="btn btn-sm nav-mob active" data-tab="overview" onclick="AdminApp.switchTab('overview')">Overview</button>
       <button class="btn btn-sm nav-mob" data-tab="blog" onclick="AdminApp.switchTab('blog')">HTML Blog</button>
       <button class="btn btn-sm nav-mob" data-tab="tools" onclick="AdminApp.switchTab('tools')">Web Tools</button>
+      <button class="btn btn-sm nav-mob" data-tab="blog-new" onclick="AdminApp.newBlog()">＋ Article</button>
+      <button class="btn btn-sm nav-mob" data-tab="tools-new" onclick="AdminApp.newTool()">＋ Tool</button>
       <button class="btn btn-sm nav-mob" data-tab="users" onclick="AdminApp.switchTab('users')">Users & Inbox</button>
       <button class="btn btn-sm nav-mob" data-tab="settings" onclick="AdminApp.switchTab('settings')">Settings</button>
     </div>
@@ -522,15 +538,42 @@
       <section id="tab-blog" class="panel-tab">
         <div class="page-head">
           <div>
-            <h1>HTML Blog & Article Studio</h1>
-            <p>Upload standalone <code>.html</code> files, write visually, or paste custom HTML on any topic.</p>
+            <h1>Blog Articles</h1>
+            <p>Everything you have published. Each row can be checked, replaced with a new <code>.html</code> file, downloaded, or made private.</p>
           </div>
-          <a class="btn btn-sm" href="/blog" target="_blank">View Public Blog ↗</a>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="AdminApp.newBlog()">＋ New article</button>
+            <a class="btn btn-sm" href="/blog" target="_blank">View Public Blog ↗</a>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-card-head">
+            <span>Published articles</span>
+            <span class="table-card-note" id="blogListNote">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Article</th><th>Status</th><th>Updated</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
+              <tbody id="blogListBody"><tr><td colspan="4" style="color:var(--muted);">Loading articles…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 2b: BLOG EDITOR (only for new / edit) ==================== -->
+      <section id="tab-blog-new" class="panel-tab">
+        <div class="page-head">
+          <div>
+            <h1 id="blogEditorPageTitle">New Article</h1>
+            <p>Upload a ready-made <code>.html</code> file, write visually, or paste custom HTML.</p>
+          </div>
+          <button class="btn btn-sm" onclick="AdminApp.switchTab('blog')">← Back to articles</button>
         </div>
 
         <div class="card">
           <div class="card-title">
-            <span id="blogEditorHeading">Publish New Article</span>
+            <span id="blogEditorHeading">New Article</span>
             <button class="btn btn-sm" onclick="AdminApp.resetBlogForm()">Clear / New</button>
           </div>
 
@@ -627,30 +670,48 @@
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title"><span>Published Articles</span></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Article</th><th>Status</th><th>Date</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
-              <tbody id="blogListBody"><tr><td colspan="4" style="color:var(--muted);">No articles yet.</td></tr></tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
       <!-- ==================== TAB 3: HTML WEB TOOLS HUB ==================== -->
       <section id="tab-tools" class="panel-tab">
         <div class="page-head">
           <div>
-            <h1>HTML Web Tools Manager</h1>
-            <p>Publish a standalone <code>.html</code> tool at <code>/tools/your-tool</code>; it will appear automatically in the Tools directory. Only upload HTML you trust: its scripts run on the SingVaza site origin.</p>
+            <h1>Web Tools</h1>
+            <p>Every tool you have uploaded, live at <code>/tools/slug</code>. Each row can be checked, replaced with a new <code>.html</code> file, downloaded, or made private.</p>
           </div>
-          <a class="btn btn-sm" href="/tools" target="_blank">Open /tools Hub ↗</a>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="AdminApp.newTool()">＋ New tool</button>
+            <a class="btn btn-sm" href="/tools" target="_blank">Open /tools Hub ↗</a>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-card-head">
+            <span>Published tools</span>
+            <span class="table-card-note" id="toolListNote">—</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tool</th><th>Status</th><th>Views</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
+              <tbody id="toolsListBody"><tr><td colspan="4" style="color:var(--muted);">Loading tools…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 3b: TOOL EDITOR (only for new / edit) ==================== -->
+      <section id="tab-tools-new" class="panel-tab">
+        <div class="page-head">
+          <div>
+            <h1 id="toolEditorPageTitle">New Tool</h1>
+            <p>Publish a standalone <code>.html</code> tool at <code>/tools/your-tool</code>. Only upload HTML you trust: its scripts run on the SingVaza site origin.</p>
+          </div>
+          <button class="btn btn-sm" onclick="AdminApp.switchTab('tools')">← Back to tools</button>
         </div>
 
         <div class="card">
           <div class="card-title">
-            <span id="toolEditorHeading">Add / Upload HTML Tool</span>
+            <span id="toolEditorHeading">New Tool</span>
             <button class="btn btn-sm" onclick="AdminApp.resetToolForm()">Clear / New</button>
           </div>
 
@@ -709,15 +770,6 @@
           <button type="button" class="btn btn-primary" onclick="AdminApp.saveTool()">Publish / Update Tool</button>
         </div>
 
-        <div class="card">
-          <div class="card-title"><span>Published Web Tools</span></div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Tool Name</th><th>Status</th><th>Views</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
-              <tbody id="toolsListBody"><tr><td colspan="4" style="color:var(--muted);">No custom tools published yet.</td></tr></tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
       <!-- ==================== TAB 4: USERS & SUPPORT INBOX ==================== -->
@@ -892,6 +944,18 @@
             </table>
           </div>
         </div>
+
+        <div class="card" style="margin-top:18px;">
+          <div class="card-title">
+            <span>Database &amp; Content Diagnostics</span>
+            <button class="btn btn-sm" type="button" onclick="AdminApp.loadDiagnostics()">Check again ↻</button>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
+            If a tool or article you uploaded earlier is missing, this shows exactly why: a missing database column, a failed
+            migration, or rows that are marked private.
+          </p>
+          <div id="diagBox" class="cm-block"><span class="cm-muted">Checking…</span></div>
+        </div>
       </section>
 
     </main>
@@ -976,6 +1040,12 @@
     .cm-pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:2px 7px;border-radius:99px;text-transform:uppercase;}
     .cm-pill.live{background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.4);}
     .cm-pill.private{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);}
+    .nav-btn-new{border:1px dashed var(--border-strong,rgba(148,163,184,.35)) !important;color:var(--amber,#fbbf24) !important;}
+    .nav-btn-new.active{border-style:solid !important;background:rgba(245,158,11,.12) !important;}
+    .table-card{background:var(--surface,#111625);border:1px solid var(--border,rgba(148,163,184,.2));border-radius:14px;overflow:hidden;margin-bottom:16px;}
+    .table-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 16px;border-bottom:1px solid var(--border,rgba(148,163,184,.2));font-size:12.5px;font-weight:700;letter-spacing:.03em;}
+    .table-card-note{font-weight:500;color:var(--muted,#94a3b8);font-size:11.5px;}
+    .table-card .table-wrap{border:0;border-radius:0;}
     @media (max-width:700px){ .cm-grid{grid-template-columns:1fr;} }
   </style>
 
@@ -1098,7 +1168,21 @@
         if (tab === 'blog') loadBlogPosts();
         if (tab === 'tools') loadTools();
         if (tab === 'users') loadUsersAndInbox();
-        if (tab === 'settings') { loadSettings(); loadPages(); }
+        if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); }
+        if (tab === 'blog-new' || tab === 'tools-new') window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // The editors live in their own tab now, opened only by "New" or "Edit".
+      function newBlog() {
+        resetBlogForm();
+        switchTab('blog-new');
+        setTimeout(() => document.getElementById('blogTitle').focus(), 120);
+      }
+
+      function newTool() {
+        resetToolForm();
+        switchTab('tools-new');
+        setTimeout(() => document.getElementById('toolTitle').focus(), 120);
       }
 
       // ==================== 1. OVERVIEW & CHART.JS ====================
@@ -1259,7 +1343,8 @@
         document.getElementById('blogHtmlTextarea').value = '';
         if (quill) quill.root.innerHTML = '';
         document.getElementById('blogPrivate').checked = false;
-        document.getElementById('blogEditorHeading').textContent = 'Publish New Article';
+        document.getElementById('blogEditorHeading').textContent = 'New Article';
+        document.getElementById('blogEditorPageTitle').textContent = 'New Article';
         setEditorMode('visual');
       }
 
@@ -1268,6 +1353,10 @@
         if (!ok) return;
         allPosts = data.posts || [];
         document.getElementById('badgePosts').textContent = allPosts.length;
+        const privateCount = allPosts.filter((x) => String(x.visibility || 'published') === 'hidden').length;
+        document.getElementById('blogListNote').textContent = allPosts.length
+          ? `${allPosts.length} total · ${allPosts.length - privateCount} live · ${privateCount} private`
+          : 'Nothing published yet';
         const tbody = document.getElementById('blogListBody');
         tbody.innerHTML = allPosts.length
           ? allPosts.map((p, idx) => `
@@ -1290,6 +1379,7 @@
       function editBlog(idx) {
         const p = allPosts[idx];
         if (!p) return;
+        switchTab('blog-new');
         document.getElementById('blogEditId').value = p.id;
         document.getElementById('blogTitle').value = p.title || '';
         const slugEl = document.getElementById('blogSlug');
@@ -1304,6 +1394,7 @@
         document.getElementById('blogPrivate').checked = String(p.visibility || 'published') === 'hidden';
         document.getElementById('blogHtmlTextarea').value = p.content || '';
         document.getElementById('blogEditorHeading').textContent = 'Editing: ' + p.title;
+        document.getElementById('blogEditorPageTitle').textContent = 'Editing: ' + p.title;
         if (p.content_format === 'full_html' || /^\s*<!doctype html/i.test(p.content || '')) {
           editorMode = 'html';
           setEditorMode('html');
@@ -1339,6 +1430,7 @@
         toast('Article live at ' + data.url);
         resetBlogForm();
         loadBlogPosts();
+        switchTab('blog');
       }
 
       async function deleteBlog(id) {
@@ -1381,7 +1473,8 @@
         document.getElementById('toolSeoTags').value = '';
         document.getElementById('toolHtmlCode').value = '';
         document.getElementById('toolPrivate').checked = false;
-        document.getElementById('toolEditorHeading').textContent = 'Add / Upload HTML Tool';
+        document.getElementById('toolEditorHeading').textContent = 'New Tool';
+        document.getElementById('toolEditorPageTitle').textContent = 'New Tool';
       }
 
       async function loadTools() {
@@ -1389,6 +1482,10 @@
         if (!ok) return;
         allTools = data.tools || [];
         document.getElementById('badgeTools').textContent = allTools.length;
+        const privateTools = allTools.filter((x) => String(x.visibility || 'published') === 'hidden').length;
+        document.getElementById('toolListNote').textContent = allTools.length
+          ? `${allTools.length} total · ${allTools.length - privateTools} live · ${privateTools} private`
+          : 'Nothing uploaded yet';
         const tbody = document.getElementById('toolsListBody');
         tbody.innerHTML = allTools.length
           ? allTools.map((t, idx) => `
@@ -1411,6 +1508,7 @@
       function editTool(idx) {
         const t = allTools[idx];
         if (!t) return;
+        switchTab('tools-new');
         document.getElementById('toolEditId').value = t.id;
         document.getElementById('toolTitle').value = t.title || '';
         const slugEl = document.getElementById('toolSlug');
@@ -1422,6 +1520,7 @@
         document.getElementById('toolHtmlCode').value = t.html_code || '';
         document.getElementById('toolPrivate').checked = String(t.visibility || 'published') === 'hidden';
         document.getElementById('toolEditorHeading').textContent = 'Editing Tool: ' + t.title;
+        document.getElementById('toolEditorPageTitle').textContent = 'Editing Tool: ' + t.title;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
@@ -1445,6 +1544,7 @@
         toast('Tool live at ' + data.url);
         resetToolForm();
         loadTools();
+        switchTab('tools');
       }
 
       async function deleteTool(id) {
@@ -1738,6 +1838,38 @@
         }
       }
 
+      async function loadDiagnostics() {
+        const box = document.getElementById('diagBox');
+        if (!box) return;
+        const { ok, data } = await api('/api/admin/diagnostics');
+        if (!ok) { box.innerHTML = '<span class="cm-warnl">Could not read diagnostics: ' + esc(data.error || 'unknown error') + '</span>'; return; }
+        const c = data.counts || {};
+        const required = {
+          html_tools: ['id', 'slug', 'title', 'html_code', 'visibility', 'updated_by'],
+          blog_posts: ['id', 'slug', 'title', 'content', 'visibility', 'updated_by'],
+        };
+        const missing = [];
+        for (const [table, cols] of Object.entries(required)) {
+          const have = (data.columns && data.columns[table]) || [];
+          if (!have.length) missing.push(table + ' — table missing');
+          else for (const col of cols) if (!have.includes(col)) missing.push(table + '.' + col + ' — column missing');
+        }
+        const rows = [
+          ['Database bound', data.db ? '✅ yes' : '⛔ no'],
+          ['html_tools table', (data.columns && data.columns.html_tools || []).length ? '✅' : '⛔ missing'],
+          ['blog_posts table', (data.columns && data.columns.blog_posts || []).length ? '✅' : '⛔ missing'],
+          ['Tools stored', (c.tools ?? 0) + ' (' + (c.toolsPublished ?? 0) + ' live)'],
+          ['Articles stored', (c.posts ?? 0) + ' (' + (c.postsPublished ?? 0) + ' live)'],
+        ];
+        box.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            ${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:10px;"><span class="cm-muted">${esc(k)}</span><b>${esc(String(v))}</b></div>`).join('')}
+            ${missing.length ? `<div class="cm-warnl" style="margin-top:8px;"><b>Fix needed:</b> ${missing.map(esc).join(' · ')}</div>` : '<div style="margin-top:8px;color:#34d399;">Schema is complete.</div>'}
+            ${(data.problems && data.problems.length) ? `<div class="cm-warnl"><b>Migration said:</b> ${data.problems.map(esc).join(' · ')}</div>` : ''}
+            ${data.countError ? `<div class="cm-err"><b>Read error:</b> ${esc(data.countError)}</div>` : ''}
+          </div>`;
+      }
+
       // --- main-site pages (download / upload / rollback) ---
       async function loadPages() {
         const { ok, data } = await api('/api/admin/pages');
@@ -1910,6 +2042,7 @@
         saveSettings,
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
+        newBlog, newTool, loadDiagnostics,
       };
     })();
   </script>
