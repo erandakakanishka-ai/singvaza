@@ -140,7 +140,9 @@ test('a preview is for the admin only and hands out no real pass', () => {
   const i = workerSrc.indexOf("'/api/admin/holiday-preview'");
   assert.ok(i > 0);
   assert.match(workerSrc.slice(i, i + 900), /isValidBlogAdmin/, 'only a signed-in admin can start one');
-  assert.match(workerSrc.slice(i, i + 900), /2 \* 60 \* 60 \* 1000/, 'and it expires by itself');
+  // a link carries its own expiry (default seven days) and is signed
+  assert.match(workerSrc.slice(i, i + 1400), /days \* 24 \* 60 \* 60 \* 1000/, 'and it expires by itself');
+  assert.match(workerSrc.slice(i, i + 1400), /holidayPreviewSignature/, 'signed, so it cannot be edited');
   assert.match(holidayJs, /data\.preview/, 'the browser knows it is a preview');
   assert.match(holidayJs, /Opens ' \+ data\.startDate/, 'the claim button says when the real week starts');
 });
@@ -156,7 +158,7 @@ test('the calendar answers for any date', () => {
   const i = workerSrc.indexOf("'/api/holidays/active'");
   assert.ok(i > 0);
   assert.match(workerSrc.slice(i, i + 500), /searchParams\.get\('date'\)/, 'the date comes from the visitor');
-  assert.match(workerSrc.slice(i, i + 900), /Cache-Control': 'no-store'/, 'never cached across a date change');
+  assert.match(workerSrc.slice(i, i + 1600), /Cache-Control': 'no-store'/, 'never cached across a date change');
 });
 
 test('the next twelve months are listed for the operator', () => {
@@ -167,4 +169,15 @@ test('the next twelve months are listed for the operator', () => {
   assert.ok(labels.includes('new-year'));
   // sorted, so the nearest day is first
   for (let i = 1; i < list.length; i += 1) assert.ok(list[i - 1].mainDate <= list[i].mainDate);
+});
+
+test('a preview link is signed, dated, and shows nothing when edited', () => {
+  const i = workerSrc.indexOf("'/api/holidays/active'");
+  const route = workerSrc.slice(i, i + 1600);
+  assert.match(route, /holidayPreviewSignature\(previewId \+ ':' \+ until, secret\)/, 'the signature covers the season and the expiry');
+  assert.match(route, /expected === sig/, 'a wrong signature falls through to no decoration');
+  assert.match(holidayJs, /&hp=/, 'the browser passes the expiry through');
+  assert.match(holidayJs, /&hs=/, 'and the signature');
+  assert.match(admin, /makeHolidayLinks/, 'the panel can produce the links');
+  assert.match(admin, /Christmas \+ New Year links/, 'one button for the two the operator asked for');
 });

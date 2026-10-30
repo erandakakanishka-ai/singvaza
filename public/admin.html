@@ -822,8 +822,12 @@
         <div class="card" id="holidaysCard">
           <div class="card-title">
             <span>Holidays — automatic, nothing to switch on</span>
-            <button class="btn btn-sm" type="button" onclick="AdminApp.loadHolidays()">Refresh ↻</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" type="button" onclick="AdminApp.makeHolidayLinks()">Christmas + New Year links</button>
+              <button class="btn btn-sm" type="button" onclick="AdminApp.loadHolidays()">Refresh ↻</button>
+            </div>
           </div>
+          <div id="holidayLinks" class="cm-muted" style="font-size:12.5px;margin-bottom:10px;"></div>
           <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
             On the days below the site decorates itself for the visitor's own date: a greeting bar at the top, falling snow at
             Christmas, fireworks for the New Year. The layout and colours never change, and it all disappears when the days pass.
@@ -2326,14 +2330,32 @@
       }
 
       /** Look at a season now, without waiting for the date and without changing
-       *  anything for visitors: the preview link is personal to this admin. */
+       *  anything for visitors: the link is signed, dated and personal. */
       async function previewHoliday(id) {
-        const { ok, data } = await api('/api/admin/holiday-preview', { method: 'POST', body: JSON.stringify({ id }) });
+        const { ok, data } = await api('/api/admin/holiday-preview', { method: 'POST', body: JSON.stringify({ id, days: 7 }) });
         if (!ok) { toast(data.error || 'Could not start the preview.'); return; }
         const note = document.getElementById('holidayPreviewNote');
-        if (note) note.textContent = 'Preview open for 2 hours: ' + data.url + ' — visitors see nothing different.';
+        if (note) note.textContent = 'Preview link valid until ' + (data.expiresOn || '') + ' — visitors see nothing different.';
         window.open(data.url, '_blank', 'noopener');
         toast('Preview opened in a new tab.');
+      }
+
+      /** The two links the operator asked for, ready to open on the phone. */
+      async function makeHolidayLinks() {
+        const box = document.getElementById('holidayLinks');
+        box.textContent = 'Preparing the links…';
+        const { ok, data } = await api('/api/admin/holiday-preview', { method: 'POST', body: JSON.stringify({ days: 7 }) });
+        if (!ok) { box.textContent = data.error || 'Could not create the links.'; return; }
+        const origin = location.origin;
+        const rows = (data.links || []).map((l) => {
+          const full = origin + l.url;
+          return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(148,163,184,.16);padding:7px 0;">
+            <strong style="min-width:96px;">${esc(l.id === 'christmas' ? '🎄 Christmas' : l.id === 'new-year' ? '🎆 New Year' : l.id)}</strong>
+            <input class="input" readonly value="${esc(full)}" style="flex:1;min-width:150px;font-size:11px;" onclick="this.select()" />
+            <a class="btn btn-sm" href="${esc(l.url)}" target="_blank" rel="noopener">Open</a>
+          </div>`;
+        }).join('');
+        box.innerHTML = `<div style="margin-bottom:4px;">Valid until <strong>${esc(data.links[0].expiresOn)}</strong>. Only these links show the season — the site itself stays as it is for everyone.</div>${rows}`;
       }
 
       // ==================== WHOLE SITE: ONE DOWNLOAD, ONE UPLOAD ====================
@@ -2856,7 +2878,7 @@
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
         toggleAcc,
-        toggleAcc, downloadBuiltin, updateBuiltin, loadHolidays, previewHoliday,
+        toggleAcc, downloadBuiltin, updateBuiltin, loadHolidays, previewHoliday, makeHolidayLinks,
         downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,
         loadTemplates, loadTemplateUploads, downloadTemplate, copyTemplate, uploadTemplate, deleteTemplate, editTemplate,
         saveTemplateAsPage, loadOccasion, applyOccasionPreset, saveOccasion, stopOccasion, previewOccasion,

@@ -514,6 +514,14 @@ async function readManifest(env: Env): Promise<string[]> {
   }
 }
 
+/** Signature for a holiday preview link: HMAC over the season id and the expiry,
+ *  keyed with the admin password hash, so the link cannot be guessed or edited. */
+async function holidayPreviewSignature(payload: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('singvaza-holiday:' + secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)));
+  return Array.from(sig).slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /** Short-lived signature for an occasion preview link: HMAC over the expiry. */
 async function occasionPreviewSignature(payload: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('singvaza-occasion:' + secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -1069,13 +1077,20 @@ export default {
         const today = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : new Date().toISOString().slice(0, 10);
         const previewId = String(url.searchParams.get('preview') || '').trim();
         if (previewId) {
-          // A preview is for the admin only: it shows a season even on an ordinary day.
-          const settings = await getSettingsMap(env.DB);
-          const until = Number(settings.holiday_preview_until || 0);
-          if (until > Date.now()) {
-            const window = windowsAround(today).find((w) => w.id === previewId && w.endDate >= today)
-              || windowsAround(today).find((w) => w.id === previewId);
-            if (window) return json(decorPayload(window, true), 200, { 'Cache-Control': 'no-store' });
+          // A preview link is signed and time-limited: it shows one season to the
+          // person holding the link and nobody else, and changes nothing globally.
+          const until = Number(url.searchParams.get('hp') || 0);
+          const sig = String(url.searchParams.get('hs') || '');
+          if (until > Date.now() && sig && env.DB) {
+            const settings = await getSettingsMap(env.DB);
+            const secret = String(settings.admin_pass_sha256 || DEFAULT_ADMIN_SHA256);
+            const expected = await holidayPreviewSignature(previewId + ':' + until, secret);
+            if (expected === sig) {
+              const all = windowsAround(today);
+              const window = all.find((w) => w.id === previewId && today >= w.startDate && today <= w.endDate)
+                || all.find((w) => w.id === previewId);
+              if (window) return json(decorPayload(window, true), 200, { 'Cache-Control': 'no-store' });
+            }
           }
         }
         return json(decorPayload(activeHoliday(today)), 200, { 'Cache-Control': 'no-store' });
@@ -1116,15 +1131,27 @@ export default {
         if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
         const body: any = await request.json().catch(() => ({}));
         const id = String(body.id || '').trim();
-        if (!id) {
-          await setSetting(env.DB, 'holiday_preview_until', '0');
-          return json({ ok: true, preview: false });
+        const days = Math.min(30, Math.max(1, Number(body.days) || 7));
+        // No ids: hand back a signed link for every season at once (the operator
+        // asked for the Christmas and New Year links ready to look at).
+        const wanted: string[] = id ? [id] : HOLIDAYS.filter((h) => h.proDays > 0 || h.id === 'christmas').map((h) => h.id);
+        for (const one of wanted) {
+          if (!HOLIDAYS.some((h) => h.id === one)) return json({ error: 'Unknown holiday.' }, 404);
         }
-        if (!HOLIDAYS.some((h) => h.id === id)) return json({ error: 'Unknown holiday.' }, 404);
-        const until = Date.now() + 2 * 60 * 60 * 1000;
-        await setSetting(env.DB, 'holiday_preview_until', String(until));
-        await setSetting(env.DB, 'holiday_preview_id', id);
-        return json({ ok: true, preview: true, id, until, url: '/?holiday_preview=' + encodeURIComponent(id) });
+        const settings = await getSettingsMap(env.DB);
+        const secret = String(settings.admin_pass_sha256 || DEFAULT_ADMIN_SHA256);
+        const until = Date.now() + days * 24 * 60 * 60 * 1000;
+        const links: any[] = [];
+        for (const one of wanted) {
+          const sig = await holidayPreviewSignature(one + ':' + until, secret);
+          links.push({
+            id: one,
+            url: `/?holiday_preview=${one}&hp=${until}&hs=${sig}`,
+            until,
+            expiresOn: new Date(until).toISOString().slice(0, 10),
+          });
+        }
+        return json({ ok: true, preview: true, days, until, links, url: links[0]?.url });
       }
 
       // A reminder for the admin: is today a holiday? (shown in the panel)

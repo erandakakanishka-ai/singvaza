@@ -42,7 +42,13 @@
   function queryPreview() {
     try {
       var params = new URLSearchParams(location.search);
-      return params.get('holiday_preview') || '';
+      var id = params.get('holiday_preview') || '';
+      if (!id) return '';
+      // The link carries its own expiry and signature; pass them straight through,
+      // the server decides whether they are real.
+      return '&preview=' + encodeURIComponent(id) +
+        '&hp=' + encodeURIComponent(params.get('hp') || '') +
+        '&hs=' + encodeURIComponent(params.get('hs') || '');
     } catch (_) { return ''; }
   }
 
@@ -328,7 +334,7 @@
   function start() {
     if (document.getElementById('sv-holiday-bar')) return;
     var preview = queryPreview();
-    var url = '/api/holidays/active?date=' + encodeURIComponent(todayLocal()) + (preview ? '&preview=' + encodeURIComponent(preview) : '');
+    var url = '/api/holidays/active?date=' + encodeURIComponent(todayLocal()) + preview;
     fetch(url, { headers: authToken() ? { Authorization: 'Bearer ' + authToken() } : {} })
       .then(function (r) { return r.json(); })
       .then(function (data) { paint(data); })
