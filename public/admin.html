@@ -679,21 +679,32 @@
             <h1>Web Tools</h1>
             <p>Every tool you have uploaded, live at <code>/tools/slug</code>. Each row can be checked, replaced with a new <code>.html</code> file, downloaded, or made private.</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" onclick="AdminApp.newTool()">＋ New tool</button>
-            <a class="btn btn-sm" href="/tools" target="_blank">Open /tools Hub ↗</a>
+          <a class="btn btn-sm" href="/tools" target="_blank">Open /tools Hub ↗</a>
+        </div>
+
+        <div class="table-card">
+          <button class="add-row" type="button" onclick="AdminApp.newTool()">
+            <span class="add-row-plus">+</span>
+            <span><strong>New tool</strong><em>Upload an .html file — it goes live at /tools/your-name</em></span>
+          </button>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tool</th><th>Status</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
+              <tbody id="toolsListBody"><tr><td colspan="3" style="color:var(--muted);">Loading tools…</td></tr></tbody>
+            </table>
           </div>
+          <div class="table-card-note" id="toolListNote" style="padding:10px 14px;">—</div>
         </div>
 
         <div class="table-card">
           <div class="table-card-head">
-            <span>Published tools</span>
-            <span class="table-card-note" id="toolListNote">—</span>
+            <span>Built-in tools</span>
+            <span class="table-card-note">Always live — nothing to upload</span>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Tool</th><th>Status</th><th>Views</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
-              <tbody id="toolsListBody"><tr><td colspan="4" style="color:var(--muted);">Loading tools…</td></tr></tbody>
+              <thead><tr><th>Tool</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
+              <tbody id="builtinToolsBody"></tbody>
             </table>
           </div>
         </div>
@@ -813,20 +824,15 @@
             <span>Whole site — one file</span>
             <button class="btn btn-primary btn-sm" type="button" onclick="AdminApp.downloadWholeSite()">⬇ Download the whole site</button>
           </div>
-          <p style="font-size:12.5px;color:var(--muted);margin:0 0 6px;">
-            One click. You get a single <code>.zip</code> with every static file — all pages, styles, scripts, images and the studio tools.
-            Give that one file to the AI and ask for the changes. Nothing is uploaded to make the download.
-          </p>
-          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
-            <strong>Tools and articles are not inside it.</strong> They live in the database, not in files, so they are changed in the
-            <em>Web Tools</em> and <em>HTML Blog</em> tabs — one file at a time. Everything else is in the zip.
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">
+            One <code>.zip</code> with every page, style, script and image. Give it to the AI, then upload its copy back.
+            Tools and articles are database rows, so they are <strong>not</strong> in the zip — change those in the Web Tools and HTML Blog tabs.
           </p>
           <div class="cm-hint" id="siteDownloadState" style="margin-bottom:12px;"></div>
 
           <div class="card-title" style="margin-top:16px;"><span>Bring the updated zip back</span></div>
           <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">
-            Upload the zip the AI gave you. I read it, compare every file with what is live now, and show you the list.
-            <strong>Nothing goes live until you press Publish</strong>, and Undo is there if it looks wrong.
+            Upload the returned zip: the files are compared with the live site and listed. <strong>Nothing goes live until you press Publish</strong>; Undo is there if it looks wrong.
           </p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <label class="btn btn-sm" style="cursor:pointer;">Upload updated .zip
@@ -1010,8 +1016,18 @@
             <button class="btn" type="button" onclick="document.getElementById('tplEditorBox').hidden = true">Close</button>
           </div>
         </div>
-      </section>
 
+        <div class="acc" id="accExtraTools">
+          <div class="acc-head">
+            <button class="acc-open" type="button" onclick="AdminApp.toggleAcc('accExtraTools')" aria-expanded="false" aria-controls="accExtraToolsBody">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="acc-label">
+              <strong>Extra tools and templates</strong>
+              <span>Static HTML templates, your uploaded ones, a seasonal greeting — only if you need them</span>
+            </div>
+          </div>
+          <div class="acc-body" id="accExtraToolsBody" hidden>
         <div class="card">
           <div class="card-title">
             <span>Static HTML templates — download to start</span>
@@ -1110,6 +1126,9 @@
           </div>
           <div id="occStatus" class="cm-muted" style="margin-top:10px;"></div>
         </div>
+          </div>
+        </div>
+      </section>
 
     </main>
   </div>
@@ -1204,6 +1223,29 @@
     .tpl-tags{display:flex;gap:5px;flex-wrap:wrap;}
     .tpl-tags span{font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--cyan,#38bdf8);border:1px solid rgba(56,189,248,.35);border-radius:99px;padding:1px 6px;}
     .tpl-actions{display:flex;gap:6px;flex-wrap:wrap;}
+    /* The "+ New tool" row: one clear line above the list, like the sketch. */
+    .add-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+      background: var(--amber-soft); border: 0; border-bottom: 1px solid var(--border); padding: 13px 16px; color: var(--text); }
+    .add-row:hover { background: rgba(245, 158, 11, 0.2); }
+    .add-row-plus { width: 26px; height: 26px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 8px; background: var(--amber); color: #1b1200; font-size: 17px; font-weight: 800; line-height: 1; }
+    .add-row strong { display: block; font-size: 13.5px; }
+    .add-row em { display: block; font-style: normal; font-size: 11.5px; color: var(--muted); }
+    .builtin-dot { display: inline-block; width: 7px; height: 7px; border-radius: 99px; background: var(--emerald); margin-right: 6px; }
+
+    /* A block that stays closed until its + is pressed (phone friendly). */
+    .acc { border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; background: var(--surface); }
+    .acc-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+    .acc-open { width: 30px; height: 30px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border-strong); border-radius: 9px; background: var(--amber-soft); color: var(--amber); cursor: pointer; }
+    .acc-open .icon { width: 15px; height: 15px; stroke-width: 2.4; }
+    .acc[open] .acc-open .icon, .acc.is-open .acc-open .icon { transform: rotate(45deg); }
+    .acc-label { min-width: 0; }
+    .acc-label strong { display: block; font-size: 13.5px; font-weight: 700; }
+    .acc-label span { display: block; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .acc-body { padding: 0 16px 16px; }
+    .acc-body .card:last-child { margin-bottom: 0; }
+
     /* A class with display:inline-flex must never beat the hidden attribute. */
     [hidden]{display:none !important;}
     .btn-more{padding:4px 9px;font-weight:800;letter-spacing:.04em;}
@@ -1309,6 +1351,18 @@
           throw new Error('Session expired — please sign in again.');
         }
         return { ok: res.ok, status: res.status, data };
+      }
+
+      /** Open or close a collapsed block. */
+      function toggleAcc(id) {
+        const block = document.getElementById(id);
+        if (!block) return;
+        const body = block.querySelector('.acc-body');
+        const button = block.querySelector('.acc-open');
+        const open = body.hidden;
+        body.hidden = !open;
+        block.classList.toggle('is-open', open);
+        if (button) button.setAttribute('aria-expanded', String(open));
       }
 
       function togglePwVisibility(id) {
@@ -1713,9 +1767,10 @@
         document.getElementById('badgeTools').textContent = allTools.length;
         const privateTools = allTools.filter((x) => String(x.visibility || 'published') === 'hidden').length;
         document.getElementById('toolListNote').textContent = allTools.length
-          ? `${allTools.length} total · ${allTools.length - privateTools} live · ${privateTools} private`
-          : 'Nothing uploaded yet';
+          ? `${allTools.length} uploaded · ${allTools.length - privateTools} live · ${privateTools} private`
+          : 'No uploaded tools yet — the 3 built-in tools below are live.';
         const tbody = document.getElementById('toolsListBody');
+        renderBuiltinTools();
         tbody.innerHTML = allTools.length
           ? allTools.map((t, idx) => `
             <tr>
@@ -1729,17 +1784,67 @@
                 <button class="btn btn-sm btn-more" title="More actions" aria-label="More actions" onclick="AdminApp.toggleRowMenu(event, 'tool', '${esc(t.id)}', '${esc(t.visibility || 'published')}')">⋯</button>
               </td>
             </tr>`).join('')
-          : `<tr><td colspan="4" class="empty-cell">
-              <div class="empty-box">
-                <strong>This list is empty — and that is the real state, not a bug.</strong>
-                <p>A tool only appears here after its HTML file is uploaded. The public <a href="/tools" target="_blank" rel="noopener">/tools</a> page is not broken; there is simply nothing uploaded yet.</p>
-                <p class="cm-muted">Nothing is seasonal or hidden on purpose — no layout change is ever applied to your live pages.</p>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-                  <button class="btn btn-sm btn-primary" onclick="AdminApp.switchTab('tools-new')">＋ New tool</button>
-                  <button class="btn btn-sm" onclick="AdminApp.switchTab('settings')">Use a template</button>
-                </div>
-              </div>
-            </td></tr>`;
+          : `<tr><td colspan="3" class="empty-cell"><div class="empty-box">
+              <strong>Nothing uploaded yet.</strong>
+              <p>Press <strong>+ New tool</strong> above to add one.</p>
+            </div></td></tr>`;
+      }
+
+      /** The tools that ship with the site: real pages, so they are downloaded
+       *  through the same zip/file path as everything else. */
+      const BUILTIN_TOOLS = [
+        { name: 'Karaoke Recorder', url: '/studio/karaoke-recorder', file: 'studio/karaoke-recorder.html', note: 'Sing, record, mix and master' },
+        { name: 'Word / Excel / PowerPoint to PDF', url: '/studio/office-to-pdf', file: 'studio/office-to-pdf.html', note: 'Documents to PDF on your own device' },
+        { name: 'HTML / Code to PDF', url: '/studio/html-to-pdf', file: 'studio/html-to-pdf.html', note: 'HTML, Markdown or code to PDF / Word' },
+      ];
+
+      function renderBuiltinTools() {
+        const body = document.getElementById('builtinToolsBody');
+        if (!body) return;
+        body.innerHTML = BUILTIN_TOOLS.map((t) => `
+          <tr>
+            <td data-label="Tool"><strong>${esc(t.name)}</strong><div style="font-size:11.5px;color:var(--muted);">${esc(t.url)} · ${esc(t.note)}</div></td>
+            <td style="text-align:right;white-space:nowrap;">
+              <a class="btn btn-sm" href="${esc(t.url)}" target="_blank" rel="noopener">Live</a>
+              <button class="btn btn-sm" onclick="AdminApp.downloadBuiltin('${esc(t.file)}')">Download</button>
+              <label class="btn btn-sm btn-primary" style="cursor:pointer;">Update<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.updateBuiltin(event, '${esc(t.file)}')" /></label>
+            </td>
+          </tr>`).join('');
+      }
+
+      async function downloadBuiltin(file) {
+        const res = await fetch('/' + file, { cache: 'no-store' });
+        if (!res.ok) { toast('Could not download that tool.'); return; }
+        const html = await res.text();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        a.download = file.split('/').pop();
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast('Downloaded ' + a.download);
+      }
+
+      /** A new version of a built-in tool is published through the same reviewed
+       *  path as an uploaded zip: it is compared, listed, and only then published. */
+      async function updateBuiltin(event, file) {
+        const input = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!input) return;
+        const content = await input.text();
+        const { ok, data } = await api('/api/admin/site-archive?action=stage', { method: 'POST', body: JSON.stringify({ files: [{ path: file, content }] }) });
+        if (!ok) { toast(data.error || 'That file was rejected.'); return; }
+        const rejected = (data.rejected || [])[0];
+        if (rejected) { toast(rejected.reason); return; }
+        if (!data.changed) { toast('That file is identical to the live one.'); return; }
+        switchTab('settings');
+        const box = document.getElementById('siteZipResult');
+        if (box) {
+          box.innerHTML = `<strong>1 file ready to publish: <code>${esc(file)}</code></strong>
+            <div style="margin:6px 0;">Review it first — the page opens after publishing, and Undo is available.</div>`;
+          const btn = document.getElementById('siteZipPublishBtn');
+          if (btn) { btn.hidden = false; btn.textContent = 'Publish 1 change'; }
+        }
+        toast('Loaded — press Publish in Settings to make it live.');
       }
 
       function editTool(idx) {
@@ -2699,6 +2804,8 @@
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
+        toggleAcc,
+        toggleAcc, downloadBuiltin, updateBuiltin,
         downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,
         loadTemplates, loadTemplateUploads, downloadTemplate, copyTemplate, uploadTemplate, deleteTemplate, editTemplate,
         saveTemplateAsPage, loadOccasion, applyOccasionPreset, saveOccasion, stopOccasion, previewOccasion,

@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-10-30T05:01:07.383Z",
- "count": 50,
- "bytes": 51627701,
+ "generatedAt": "2026-10-30T05:23:26.059Z",
+ "count": 52,
+ "bytes": 51777710,
  "files": [
   "about.html",
   "admin.html",
@@ -49,6 +49,8 @@
   "vendor/confetti.min.js",
   "vendor/FUSE-LICENSE.txt",
   "vendor/fuse.basic-7.5.0.min.js",
+  "vendor/JSZIP-LICENSE.txt",
+  "vendor/jszip.min.js",
   "vendor/lame.min.js",
   "vendor/quill.min.js",
   "vendor/quill.snow.css",
