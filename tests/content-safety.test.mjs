@@ -140,7 +140,7 @@ test('the admin panel exposes live check, update, download and private controls'
     "AdminApp.openContentModal('blog'", "AdminApp.openContentModal('tool'",
     "AdminApp.quickUpdate(event, 'blog'", "AdminApp.quickUpdate(event, 'tool'",
     "AdminApp.downloadContent('blog'", "AdminApp.downloadContent('tool'",
-    "AdminApp.toggleVisibility('blog'", "AdminApp.toggleVisibility('tool'",
+    "AdminApp.rowMenuAction('private')", "toggleVisibility(type, id, visibility)",
     '/api/admin/ai-review', '/api/admin/content/check',
   ]) {
     assert.ok(html.includes(call), 'admin panel is missing ' + call);
@@ -183,4 +183,25 @@ test('the schema migration cannot stop early on a duplicate column', async () =>
   assert.match(worker, /for \(const sql of statements\) \{\s*try \{ await db\.prepare\(sql\)\.run\(\); \} catch \(_\) \{\}\s*\}/);
   assert.match(worker, /duplicate column name/i);
   assert.ok(worker.includes("PRAGMA table_info("), 'diagnostics reads the real columns');
+});
+
+test('the public /tools hub lists usable tools and no Vocal Remover card', async () => {
+  const worker = await readFile(new URL('../src/worker.ts', import.meta.url), 'utf8');
+  const hub = worker.slice(worker.indexOf("const bodyHtml = `\n            <h1>Online Tools</h1>"), worker.indexOf('return new Response(', worker.indexOf("const bodyHtml = `\n            <h1>Online Tools</h1>")));
+  assert.ok(!hub.includes('/studio/vocal-remover'), 'the Vocal Remover card must not be on /tools');
+  for (const href of ['/studio/karaoke-recorder', '/studio/office-to-pdf', '/studio/html-to-pdf']) {
+    assert.ok(hub.includes(href), 'missing usable tool card ' + href);
+  }
+  assert.ok((hub.match(/Use this tool/g) || []).length >= 4, 'every card says how to use it');
+});
+
+test('each admin row keeps three primary buttons and hides the rest in a menu', async () => {
+  const html = await readFile(new URL('../public/admin.html', import.meta.url), 'utf8');
+  const toolRow = html.slice(html.indexOf('allTools.map((t, idx)'), html.indexOf('allTools.map((t, idx)') + 2000);
+  for (const label of ['>Live<', '>Download<', '>Update<']) assert.ok(toolRow.includes(label), 'missing button ' + label);
+  assert.ok(toolRow.includes('btn-more'), 'overflow menu');
+  assert.ok(html.includes('id="rowMenu"'), 'row menu markup');
+  assert.ok(html.includes('AdminApp.rowMenuAction'), 'row menu actions');
+  // secondary actions live in the menu, not in the row
+  assert.ok(!toolRow.includes('>Delete<'), 'delete moved into the menu');
 });

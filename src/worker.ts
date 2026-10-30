@@ -196,6 +196,9 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
     h3 { font-size:17px; margin:16px 0 6px; color:var(--text); }
     p { color:#cbd5e1; margin-bottom:14px; font-size:15px; }
     .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; margin-bottom:18px; }
+    .use-tool { display:inline-block;margin-top:10px;font-size:13px;font-weight:700;color:var(--amber); }
+    .post-card { text-decoration:none;display:block;transition:border-color .18s,transform .18s; }
+    .post-card:hover { border-color:var(--amber); transform:translateY(-1px); }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(265px,1fr)); gap:16px; }
     .post-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; text-decoration:none; color:inherit; display:flex; flex-direction:column; }
     .post-card:hover { border-color:var(--amber); }
@@ -680,7 +683,6 @@ export default {
           { p: '/', pri: '1.0' },
           { p: '/blog', pri: '0.9' },
           { p: '/tools', pri: '0.9' },
-          { p: '/studio/vocal-remover', pri: '0.85' },
           { p: '/studio/karaoke-recorder', pri: '0.85' },
           { p: '/about', pri: '0.8' },
           { p: '/contact', pri: '0.8' },
@@ -757,14 +759,16 @@ export default {
             <h1>Online Tools</h1>
             <p style="color:var(--muted);margin-bottom:24px;">Fast browser-based utilities and interactive web tools.</p>
             <div class="grid">
-              <a class="post-card" href="/studio/vocal-remover" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">♪</div><div class="tag">Audio Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Vocal Remover</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Make a karaoke-style backing from a stereo song.</p></a>
-              <a class="post-card" href="/studio/karaoke-recorder" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">🎙</div><div class="tag">Audio Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Karaoke Recorder</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Sing, record, mix and master your song.</p></a>
+              <a class="post-card" href="/studio/karaoke-recorder" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">🎙</div><div class="tag">Audio Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Karaoke Recorder</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Sing, record, mix and master your song.</p><span class="use-tool">Use this tool →</span></a>
+              <a class="post-card" href="/studio/office-to-pdf" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">📄</div><div class="tag">Document Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">Word / Excel / PowerPoint to PDF</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Turn a .docx, .xlsx or .pptx into a clean PDF, on your own device.</p><span class="use-tool">Use this tool →</span></a>
+              <a class="post-card" href="/studio/html-to-pdf" style="padding:20px;"><div style="font-size:28px;margin-bottom:10px;">🧾</div><div class="tag">Document Tool</div><h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">HTML / Code to PDF</h2><p style="font-size:13.5px;color:var(--muted);margin:0;">Turn HTML, Markdown or code into a PDF, Word, Excel or PowerPoint file.</p><span class="use-tool">Use this tool →</span></a>
               ${list.map((t) => `
                 <a class="post-card" href="/tools/${escapeHtml(t.slug)}" style="padding:20px;">
                   <div style="font-size:28px;margin-bottom:10px;">${escapeHtml(t.icon || '⚡')}</div>
                   <div class="tag">${escapeHtml(t.category || 'Web Tool')}</div>
                   <h2 style="font-size:17.5px;color:var(--text);margin:6px 0 8px;">${escapeHtml(t.title)}</h2>
                   <p style="font-size:13.5px;color:var(--muted);margin:0;">${escapeHtml(t.description || '')}</p>
+                  <span class="use-tool">Use this tool →</span>
                 </a>`).join('')}
             </div>${beaconTag}`;
           return new Response(

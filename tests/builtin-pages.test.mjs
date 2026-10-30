@@ -31,9 +31,12 @@ test('Pages rewrites built-in deep links to the root asset with per-page SEO and
 test('existing /tools slugs are not reserved and sitemap includes built-ins once', async () => {
   const response = await worker.fetch(new Request('https://example.com/sitemap.xml'), {});
   const xml = await response.text();
-  for (const p of ['/tools', '/studio/vocal-remover', '/studio/karaoke-recorder']) {
+  for (const p of ['/tools', '/studio/karaoke-recorder']) {
     assert.equal(xml.split(`<loc>https://example.com${p}</loc>`).length - 1, 1, p);
   }
+  // The vocal remover stays reachable from the Recorder ("Make Karaoke") but is no
+  // longer advertised: it is not in the sitemap any more.
+  assert.equal(xml.split('<loc>https://example.com/studio/vocal-remover</loc>').length - 1, 0);
   // Custom /tools/:slug remains handled by the CMS, not the new deep-link rewrite.
   const missing = await worker.fetch(new Request('https://example.com/tools/vocal-remover'), {});
   assert.equal(missing.status, 404);

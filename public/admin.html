@@ -554,7 +554,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Article</th><th>Status</th><th>Updated</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
+              <thead><tr><th>Article</th><th>Status</th><th>Updated</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
               <tbody id="blogListBody"><tr><td colspan="4" style="color:var(--muted);">Loading articles…</td></tr></tbody>
             </table>
           </div>
@@ -692,7 +692,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Tool</th><th>Status</th><th>Views</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
+              <thead><tr><th>Tool</th><th>Status</th><th>Views</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
               <tbody id="toolsListBody"><tr><td colspan="4" style="color:var(--muted);">Loading tools…</td></tr></tbody>
             </table>
           </div>
@@ -1040,6 +1040,16 @@
     .cm-pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:2px 7px;border-radius:99px;text-transform:uppercase;}
     .cm-pill.live{background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.4);}
     .cm-pill.private{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);}
+    .btn-more{padding:4px 9px;font-weight:800;letter-spacing:.04em;}
+    .row-menu{position:fixed;z-index:10000;min-width:190px;background:#131a28;border:1px solid var(--border-strong,rgba(148,163,184,.35));border-radius:11px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:2px;}
+    .row-menu[hidden]{display:none;}
+    .row-menu button{text-align:left;background:transparent;border:0;color:var(--text,#f8fafc);font:inherit;font-size:12.5px;padding:8px 10px;border-radius:8px;cursor:pointer;}
+    .row-menu button:hover{background:rgba(148,163,184,.14);}
+    .row-menu button.danger{color:#f87171;}
+    /* three action buttons per row stay on one line, even on a phone */
+    @media (max-width:640px){
+      .table-wrap table td:last-child .btn{font-size:11.5px;padding:5px 8px;}
+    }
     .nav-btn-new{border:1px dashed var(--border-strong,rgba(148,163,184,.35)) !important;color:var(--amber,#fbbf24) !important;}
     .nav-btn-new.active{border-style:solid !important;background:rgba(245,158,11,.12) !important;}
     .table-card{background:var(--surface,#111625);border:1px solid var(--border,rgba(148,163,184,.2));border-radius:14px;overflow:hidden;margin-bottom:16px;}
@@ -1047,7 +1057,45 @@
     .table-card-note{font-weight:500;color:var(--muted,#94a3b8);font-size:11.5px;}
     .table-card .table-wrap{border:0;border-radius:0;}
     @media (max-width:700px){ .cm-grid{grid-template-columns:1fr;} }
+
+    /* The panel is used on a phone as much as on a desk. The tab bar wraps onto two
+       rows instead of scrolling out of view (it used to clip "HTML Blog" to "TML
+       Blog"), and the tables scroll sideways instead of pushing the page wide. */
+    @media (max-width:820px){
+      .mobile-tabs{display:flex;flex-wrap:wrap;overflow:visible;gap:6px;padding:9px 12px;}
+      .mobile-tabs .nav-mob{flex:0 1 auto;white-space:nowrap;font-size:12px;padding:6px 10px;}
+      .mobile-topbar{padding:8px 12px;top:0;}
+      .mobile-tabs{top:53px;}
+      .main-area{padding:14px 12px 44px;}
+      .page-head{margin-bottom:12px;}
+      .page-head h1{font-size:20px;line-height:1.25;}
+      .page-head p{font-size:12.5px;}
+      /* No sideways scrolling on a phone: each row becomes a small card with the
+         three action buttons wrapped underneath it. */
+      .table-wrap{overflow:visible;}
+      .table-wrap table{min-width:0;width:100%;display:block;}
+      .table-wrap thead{display:none;}
+      .table-wrap tbody{display:block;}
+      .table-wrap tbody tr{display:block;border:1px solid var(--border,rgba(148,163,184,.22));border-radius:12px;padding:11px 13px;margin-bottom:10px;background:rgba(148,163,184,.04);}
+      .table-wrap tbody td{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;padding:3px 0;white-space:normal !important;}
+      .table-wrap tbody td::before{content:attr(data-label);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#94a3b8);font-weight:700;flex:0 0 auto;}
+      .table-wrap tbody td:first-child{display:block;}
+      .table-wrap tbody td:first-child::before{display:none;}
+      .table-wrap tbody td:last-child{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;text-align:left !important;padding-top:9px;margin-top:5px;border-top:1px solid var(--border,rgba(148,163,184,.18));}
+      .table-wrap tbody td:last-child::before{display:none;}
+      .table-wrap tbody td[colspan]{display:block;justify-content:flex-start;}
+      .table-wrap tbody td[colspan]::before{display:none;}
+      .table-card-head{flex-direction:column;align-items:flex-start;gap:2px;}
+      .page-head .btn{font-size:12px;}
+    }
   </style>
+
+  <div id="rowMenu" class="row-menu" hidden>
+    <button type="button" id="rowMenuPrivate" onclick="AdminApp.rowMenuAction('private')">Make private</button>
+    <button type="button" onclick="AdminApp.rowMenuAction('edit')">Edit in the editor</button>
+    <button type="button" onclick="AdminApp.rowMenuAction('open')">Open live page ↗</button>
+    <button type="button" class="danger" onclick="AdminApp.rowMenuAction('delete')">Delete</button>
+  </div>
 
   <div id="adminToast" class="toast"></div>
 
@@ -1361,16 +1409,14 @@
         tbody.innerHTML = allPosts.length
           ? allPosts.map((p, idx) => `
             <tr>
-              <td><strong>${esc(p.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/blog/${esc(p.slug)} · ${esc(p.category || 'Article')} · ${esc(p.content_format || 'html')}</div></td>
-              <td>${visibilityPill(p.visibility)}</td>
-              <td style="color:var(--muted);">${esc(String(p.updated_at || p.created_at || '').slice(0, 10))}</td>
+              <td data-label="Article"><strong>${esc(p.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/blog/${esc(p.slug)} · ${esc(p.category || 'Article')} · ${esc(p.content_format || 'html')}</div></td>
+              <td data-label="Status">${visibilityPill(p.visibility)}</td>
+              <td data-label="Updated" style="color:var(--muted);">${esc(String(p.updated_at || p.created_at || '').slice(0, 10))}</td>
               <td style="text-align:right;white-space:nowrap;">
-                <button class="btn btn-sm" onclick="AdminApp.openContentModal('blog', ${idx})">Live check</button>
-                <label class="btn btn-sm" style="cursor:pointer;">Update HTML<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'blog', '${esc(p.id)}')" /></label>
-                <button class="btn btn-sm" onclick="AdminApp.downloadContent('blog', '${esc(p.id)}')">⬇</button>
-                <button class="btn btn-sm" onclick="AdminApp.toggleVisibility('blog', '${esc(p.id)}', '${esc(p.visibility || 'published')}')">${p.visibility === 'hidden' ? 'Make private → public' : 'Make private'}</button>
-                <button class="btn btn-sm" onclick="AdminApp.editBlog(${idx})">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="AdminApp.deleteBlog('${esc(p.id)}')">Delete</button>
+                <button class="btn btn-sm" onclick="AdminApp.openContentModal('blog', ${idx})">Live</button>
+                <button class="btn btn-sm" onclick="AdminApp.downloadContent('blog', '${esc(p.id)}')">Download</button>
+                <label class="btn btn-sm btn-primary" style="cursor:pointer;">Update<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'blog', '${esc(p.id)}')" /></label>
+                <button class="btn btn-sm btn-more" title="More actions" aria-label="More actions" onclick="AdminApp.toggleRowMenu(event, 'blog', '${esc(p.id)}', '${esc(p.visibility || 'published')}')">⋯</button>
               </td>
             </tr>`).join('')
           : '<tr><td colspan="4" style="color:var(--muted);">No articles published yet.</td></tr>';
@@ -1490,16 +1536,14 @@
         tbody.innerHTML = allTools.length
           ? allTools.map((t, idx) => `
             <tr>
-              <td><strong>${esc(t.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/tools/${esc(t.slug)} · ${esc(t.category)}</div></td>
-              <td>${visibilityPill(t.visibility)}</td>
-              <td>${esc(t.views ?? 0)}</td>
+              <td data-label="Tool"><strong>${esc(t.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/tools/${esc(t.slug)} · ${esc(t.category)}</div></td>
+              <td data-label="Status">${visibilityPill(t.visibility)}</td>
+              <td data-label="Views">${esc(t.views ?? 0)}</td>
               <td style="text-align:right;white-space:nowrap;">
-                <button class="btn btn-sm" onclick="AdminApp.openContentModal('tool', ${idx})">Live check</button>
-                <label class="btn btn-sm" style="cursor:pointer;">Update HTML<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'tool', '${esc(t.id)}')" /></label>
-                <button class="btn btn-sm" onclick="AdminApp.downloadContent('tool', '${esc(t.id)}')">⬇</button>
-                <button class="btn btn-sm" onclick="AdminApp.toggleVisibility('tool', '${esc(t.id)}', '${esc(t.visibility || 'published')}')">${t.visibility === 'hidden' ? 'Make private → public' : 'Make private'}</button>
-                <button class="btn btn-sm" onclick="AdminApp.editTool(${idx})">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="AdminApp.deleteTool('${esc(t.id)}')">Delete</button>
+                <button class="btn btn-sm" onclick="AdminApp.openContentModal('tool', ${idx})">Live</button>
+                <button class="btn btn-sm" onclick="AdminApp.downloadContent('tool', '${esc(t.id)}')">Download</button>
+                <label class="btn btn-sm btn-primary" style="cursor:pointer;">Update<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'tool', '${esc(t.id)}')" /></label>
+                <button class="btn btn-sm btn-more" title="More actions" aria-label="More actions" onclick="AdminApp.toggleRowMenu(event, 'tool', '${esc(t.id)}', '${esc(t.visibility || 'published')}')">⋯</button>
               </td>
             </tr>`).join('')
           : '<tr><td colspan="4" style="color:var(--muted);">No HTML tools uploaded yet.</td></tr>';
@@ -1553,6 +1597,47 @@
         toast('Tool deleted.');
         loadTools();
       }
+
+      // ==================== ROW MENU (secondary actions stay out of the way) ====================
+      let rowMenuRef = { type: 'tool', id: '', visibility: 'published' };
+
+      function toggleRowMenu(event, type, id, visibility) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById('rowMenu');
+        const alreadyOpen = !menu.hidden && rowMenuRef.type === type && rowMenuRef.id === id;
+        if (alreadyOpen) { menu.hidden = true; return; }
+        rowMenuRef = { type, id, visibility: visibility || 'published' };
+        document.getElementById('rowMenuPrivate').textContent =
+          String(visibility) === 'hidden' ? 'Make public again' : 'Make private';
+        menu.hidden = false;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const width = 200;
+        menu.style.top = Math.min(rect.bottom + 6, window.innerHeight - 190) + 'px';
+        menu.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px';
+      }
+
+      async function rowMenuAction(action) {
+        const { type, id, visibility } = rowMenuRef;
+        document.getElementById('rowMenu').hidden = true;
+        if (action === 'private') return toggleVisibility(type, id, visibility);
+        if (action === 'open') return window.open(liveUrlFor(type, { slug: id, path: id }), '_blank', 'noopener');
+        if (action === 'delete') {
+          if (type === 'blog') return deleteBlog(id);
+          return deleteTool(id);
+        }
+        if (action === 'edit') {
+          const list = type === 'blog' ? allPosts : allTools;
+          const idx = list.findIndex((x) => x.id === id);
+          if (idx >= 0) return type === 'blog' ? editBlog(idx) : editTool(idx);
+        }
+      }
+
+      document.addEventListener('click', (e) => {
+        const menu = document.getElementById('rowMenu');
+        if (!menu || menu.hidden) return;
+        if (!menu.contains(e.target) && !e.target.closest('.btn-more')) menu.hidden = true;
+      });
+      window.addEventListener('scroll', () => { const m = document.getElementById('rowMenu'); if (m) m.hidden = true; }, { passive: true });
 
       // ==================== CONTENT SAFETY: LIVE CHECK / UPDATE / DOWNLOAD / PRIVATE ====================
       let cmRef = { type: 'tool', id: '', idx: -1, path: '', label: '', html: '', live: {} };
@@ -2042,7 +2127,7 @@
         saveSettings,
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
-        newBlog, newTool, loadDiagnostics,
+        newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
       };
     })();
   </script>
