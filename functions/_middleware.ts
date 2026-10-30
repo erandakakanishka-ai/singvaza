@@ -41,8 +41,8 @@ export const onRequest: PagesFunction<any> = async (context) => {
         : '';
     if (pagePath) {
       try {
-        const keys = ['page_override:' + pagePath, 'page_visibility:' + pagePath];
-        const rows = await context.env.DB.prepare('SELECT k, v FROM site_settings WHERE k IN (?, ?)').bind(keys[0], keys[1]).all();
+        const keys = ['page_override:' + pagePath, 'page_visibility:' + pagePath, 'occasion_config'];
+        const rows = await context.env.DB.prepare('SELECT k, v FROM site_settings WHERE k IN (?, ?, ?)').bind(keys[0], keys[1], keys[2]).all();
         const found = ((rows.results || []) as any[]).filter((r) => keys.includes(String(r?.k)));
         if (found.length) return await worker.fetch(context.request, context.env);
       } catch (_) {

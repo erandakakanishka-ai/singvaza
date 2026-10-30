@@ -1,5 +1,7 @@
 import { builtinPage, builtinResponse } from '../../src/builtin-pages';
 import { analyzeContent, compareVersions, mergeIssues } from '../../src/content-check';
+import { templateById, templateList } from '../../src/templates';
+import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from '../../src/occasions';
 import { handleSecurityRoute, requiresEntrySession, requireEntrySession, requireAuthChallenge, type SecurityEnv } from '../../src/security';
 
 export interface Env extends SecurityEnv {
@@ -318,10 +320,6 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
-/* The main pages an admin may download, replace and roll back. They are served as
- * static assets, so an edit lives as a site_settings override that is applied to
- * the asset on the way out (see applyPageOverride). Nothing is invented here: the
- * list is the public marketing/policy surface of the site. */
 const EDITABLE_PAGES = [
   { path: '/', label: 'Home page' },
   { path: '/about', label: 'About' },
@@ -352,8 +350,8 @@ async function fetchAssetText(env: Env, assetUrl: string): Promise<string> {
   }
 }
 
-/** Apply an admin-saved page override (and its private switch) to a static HTML response. */
-async function applyPageOverride(path: string, html: string, env: Env, isAdmin = false): Promise<string> {
+/** Apply the admin edits (page upload, private switch, seasonal greeting) to a static page. */
+async function applyPageOverride(path: string, html: string, env: Env, isAdmin = false, previewRequested = false): Promise<string> {
   if (!env.DB || !EDITABLE_PAGES.some((p) => p.path === path) || !/<\/body\s*>/i.test(html)) return html;
   try {
     const sMap = await getSettingsMap(env.DB);
@@ -366,15 +364,34 @@ async function applyPageOverride(path: string, html: string, env: Env, isAdmin =
         bodyHtml: `<div class="card"><h1>Temporarily unavailable</h1><p>This page is being checked and will be back shortly.</p><p><a class="btn" href="/">← Back to Home</a></p></div>`,
       });
     }
+
+    // The page that will actually be served: an uploaded version if there is one.
+    let page = html;
     const override = sMap['page_override:' + path];
-    if (!override) return html;
-    let next = override;
-    // Keep the per-visit view counter of the asset when the uploaded page has none.
-    if (!/ping-visit/.test(next)) {
-      const beacon = html.match(/<script>try\{if\(!sessionStorage[\s\S]*?<\/script>/i);
-      if (beacon) next = next.replace(/<\/body\s*>/i, beacon[0] + '</body>');
+    if (override) {
+      page = override;
+      // Keep the per-visit view counter of the asset when the uploaded page has none.
+      if (!/ping-visit/.test(page)) {
+        const beacon = html.match(/<script>try\{if\(!sessionStorage[\s\S]*?<\/script>/i);
+        if (beacon) page = page.replace(/<\/body\s*>/i, beacon[0] + '</body>');
+      }
     }
-    return next;
+
+    // Seasonal greeting: added on the way out, only inside its own dates (or for a
+    // signed-in admin preview), so the stored page and the design are never
+    // overwritten and the site returns to normal by itself when the dates pass.
+    const rawOccasion = sMap['occasion_config'];
+    if (rawOccasion && /<body[^>]*>/i.test(page)) {
+      try {
+        const config = JSON.parse(rawOccasion);
+        const insideDates = isOccasionActive(config);
+        const preview = !insideDates && isOccasionPreview(config, previewRequested, isAdmin || previewRequested);
+        if ((insideDates || preview) && occasionAppliesTo(config, path)) {
+          page = injectOccasionBanner(page, config);
+        }
+      } catch (_) {}
+    }
+    return page;
   } catch (_) {
     return html;
   }
@@ -459,6 +476,13 @@ async function isValidBlogAdmin(request: Request, env: Env): Promise<boolean> {
   if (env.BLOG_ADMIN_CODE && code === env.BLOG_ADMIN_CODE) return true;
   const hashed = await sha256Hex('admin:' + code);
   return hashed === DEFAULT_ADMIN_SHA256;
+}
+
+/** Short-lived signature for an occasion preview link: HMAC over the expiry. */
+async function occasionPreviewSignature(payload: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('singvaza-occasion:' + secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)));
+  return Array.from(sig).slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function getSettingsMap(db?: D1Database): Promise<Record<string, string>> {
@@ -1244,6 +1268,142 @@ export default {
         result.ok = problems.length === 0;
         result.problems = problems;
         return json(result, 200, { 'Cache-Control': 'no-store' });
+      }
+
+      // ==================== STATIC HTML TEMPLATES (download / upload) ====================
+      if (url.pathname === '/api/admin/templates' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const wanted = url.searchParams.get('id');
+        if (wanted) {
+          const tpl = templateById(wanted);
+          if (!tpl) return json({ error: 'Unknown template.' }, 404);
+          if (tpl.fragment) return json({ error: 'That one is a snippet to paste in, not a page file.' }, 400);
+          return new Response(tpl.html, {
+            headers: {
+              'Content-Type': 'text/html; charset=utf-8',
+              'Content-Disposition': `attachment; filename="singvaza-template-${tpl.id}.html"`,
+              'Cache-Control': 'no-store',
+            },
+          });
+        }
+        return json({ templates: templateList() });
+      }
+
+      if (url.pathname === '/api/admin/templates' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        const name = String(body.name || '').trim().slice(0, 80) || 'My template';
+        const kind = ['page', 'tool', 'blog'].includes(String(body.kind)) ? String(body.kind) : 'page';
+        const html = String(body.html || '');
+        if (!html.trim()) return json({ error: 'Nothing to save.' }, 400);
+        const report = await analyzeWithAssets(html, kind as 'page' | 'tool' | 'blog', env, url.origin);
+        const blocking = report.issues.filter((i) => i.level === 'error');
+        if (blocking.length) return json({ error: blocking[0].message, report }, 422);
+        const id = String(body.id || '').trim() || ('tpl-' + Date.now().toString(36));
+        await setSetting(env.DB, 'template_upload:' + id, JSON.stringify({ id, name, kind, html, savedAt: new Date().toISOString() }));
+        return json({ ok: true, id, name, kind, report });
+      }
+
+      if (url.pathname === '/api/admin/templates/export' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const id = url.searchParams.get('id') || '';
+        if (!env.DB || !id) return json({ error: 'Missing id.' }, 400);
+        const raw = (await getSettingsMap(env.DB))['template_upload:' + id];
+        if (!raw) return json({ error: 'Template not found.' }, 404);
+        const parsed = JSON.parse(raw);
+        return new Response(String(parsed.html || ''), {
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Content-Disposition': `attachment; filename="singvaza-template-${String(parsed.name || id).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'custom'}.html"`,
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+
+      if (url.pathname === '/api/admin/templates/uploads' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const sMap = env.DB ? await getSettingsMap(env.DB) : {};
+        const uploads = Object.entries(sMap)
+          .filter(([k]) => k.startsWith('template_upload:'))
+          .map(([, v]) => { try { const t = JSON.parse(v); return { id: t.id, name: t.name, kind: t.kind, savedAt: t.savedAt, bytes: new TextEncoder().encode(String(t.html || '')).length }; } catch (_) { return null; } })
+          .filter(Boolean);
+        return json({ uploads });
+      }
+
+      if (url.pathname.startsWith('/api/admin/templates/uploads/') && request.method === 'DELETE') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const id = url.pathname.split('/').pop();
+        if (env.DB && id) await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind('template_upload:' + id).run();
+        return json({ ok: true });
+      }
+
+      // ==================== OCCASIONS (safe seasonal changes) ====================
+      // A seasonal change is a date-limited greeting bar injected into the pages on
+      // the way out. Nothing is overwritten, so when the dates pass the site is
+      // exactly what it was, and one switch turns the whole thing off.
+      if (url.pathname === '/api/admin/occasions' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const raw = (await getSettingsMap(env.DB))['occasion_config'] || '';
+        let config: any = {};
+        try { config = raw ? JSON.parse(raw) : {}; } catch (_) { config = {}; }
+        return json({
+          occasions: {
+            enabled: config.enabled === true,
+            title: config.title || '',
+            message: config.message || '',
+            emoji: config.emoji || '🎉',
+            startDate: config.startDate || '',
+            endDate: config.endDate || '',
+            pages: Array.isArray(config.pages) && config.pages.length ? config.pages : ['/'],
+            dismissible: config.dismissible !== false,
+            theme: config.theme || 'celebration',
+          },
+          presets: occasionPresets(),
+        });
+      }
+
+      if (url.pathname === '/api/admin/occasions' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        const dateOk = (v: any) => v === '' || /^\d{4}-\d{2}-\d{2}$/.test(String(v));
+        if (!dateOk(body.startDate) || !dateOk(body.endDate)) return json({ error: 'Dates must look like 2026-12-20.' }, 400);
+        if (body.startDate && body.endDate && String(body.endDate) < String(body.startDate)) {
+          return json({ error: 'The end date is before the start date.' }, 400);
+        }
+        const pages = (Array.isArray(body.pages) ? body.pages : ['/'])
+          .map((p: any) => String(p))
+          .filter((p: string) => EDITABLE_PAGES.some((e) => e.path === p));
+        const config = {
+          enabled: body.enabled === true,
+          title: String(body.title || '').trim().slice(0, 80),
+          message: String(body.message || '').trim().slice(0, 200),
+          emoji: String(body.emoji || '').trim().slice(0, 8),
+          startDate: String(body.startDate || ''),
+          endDate: String(body.endDate || ''),
+          pages: pages.length ? pages : ['/'],
+          dismissible: body.dismissible !== false,
+          theme: ['celebration', 'newyear', 'calm'].includes(String(body.theme)) ? String(body.theme) : 'celebration',
+        };
+        if (config.enabled && !config.message) return json({ error: 'Write a short message before switching it on.' }, 400);
+        await setSetting(env.DB, 'occasion_config', JSON.stringify(config));
+        // A preview link the admin can open in a tab (no headers needed): valid for
+        // two hours and only for this greeting, never for anything else.
+        const previewUntil = Date.now() + 2 * 60 * 60 * 1000;
+        const settings = await getSettingsMap(env.DB);
+        const secret = String(settings.admin_pass_sha256 || DEFAULT_ADMIN_SHA256);
+        const sig = await occasionPreviewSignature('until:' + previewUntil, secret);
+        const previewPath = (Array.isArray(config.pages) && config.pages[0]) || '/';
+        const previewUrl = `${previewPath}?occasion_preview=${previewUntil}&sig=${sig}`;
+        return json({ ok: true, occasions: config, activeNow: isOccasionActive(config), previewUrl });
       }
 
       // ==================== CONTENT HEALTH: CHECK / SAVE / PRIVACY / EXPORT ====================
@@ -2267,6 +2427,18 @@ export default {
           isAdmin = await isValidBlogAdmin(new Request(url.toString(), { headers: { Authorization: 'Bearer ' + quickToken } }), env);
           if (!isAdmin) return new Response('Unauthorized', { status: 401 });
         }
+        // A signed preview link (created in the admin panel) shows the greeting
+        // outside its dates for that one admin. The signature covers the expiry
+        // only and is an HMAC of the admin password hash, so it is useless to the
+        // public and cannot be forged without the password.
+        let previewRequested = false;
+        const previewUntil = Number(url.searchParams.get('occasion_preview') || 0);
+        const previewSig = String(url.searchParams.get('sig') || '');
+        if (previewUntil > Date.now() && previewSig) {
+          const settings = await getSettingsMap(env.DB);
+          const secret = String(settings.admin_pass_sha256 || DEFAULT_ADMIN_SHA256);
+          previewRequested = (await occasionPreviewSignature('until:' + previewUntil, secret)) === previewSig;
+        }
         const pagePath = cleanPath === '/' || cleanPath === '/index.html'
           ? '/'
           : '/' + cleanPath.replace(/^\//, '').replace(/\.html$/i, '').replace(/\/$/, '');
@@ -2281,7 +2453,7 @@ export default {
           assetRes = await env.ASSETS.fetch(new Request(new URL(location, url).toString(), request));
         }
         if (assetRes.ok && (assetRes.headers.get('Content-Type') || '').includes('text/html')) {
-          const html = await applyPageOverride(pagePath, await assetRes.text(), env, isAdmin);
+          const html = await applyPageOverride(pagePath, await assetRes.text(), env, isAdmin, previewRequested);
           const headers = new Headers(assetRes.headers);
           headers.delete('Content-Length');
           return new Response(request.method === 'HEAD' ? null : html, { status: assetRes.status, headers });

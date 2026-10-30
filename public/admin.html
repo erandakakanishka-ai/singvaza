@@ -422,6 +422,13 @@
             </span>
           </button>
 
+          <button class="nav-btn" data-tab="templates" onclick="AdminApp.switchTab('templates')">
+            <span class="nav-btn-left">
+              <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <span>Templates &amp; Occasions</span>
+            </span>
+          </button>
+
           <button class="nav-btn" data-tab="users" onclick="AdminApp.switchTab('users')">
             <span class="nav-btn-left">
               <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -462,6 +469,7 @@
       <button class="btn btn-sm nav-mob" data-tab="tools" onclick="AdminApp.switchTab('tools')">Web Tools</button>
       <button class="btn btn-sm nav-mob" data-tab="blog-new" onclick="AdminApp.newBlog()">＋ Article</button>
       <button class="btn btn-sm nav-mob" data-tab="tools-new" onclick="AdminApp.newTool()">＋ Tool</button>
+      <button class="btn btn-sm nav-mob" data-tab="templates" onclick="AdminApp.switchTab('templates')">Templates</button>
       <button class="btn btn-sm nav-mob" data-tab="users" onclick="AdminApp.switchTab('users')">Users & Inbox</button>
       <button class="btn btn-sm nav-mob" data-tab="settings" onclick="AdminApp.switchTab('settings')">Settings</button>
     </div>
@@ -956,6 +964,137 @@
           </p>
           <div id="diagBox" class="cm-block"><span class="cm-muted">Checking…</span></div>
         </div>
+
+        <div class="card" id="tplEditorBox" hidden style="margin-top:18px;">
+          <div class="card-title"><span>Template → page editor</span></div>
+          <div class="cm-hint" id="tplEditorHint"></div>
+          <div class="field" style="max-width:320px;margin-top:8px;">
+            <label>Save as which page?</label>
+            <select id="tplEditorPath" class="input">
+              <option value="/">Home (/)</option>
+              <option value="/about">About (/about)</option>
+              <option value="/contact">Contact (/contact)</option>
+              <option value="/privacy">Privacy (/privacy)</option>
+              <option value="/terms">Terms (/terms)</option>
+              <option value="/refunds">Refunds (/refunds)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>HTML (edit here, then save)</label>
+            <textarea id="tplEditorText" class="input code-box" style="min-height:220px;"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" type="button" onclick="AdminApp.saveTemplateAsPage()">Save as page</button>
+            <button class="btn" type="button" onclick="document.getElementById('tplEditorBox').hidden = true">Close</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 6: TEMPLATES & SEASONAL CHANGES ==================== -->
+      <section id="tab-templates" class="panel-tab">
+        <div class="page-head">
+          <div>
+            <h1>Templates &amp; Seasonal Changes</h1>
+            <p>Start from a ready-made <code>.html</code> file, keep your own ones here, and change the site for a holiday without touching the design.</p>
+          </div>
+          <button class="btn btn-sm" onclick="AdminApp.loadTemplates()">Refresh ↻</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span>Static HTML templates — download to start</span></div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">
+            Every template is one self-contained file: no library, no external request. Download it, edit it on your phone or PC,
+            then upload it back here (or straight into a page, a tool or an article).
+          </p>
+          <div class="tpl-grid" id="tplGrid"><div class="cm-muted">Loading templates…</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Your own templates — upload</span>
+            <label class="btn btn-primary btn-sm" style="cursor:pointer;">Upload .html
+              <input type="file" id="tplUploadInput" accept=".html,.htm,text/html" hidden onchange="AdminApp.uploadTemplate(event)" />
+            </label>
+          </div>
+          <div class="field" style="max-width:340px;">
+            <label>Template name (optional — the file title is used otherwise)</label>
+            <input id="tplUploadName" type="text" class="input" placeholder="e.g. Christmas landing page" />
+          </div>
+          <div class="field" style="max-width:340px;">
+            <label>What is it for?</label>
+            <select id="tplUploadKind" class="input">
+              <option value="page">A main-site page</option>
+              <option value="tool">A tool</option>
+              <option value="blog">A blog article</option>
+            </select>
+          </div>
+          <div id="tplUploadList" class="cm-muted" style="font-size:12.5px;">No uploads yet.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Seasonal change — greeting bar for a few days</span>
+            <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
+              <input type="checkbox" id="occEnabled" /> <strong>On</strong>
+            </label>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
+            This is the safe way to mark a holiday: a slim greeting bar is added to the pages you choose, only between the two dates,
+            and it is removed by itself afterwards. Your design, text and files are never overwritten, and switching it off restores
+            the site exactly as it was. Visitors see the same layout, colours and navigation — nothing feels broken or unfamiliar.
+          </p>
+
+          <div class="field">
+            <label>Quick presets</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="occPresets"></div>
+          </div>
+
+          <div class="two-col">
+            <div class="field"><label>Small title (optional)</label><input id="occTitle" class="input" placeholder="Happy Christmas" /></div>
+            <div class="field"><label>Emoji (optional)</label><input id="occEmoji" class="input" placeholder="🎄" maxlength="4" /></div>
+          </div>
+          <div class="field">
+            <label>Message *</label>
+            <input id="occMessage" class="input" placeholder="Wishing you a calm, musical Christmas from everyone at SingVaza." />
+          </div>
+          <div class="two-col">
+            <div class="field"><label>Starts (show from)</label><input id="occStart" type="date" class="input" /></div>
+            <div class="field"><label>Ends (hide after)</label><input id="occEnd" type="date" class="input" /></div>
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label>Colour</label>
+              <select id="occTheme" class="input">
+                <option value="celebration">Warm red to teal</option>
+                <option value="newyear">Deep blue to copper</option>
+                <option value="calm">Calm teal to violet</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Pages</label>
+              <select id="occPages" class="input" multiple size="4">
+                <option value="/" selected>Home</option>
+                <option value="/about">About</option>
+                <option value="/contact">Contact</option>
+                <option value="/privacy">Privacy</option>
+                <option value="/terms">Terms</option>
+                <option value="/refunds">Refunds</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="occDismissible" checked /> <span>Visitors can close it (recommended)</span>
+            </label>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+            <button class="btn btn-primary" type="button" onclick="AdminApp.saveOccasion()">Save</button>
+            <button class="btn" type="button" onclick="AdminApp.previewOccasion()">Preview on the home page ↗</button>
+            <button class="btn btn-danger" type="button" onclick="AdminApp.stopOccasion()">Turn off now</button>
+          </div>
+          <div id="occStatus" class="cm-muted" style="margin-top:10px;"></div>
+        </div>
       </section>
 
     </main>
@@ -1040,6 +1179,17 @@
     .cm-pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:2px 7px;border-radius:99px;text-transform:uppercase;}
     .cm-pill.live{background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.4);}
     .cm-pill.private{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);}
+    .empty-box{max-width:560px;text-align:left;font-size:12.5px;color:var(--muted,#94a3b8);line-height:1.65;}
+    .empty-box strong{display:block;color:var(--text,#f8fafc);font-size:13.5px;margin-bottom:5px;}
+    .empty-box p{margin:0 0 6px;}
+    .empty-cell{padding:18px 14px !important;}
+    .tpl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;}
+    .tpl-card{background:#0c111c;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:7px;}
+    .tpl-name{font-weight:700;font-size:13.5px;}
+    .tpl-desc{font-size:12px;color:var(--muted,#94a3b8);line-height:1.5;flex:1;}
+    .tpl-tags{display:flex;gap:5px;flex-wrap:wrap;}
+    .tpl-tags span{font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--cyan,#38bdf8);border:1px solid rgba(56,189,248,.35);border-radius:99px;padding:1px 6px;}
+    .tpl-actions{display:flex;gap:6px;flex-wrap:wrap;}
     .btn-more{padding:4px 9px;font-weight:800;letter-spacing:.04em;}
     .row-menu{position:fixed;z-index:10000;min-width:190px;background:#131a28;border:1px solid var(--border-strong,rgba(148,163,184,.35));border-radius:11px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:2px;}
     .row-menu[hidden]{display:none;}
@@ -1217,6 +1367,7 @@
         if (tab === 'tools') loadTools();
         if (tab === 'users') loadUsersAndInbox();
         if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); }
+        if (tab === 'templates') { loadTemplates(); loadOccasion(); }
         if (tab === 'blog-new' || tab === 'tools-new') window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
@@ -1419,7 +1570,16 @@
                 <button class="btn btn-sm btn-more" title="More actions" aria-label="More actions" onclick="AdminApp.toggleRowMenu(event, 'blog', '${esc(p.id)}', '${esc(p.visibility || 'published')}')">⋯</button>
               </td>
             </tr>`).join('')
-          : '<tr><td colspan="4" style="color:var(--muted);">No articles published yet.</td></tr>';
+          : `<tr><td colspan="4" class="empty-cell">
+              <div class="empty-box">
+                <strong>No articles yet — the list is genuinely empty.</strong>
+                <p>Articles are only listed after you write one or upload its HTML. The public <a href="/blog" target="_blank" rel="noopener">/blog</a> page shows the same thing: nothing published so far.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                  <button class="btn btn-sm btn-primary" onclick="AdminApp.switchTab('blog-new')">＋ Article</button>
+                  <button class="btn btn-sm" onclick="AdminApp.switchTab('templates')">Use a template</button>
+                </div>
+              </div>
+            </td></tr>`;
       }
 
       function editBlog(idx) {
@@ -1546,7 +1706,17 @@
                 <button class="btn btn-sm btn-more" title="More actions" aria-label="More actions" onclick="AdminApp.toggleRowMenu(event, 'tool', '${esc(t.id)}', '${esc(t.visibility || 'published')}')">⋯</button>
               </td>
             </tr>`).join('')
-          : '<tr><td colspan="4" style="color:var(--muted);">No HTML tools uploaded yet.</td></tr>';
+          : `<tr><td colspan="4" class="empty-cell">
+              <div class="empty-box">
+                <strong>This list is empty — and that is the real state, not a bug.</strong>
+                <p>A tool only appears here after its HTML file is uploaded. The public <a href="/tools" target="_blank" rel="noopener">/tools</a> page is not broken; there is simply nothing uploaded yet.</p>
+                <p class="cm-muted">Nothing is seasonal or hidden on purpose — no layout change is ever applied to your live pages.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                  <button class="btn btn-sm btn-primary" onclick="AdminApp.switchTab('tools-new')">＋ New tool</button>
+                  <button class="btn btn-sm" onclick="AdminApp.switchTab('templates')">Use a template</button>
+                </div>
+              </div>
+            </td></tr>`;
       }
 
       function editTool(idx) {
@@ -1987,6 +2157,212 @@
         loadPages();
       }
 
+      // ==================== TEMPLATES & SEASONAL CHANGES ====================
+      let builtinTemplates = [];
+
+      function tplCard(t, upload = false) {
+        return `<div class="tpl-card">
+          <div class="tpl-name">${esc(t.name)}</div>
+          <div class="tpl-desc">${esc(t.description || '')}</div>
+          <div class="tpl-tags">${(t.tags || []).map((x) => `<span>${esc(x)}</span>`).join('')}</div>
+          <div class="tpl-actions">
+            ${upload || t.downloadable !== false
+              ? `<button class="btn btn-sm" onclick="AdminApp.downloadTemplate('${esc(t.id)}', ${upload})">⬇ Download</button>`
+              : `<button class="btn btn-sm" onclick="AdminApp.copyTemplate('${esc(t.id)}')">Copy snippet</button>`}
+            ${upload
+              ? `<button class="btn btn-sm btn-danger" onclick="AdminApp.deleteTemplate('${esc(t.id)}')">Delete</button>`
+              : `<button class="btn btn-sm" onclick="AdminApp.editTemplate('${esc(t.id)}')">Open in editor</button>`}
+          </div>
+        </div>`;
+      }
+
+      async function loadTemplates() {
+        const grid = document.getElementById('tplGrid');
+        if (!grid) return;
+        const { ok, data } = await api('/api/admin/templates');
+        if (!ok) { grid.innerHTML = '<div class="cm-warnl">Could not load templates.</div>'; return; }
+        builtinTemplates = data.templates || [];
+        grid.innerHTML = builtinTemplates.map((t) => tplCard(t)).join('') || '<div class="cm-muted">No templates.</div>';
+        await loadTemplateUploads();
+      }
+
+      async function loadTemplateUploads() {
+        const box = document.getElementById('tplUploadList');
+        if (!box) return;
+        const { ok, data } = await api('/api/admin/templates/uploads');
+        const uploads = (ok && data.uploads) || [];
+        box.innerHTML = uploads.length
+          ? `<div class="tpl-grid">${uploads.map((t) => tplCard({ ...t, description: 'Saved ' + String(t.savedAt || '').slice(0, 10) + ' · ' + (t.bytes / 1024).toFixed(1) + ' KB', tags: [t.kind] }, true)).join('')}</div>`
+          : 'No uploads yet.';
+      }
+
+      async function downloadTemplate(id, upload) {
+        const url = upload ? '/api/admin/templates/export?id=' + encodeURIComponent(id) : '/api/admin/templates?id=' + encodeURIComponent(id);
+        const res = await fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        if (!res.ok) { toast('Could not download the template.'); return; }
+        const html = await res.text();
+        const name = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, id])[1].replace(/<[^>]+>/g, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || id;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        a.download = 'singvaza-template-' + name + '.html';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast('Downloaded ' + a.download);
+      }
+
+      async function copyTemplate(id) {
+        const res = await fetch('/api/admin/templates?id=' + encodeURIComponent(id), { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        if (!res.ok) { toast('Could not read that snippet.'); return; }
+        const text = await res.text();
+        try {
+          await navigator.clipboard.writeText(text);
+          toast('Snippet copied — paste it just after <body>.');
+        } catch (_) {
+          toast('Copy failed — use Download instead.');
+        }
+      }
+
+      async function uploadTemplate(e) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        const html = await file.text();
+        const body = {
+          name: document.getElementById('tplUploadName').value.trim() || file.name.replace(/\.html?$/i, ''),
+          kind: document.getElementById('tplUploadKind').value,
+          html,
+        };
+        const { ok, data } = await api('/api/admin/templates', { method: 'POST', body: JSON.stringify(body) });
+        if (!ok) { toast(data.error || 'The template was rejected.'); return; }
+        document.getElementById('tplUploadName').value = '';
+        toast('Template saved.');
+        loadTemplateUploads();
+      }
+
+      async function deleteTemplate(id) {
+        if (!confirm('Delete this saved template?')) return;
+        await api('/api/admin/templates/uploads/' + encodeURIComponent(id), { method: 'DELETE' });
+        toast('Template deleted.');
+        loadTemplateUploads();
+      }
+
+      /** Open a built-in template in the page editor, ready to save as a main page. */
+      async function editTemplate(id) {
+        const res = await fetch('/api/admin/templates?id=' + encodeURIComponent(id), { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        if (!res.ok) { toast('Could not open the template.'); return; }
+        const html = await res.text();
+        pendingPageUpload = { path: '/', html };
+        switchTab('settings');
+        setTimeout(() => {
+          const box = document.getElementById('tplEditorBox');
+          if (box) {
+            box.hidden = false;
+            document.getElementById('tplEditorText').value = html;
+            document.getElementById('tplEditorHint').textContent = 'Loaded "' + id + '" — save it as a main page or download it to edit offline.';
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 250);
+      }
+
+      let pendingPageUpload = null;
+
+      async function saveTemplateAsPage() {
+        const html = document.getElementById('tplEditorText').value;
+        const path = document.getElementById('tplEditorPath').value;
+        const { ok, data } = await api('/api/admin/pages', { method: 'POST', body: JSON.stringify({ path, html }) });
+        if (!ok) { toast(data.error || 'Could not save the page.'); return; }
+        toast('Page saved as ' + path + '.');
+        loadPages();
+      }
+
+      async function loadOccasion() {
+        const { ok, data } = await api('/api/admin/occasions');
+        if (!ok || !data.occasions) return;
+        const o = data.occasions;
+        document.getElementById('occEnabled').checked = Boolean(o.enabled);
+        document.getElementById('occTitle').value = o.title || '';
+        document.getElementById('occMessage').value = o.message || '';
+        document.getElementById('occEmoji').value = o.emoji || '';
+        document.getElementById('occStart').value = o.startDate || '';
+        document.getElementById('occEnd').value = o.endDate || '';
+        document.getElementById('occTheme').value = o.theme || 'celebration';
+        document.getElementById('occDismissible').checked = o.dismissible !== false;
+        for (const opt of document.getElementById('occPages').options) {
+          opt.selected = (o.pages || ['/']).includes(opt.value);
+        }
+        const presets = data.presets || [];
+        document.getElementById('occPresets').innerHTML = presets
+          .map((p) => `<button type="button" class="btn btn-sm" onclick="AdminApp.applyOccasionPreset('${esc(p.id)}')">${esc(p.emoji || '')} ${esc(p.label)}</button>`)
+          .join('');
+        loadOccasion._presets = presets;
+        renderOccasionStatus(o);
+      }
+
+      function renderOccasionStatus(o) {
+        const box = document.getElementById('occStatus');
+        if (!box) return;
+        if (!o.enabled) { box.innerHTML = 'Turned off — the site is exactly as designed.'; return; }
+        const today = new Date().toISOString().slice(0, 10);
+        const live = o.startDate && o.endDate && today >= o.startDate && today <= o.endDate;
+        box.innerHTML = live
+          ? `<span style="color:#34d399;">Live now on ${(o.pages || ['/']).map(esc).join(', ')} — it hides itself after ${esc(o.endDate)}.</span>`
+          : `Scheduled: from ${esc(o.startDate || '—')} to ${esc(o.endDate || '—')}. Nothing changes on the site until then.`;
+      }
+
+      function applyOccasionPreset(id) {
+        const preset = (loadOccasion._presets || []).find((p) => p.id === id);
+        if (!preset) return;
+        document.getElementById('occTitle').value = preset.title || '';
+        document.getElementById('occMessage').value = preset.message || '';
+        document.getElementById('occEmoji').value = preset.emoji || '';
+        document.getElementById('occStart').value = preset.startDate || '';
+        document.getElementById('occEnd').value = preset.endDate || '';
+        document.getElementById('occTheme').value = preset.theme || 'celebration';
+        document.getElementById('occEnabled').checked = true;
+        toast('Preset loaded — check the dates, then Save.');
+      }
+
+      function occasionPayload() {
+        return {
+          enabled: document.getElementById('occEnabled').checked,
+          title: document.getElementById('occTitle').value.trim(),
+          message: document.getElementById('occMessage').value.trim(),
+          emoji: document.getElementById('occEmoji').value.trim(),
+          startDate: document.getElementById('occStart').value,
+          endDate: document.getElementById('occEnd').value,
+          theme: document.getElementById('occTheme').value,
+          dismissible: document.getElementById('occDismissible').checked,
+          pages: Array.from(document.getElementById('occPages').selectedOptions).map((o) => o.value),
+        };
+      }
+
+      async function saveOccasion() {
+        const { ok, data } = await api('/api/admin/occasions', { method: 'POST', body: JSON.stringify(occasionPayload()) });
+        if (!ok) { toast(data.error || 'Could not save.'); return; }
+        toast(data.activeNow ? 'Saved — the greeting is live now.' : 'Saved — it will appear only inside the dates you chose.');
+        renderOccasionStatus(data.occasions);
+      }
+
+      async function stopOccasion() {
+        const payload = { ...occasionPayload(), enabled: false };
+        const { ok } = await api('/api/admin/occasions', { method: 'POST', body: JSON.stringify(payload) });
+        if (!ok) { toast('Could not turn it off.'); return; }
+        document.getElementById('occEnabled').checked = false;
+        toast('Turned off — the site looks exactly as designed again.');
+        renderOccasionStatus({ enabled: false });
+      }
+
+      async function previewOccasion() {
+        // Save first so the preview shows exactly what is stored, then open the
+        // signed link the server hands back (links cannot carry admin headers).
+        const { ok, data } = await api('/api/admin/occasions', { method: 'POST', body: JSON.stringify(occasionPayload()) });
+        if (!ok) { toast(data.error || 'Could not save before previewing.'); return; }
+        renderOccasionStatus(data.occasions);
+        if (!data.previewUrl) { toast('Nothing to preview — add a message first.'); return; }
+        window.open(data.previewUrl, '_blank', 'noopener');
+        toast('Preview opened — it works even outside the dates.');
+      }
+
       // ==================== 4. USERS & INBOX ====================
       async function loadUsersAndInbox() {
         const [uRes, mRes] = await Promise.all([api('/api/admin/users'), api('/api/admin/messages')]);
@@ -2128,6 +2504,8 @@
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
+        loadTemplates, loadTemplateUploads, downloadTemplate, copyTemplate, uploadTemplate, deleteTemplate, editTemplate,
+        saveTemplateAsPage, loadOccasion, applyOccasionPreset, saveOccasion, stopOccasion, previewOccasion,
       };
     })();
   </script>
