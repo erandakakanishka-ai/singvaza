@@ -802,8 +802,15 @@ export default {
             postUrls += `\n  <url>\n    <loc>${escapeHtml(url.origin)}/tools/${escapeHtml(t.slug)}</loc>\n    <lastmod>${d}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.85</priority>\n  </url>`;
           }
         }
+        // <lastmod> tells Google "this URL changed, come back and look again". Without it a
+        // site is re-crawled only when Google feels like it (weeks), so a fixed title or
+        // description can sit unchanged in the search results for a long time.
+        let newest = '';
+        for (const r of postsList) newest = String(r.updated_at || '').slice(0, 10) > newest ? String(r.updated_at || '').slice(0, 10) : newest;
+        for (const t of toolsList) newest = String(t.updated_at || '').slice(0, 10) > newest ? String(t.updated_at || '').slice(0, 10) : newest;
+        const staticLastmod = /^\d{4}-\d{2}-\d{2}$/.test(newest) ? newest : new Date().toISOString().slice(0, 10);
         const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${staticPaths
-          .map((s) => `\n  <url>\n    <loc>${escapeHtml(url.origin + s.p)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>${s.pri}</priority>\n  </url>`)
+          .map((s) => `\n  <url>\n    <loc>${escapeHtml(url.origin + s.p)}</loc>\n    <lastmod>${staticLastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${s.pri}</priority>\n  </url>`)
           .join('')}${postUrls}\n</urlset>\n`;
         return new Response(request.method === 'HEAD' ? null : xml, {
           status: 200,
