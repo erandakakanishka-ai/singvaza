@@ -615,6 +615,13 @@
             <iframe id="blogPreviewFrame" style="width:100%;height:380px;border:1px solid var(--border-strong);border-radius:10px;background:#fff;"></iframe>
           </div>
 
+          <div class="field" style="margin-top:12px;">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="blogPrivate" />
+              <span><strong>Keep this article private</strong> — visitors get a short "temporarily unavailable" page until you switch it back.</span>
+            </label>
+          </div>
+
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
             <button type="button" class="btn btn-primary" onclick="AdminApp.saveBlogPost()">Publish / Update Article</button>
           </div>
@@ -624,8 +631,8 @@
           <div class="card-title"><span>Published Articles</span></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Title</th><th>Category</th><th>Mode</th><th>Date</th><th style="text-align:right;">Actions</th></tr></thead>
-              <tbody id="blogListBody"><tr><td colspan="5" style="color:var(--muted);">No articles yet.</td></tr></tbody>
+              <thead><tr><th>Article</th><th>Status</th><th>Date</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
+              <tbody id="blogListBody"><tr><td colspan="4" style="color:var(--muted);">No articles yet.</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -692,6 +699,13 @@
             <textarea id="toolHtmlCode" class="input code-box" placeholder="<!DOCTYPE html>..."></textarea>
           </div>
 
+          <div class="field" style="margin-top:12px;">
+            <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="toolPrivate" />
+              <span><strong>Keep this tool private</strong> — hidden from the tools directory and replaced by an "unavailable" notice for visitors.</span>
+            </label>
+          </div>
+
           <button type="button" class="btn btn-primary" onclick="AdminApp.saveTool()">Publish / Update Tool</button>
         </div>
 
@@ -699,7 +713,7 @@
           <div class="card-title"><span>Published Web Tools</span></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Tool Name</th><th>URL</th><th>Views</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th>Tool Name</th><th>Status</th><th>Views</th><th style="text-align:right;">Live check · Update · Download</th></tr></thead>
               <tbody id="toolsListBody"><tr><td colspan="4" style="color:var(--muted);">No custom tools published yet.</td></tr></tbody>
             </table>
           </div>
@@ -861,10 +875,109 @@
 
           <button type="submit" class="btn btn-primary" style="padding:11px 22px;">Save All Settings</button>
         </form>
+
+        <div class="card" style="margin-top:18px;">
+          <div class="card-title">
+            <span>Main Website Pages — Download · Update · Private</span>
+            <button class="btn btn-sm" type="button" onclick="AdminApp.loadPages()">Refresh ↻</button>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
+            Download any main page, change it in your own editor, then upload the file back. The layout and content are checked first, and
+            <b>Restore original</b> puts the shipped file back at any time. A page marked private shows a short "unavailable" notice to visitors.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Page</th><th>Version</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <tbody id="pagesTableBody"><tr><td colspan="4" style="color:var(--muted);">Loading pages…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
     </main>
   </div>
+
+  <!-- ==================== CONTENT REVIEW DIALOG (check / AI review / update / download) ==================== -->
+  <div id="contentModal" class="cm-backdrop" hidden>
+    <div class="cm-card" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+      <div class="cm-head">
+        <div>
+          <div class="cm-eyebrow" id="cmKind">CONTENT REVIEW</div>
+          <h2 id="cmTitle">Checking…</h2>
+        </div>
+        <button class="btn btn-sm" onclick="AdminApp.closeContentModal()" aria-label="Close">✕</button>
+      </div>
+
+      <div id="cmLiveBar" class="cm-live">
+        <span id="cmLiveState">Checking the live page…</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a id="cmLiveLink" class="btn btn-sm" href="#" target="_blank" rel="noopener">Open live ↗</a>
+          <button class="btn btn-sm" id="cmRecheckBtn" onclick="AdminApp.recheckLive()">Check again ↻</button>
+        </div>
+      </div>
+
+      <div id="cmVerdict" class="cm-verdict"></div>
+
+      <div class="cm-grid">
+        <div class="cm-block">
+          <div class="cm-block-title">Findings</div>
+          <ul id="cmFindings" class="cm-list"><li class="cm-muted">No problems found.</li></ul>
+        </div>
+        <div class="cm-block">
+          <div class="cm-block-title">AI review</div>
+          <div id="cmAi" class="cm-muted">Running the offline review…</div>
+        </div>
+      </div>
+
+      <div class="cm-block">
+        <div class="cm-block-title">Version safety</div>
+        <div id="cmDiff" class="cm-muted">—</div>
+      </div>
+
+      <div class="cm-block">
+        <div class="cm-block-title">Replace this content with an HTML file</div>
+        <div class="cm-hint">The file is checked before it is saved. A replacement that would delete most of the current text, ids or scripts is blocked unless you force it.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <label class="btn btn-primary" style="cursor:pointer;">
+            Choose .HTML file
+            <input type="file" id="cmUpdateFile" accept=".html,.htm,text/html" hidden onchange="AdminApp.handleUpdateFile(event)" />
+          </label>
+          <button class="btn" onclick="AdminApp.downloadContent()">⬇ Download current file</button>
+          <button class="btn btn-danger" id="cmForceBtn" onclick="AdminApp.publishUpdate(true)" hidden>Force publish anyway</button>
+        </div>
+        <div id="cmUpdateResult" style="margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .cm-backdrop{position:fixed;inset:0;background:rgba(3,6,12,.72);backdrop-filter:blur(3px);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px;overflow:auto;}
+    .cm-backdrop[hidden]{display:none;}
+    .cm-backdrop [hidden]{display:none !important;}
+    .cm-card{background:var(--surface,#111625);border:1px solid var(--border-strong,rgba(148,163,184,.3));border-radius:16px;padding:20px;width:100%;max-width:820px;color:var(--text,#f8fafc);box-shadow:0 24px 60px rgba(0,0,0,.5);}
+    .cm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+    .cm-eyebrow{font-size:10.5px;letter-spacing:.09em;font-weight:800;color:var(--amber,#fbbf24);text-transform:uppercase;}
+    .cm-head h2{font-size:17px;margin:4px 0 0;line-height:1.3;}
+    .cm-live{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:#0c111c;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:11px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;}
+    .cm-verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-radius:11px;padding:11px 13px;font-size:13px;margin-bottom:14px;background:#0c111c;border:1px solid var(--border,rgba(148,163,184,.2));}
+    .cm-verdict.healthy{border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.09);}
+    .cm-verdict.warn{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.10);}
+    .cm-verdict.broken{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.10);}
+    .cm-score{font-weight:800;font-size:15px;}
+    .cm-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .cm-block{background:#0c111c;border:1px solid var(--border,rgba(148,163,184,.2));border-radius:11px;padding:12px;margin-bottom:12px;font-size:12.5px;}
+    .cm-block-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted,#94a3b8);margin-bottom:8px;}
+    .cm-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;}
+    .cm-list li{display:flex;gap:7px;line-height:1.45;}
+    .cm-list .dot{flex:0 0 auto;font-weight:800;}
+    .cm-err .dot{color:#f87171;} .cm-warnl .dot{color:#fbbf24;} .cm-info .dot{color:#38bdf8;}
+    .cm-muted{color:var(--muted,#94a3b8);}
+    .cm-hint{font-size:11.5px;color:var(--muted,#94a3b8);line-height:1.5;}
+    .cm-pill{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:2px 7px;border-radius:99px;text-transform:uppercase;}
+    .cm-pill.live{background:rgba(16,185,129,.16);color:#34d399;border:1px solid rgba(16,185,129,.4);}
+    .cm-pill.private{background:rgba(239,68,68,.14);color:#f87171;border:1px solid rgba(239,68,68,.4);}
+    @media (max-width:700px){ .cm-grid{grid-template-columns:1fr;} }
+  </style>
 
   <div id="adminToast" class="toast"></div>
 
@@ -880,6 +993,7 @@
       let allUsers = [];
       let allPosts = [];
       let allTools = [];
+      let allPages = [];
 
       function toast(msg) {
         const el = document.getElementById('adminToast');
@@ -984,7 +1098,7 @@
         if (tab === 'blog') loadBlogPosts();
         if (tab === 'tools') loadTools();
         if (tab === 'users') loadUsersAndInbox();
-        if (tab === 'settings') loadSettings();
+        if (tab === 'settings') { loadSettings(); loadPages(); }
       }
 
       // ==================== 1. OVERVIEW & CHART.JS ====================
@@ -1144,12 +1258,13 @@
         document.getElementById('blogSeoTags').value = '';
         document.getElementById('blogHtmlTextarea').value = '';
         if (quill) quill.root.innerHTML = '';
+        document.getElementById('blogPrivate').checked = false;
         document.getElementById('blogEditorHeading').textContent = 'Publish New Article';
         setEditorMode('visual');
       }
 
       async function loadBlogPosts() {
-        const { ok, data } = await api('/api/blog');
+        const { ok, data } = await api('/api/blog?admin=1');
         if (!ok) return;
         allPosts = data.posts || [];
         document.getElementById('badgePosts').textContent = allPosts.length;
@@ -1157,17 +1272,19 @@
         tbody.innerHTML = allPosts.length
           ? allPosts.map((p, idx) => `
             <tr>
-              <td><strong>${esc(p.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/blog/${esc(p.slug)}</div></td>
-              <td>${esc(p.category)}</td>
-              <td><span class="status-free">${esc(p.content_format || 'html')}</span></td>
-              <td style="color:var(--muted);">${esc(String(p.created_at || '').slice(0, 10))}</td>
+              <td><strong>${esc(p.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/blog/${esc(p.slug)} · ${esc(p.category || 'Article')} · ${esc(p.content_format || 'html')}</div></td>
+              <td>${visibilityPill(p.visibility)}</td>
+              <td style="color:var(--muted);">${esc(String(p.updated_at || p.created_at || '').slice(0, 10))}</td>
               <td style="text-align:right;white-space:nowrap;">
-                <a class="btn btn-sm" href="/blog/${esc(p.slug)}" target="_blank">Open ↗</a>
+                <button class="btn btn-sm" onclick="AdminApp.openContentModal('blog', ${idx})">Live check</button>
+                <label class="btn btn-sm" style="cursor:pointer;">Update HTML<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'blog', '${esc(p.id)}')" /></label>
+                <button class="btn btn-sm" onclick="AdminApp.downloadContent('blog', '${esc(p.id)}')">⬇</button>
+                <button class="btn btn-sm" onclick="AdminApp.toggleVisibility('blog', '${esc(p.id)}', '${esc(p.visibility || 'published')}')">${p.visibility === 'hidden' ? 'Make private → public' : 'Make private'}</button>
                 <button class="btn btn-sm" onclick="AdminApp.editBlog(${idx})">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="AdminApp.deleteBlog('${esc(p.id)}')">Delete</button>
               </td>
             </tr>`).join('')
-          : '<tr><td colspan="5" style="color:var(--muted);">No articles published yet.</td></tr>';
+          : '<tr><td colspan="4" style="color:var(--muted);">No articles published yet.</td></tr>';
       }
 
       function editBlog(idx) {
@@ -1184,6 +1301,7 @@
         document.getElementById('blogAuthor').value = p.author_name || 'Editorial Team';
         document.getElementById('blogExcerpt').value = p.excerpt || '';
         document.getElementById('blogSeoTags').value = p.seo_tags || '';
+        document.getElementById('blogPrivate').checked = String(p.visibility || 'published') === 'hidden';
         document.getElementById('blogHtmlTextarea').value = p.content || '';
         document.getElementById('blogEditorHeading').textContent = 'Editing: ' + p.title;
         if (p.content_format === 'full_html' || /^\s*<!doctype html/i.test(p.content || '')) {
@@ -1209,6 +1327,8 @@
           author_name: document.getElementById('blogAuthor').value.trim(),
           excerpt: document.getElementById('blogExcerpt').value.trim(),
           seo_tags: document.getElementById('blogSeoTags').value.trim(),
+          visibility: document.getElementById('blogPrivate').checked ? 'hidden' : 'published',
+          updated_by: 'admin-editor',
           content,
         };
         const { ok, data } = await api('/api/blog', { method: 'POST', body: JSON.stringify(payload) });
@@ -1260,11 +1380,12 @@
         document.getElementById('toolDesc').value = '';
         document.getElementById('toolSeoTags').value = '';
         document.getElementById('toolHtmlCode').value = '';
+        document.getElementById('toolPrivate').checked = false;
         document.getElementById('toolEditorHeading').textContent = 'Add / Upload HTML Tool';
       }
 
       async function loadTools() {
-        const { ok, data } = await api('/api/tools');
+        const { ok, data } = await api('/api/tools?admin=1');
         if (!ok) return;
         allTools = data.tools || [];
         document.getElementById('badgeTools').textContent = allTools.length;
@@ -1272,11 +1393,14 @@
         tbody.innerHTML = allTools.length
           ? allTools.map((t, idx) => `
             <tr>
-              <td><strong>${esc(t.title)}</strong><div style="font-size:11.5px;color:var(--muted);">${esc(t.category)}</div></td>
-              <td><code>/tools/${esc(t.slug)}</code></td>
+              <td><strong>${esc(t.title)}</strong><div style="font-size:11.5px;color:var(--muted);">/tools/${esc(t.slug)} · ${esc(t.category)}</div></td>
+              <td>${visibilityPill(t.visibility)}</td>
               <td>${esc(t.views ?? 0)}</td>
               <td style="text-align:right;white-space:nowrap;">
-                <a class="btn btn-sm" href="/tools/${esc(t.slug)}" target="_blank">Open ↗</a>
+                <button class="btn btn-sm" onclick="AdminApp.openContentModal('tool', ${idx})">Live check</button>
+                <label class="btn btn-sm" style="cursor:pointer;">Update HTML<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'tool', '${esc(t.id)}')" /></label>
+                <button class="btn btn-sm" onclick="AdminApp.downloadContent('tool', '${esc(t.id)}')">⬇</button>
+                <button class="btn btn-sm" onclick="AdminApp.toggleVisibility('tool', '${esc(t.id)}', '${esc(t.visibility || 'published')}')">${t.visibility === 'hidden' ? 'Make private → public' : 'Make private'}</button>
                 <button class="btn btn-sm" onclick="AdminApp.editTool(${idx})">Edit</button>
                 <button class="btn btn-sm btn-danger" onclick="AdminApp.deleteTool('${esc(t.id)}')">Delete</button>
               </td>
@@ -1296,6 +1420,7 @@
         document.getElementById('toolDesc').value = t.description || '';
         document.getElementById('toolSeoTags').value = t.seo_tags || '';
         document.getElementById('toolHtmlCode').value = t.html_code || '';
+        document.getElementById('toolPrivate').checked = String(t.visibility || 'published') === 'hidden';
         document.getElementById('toolEditorHeading').textContent = 'Editing Tool: ' + t.title;
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1308,6 +1433,8 @@
           category: document.getElementById('toolCategory').value.trim(),
           description: document.getElementById('toolDesc').value.trim(),
           seo_tags: document.getElementById('toolSeoTags').value.trim(),
+          visibility: document.getElementById('toolPrivate').checked ? 'hidden' : 'published',
+          updated_by: 'admin-editor',
           html_code: document.getElementById('toolHtmlCode').value.trim(),
         };
         const { ok, data } = await api('/api/tools', { method: 'POST', body: JSON.stringify(payload) });
@@ -1325,6 +1452,322 @@
         await api('/api/tools/' + encodeURIComponent(id), { method: 'DELETE' });
         toast('Tool deleted.');
         loadTools();
+      }
+
+      // ==================== CONTENT SAFETY: LIVE CHECK / UPDATE / DOWNLOAD / PRIVATE ====================
+      let cmRef = { type: 'tool', id: '', idx: -1, path: '', label: '', html: '', live: {} };
+
+      function visibilityPill(v) {
+        return String(v || 'published') === 'hidden'
+          ? '<span class="cm-pill private">private</span>'
+          : '<span class="cm-pill live">live</span>';
+      }
+
+      function liveUrlFor(type, item) {
+        if (type === 'page') return item.path || '/';
+        if (type === 'blog') return '/blog/' + encodeURIComponent(item.slug || '');
+        return '/tools/' + encodeURIComponent(item.slug || '');
+      }
+
+      /** Open the review dialog for a stored tool, article or main-site page. */
+      async function openContentModal(type, idx) {
+        const item = type === 'tool' ? allTools[idx] : type === 'blog' ? allPosts[idx] : idx;
+        if (!item) return;
+        cmRef = {
+          type,
+          id: type === 'page' ? item.path : item.id,
+          idx,
+          path: type === 'page' ? item.path : '',
+          label: item.title || item.label || item.path,
+          html: '',
+          live: {},
+        };
+        const modal = document.getElementById('contentModal');
+        modal.hidden = false;
+        document.getElementById('cmKind').textContent = type === 'page' ? 'MAIN SITE PAGE' : type === 'blog' ? 'BLOG ARTICLE' : 'WEB TOOL';
+        document.getElementById('cmTitle').textContent = cmRef.label;
+        document.getElementById('cmLiveLink').href = liveUrlFor(type, item);
+        document.getElementById('cmLiveState').textContent = 'Checking the live page…';
+        document.getElementById('cmVerdict').className = 'cm-verdict';
+        document.getElementById('cmVerdict').textContent = 'Checking…';
+        document.getElementById('cmFindings').innerHTML = '<li class="cm-muted">Checking…</li>';
+        document.getElementById('cmAi').textContent = 'Running the offline review…';
+        document.getElementById('cmDiff').textContent = '—';
+        document.getElementById('cmUpdateResult').innerHTML = '';
+        document.getElementById('cmForceBtn').hidden = true;
+        await Promise.all([loadStoredHtml(), recheckLive()]);
+        await runReview();
+      }
+
+      function closeContentModal() {
+        document.getElementById('contentModal').hidden = true;
+      }
+
+      async function loadStoredHtml() {
+        try {
+          const res = await fetch('/api/admin/content/raw?type=' + encodeURIComponent(cmRef.type) + '&id=' + encodeURIComponent(cmRef.id), {
+            headers: token ? { Authorization: 'Bearer ' + token } : {},
+          });
+          cmRef.html = res.ok ? await res.text() : '';
+        } catch (_) { cmRef.html = ''; }
+      }
+
+      /** Real fetch of the public URL: status, timing, title, and what actually arrived. */
+      async function recheckLive() {
+        const state = document.getElementById('cmLiveState');
+        if (cmRef.type === 'page') {
+          state.innerHTML = 'Main site pages are served by Cloudflare, so they cannot be probed from here. Use <b>Download current file</b> and the checks below.';
+          return;
+        }
+        state.textContent = 'Checking ' + document.getElementById('cmLiveLink').href + ' …';
+        const url = document.getElementById('cmLiveLink').getAttribute('href');
+        const started = performance.now();
+        try {
+          const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'livecheck=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' });
+          const ms = Math.round(performance.now() - started);
+          const text = await res.text();
+          const title = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, ''])[1].trim();
+          cmRef.live = { status: res.status, ms, bytes: new Blob([text]).size, title, ok: res.ok };
+          const badge = res.ok ? '✅ reachable' : '⛔ HTTP ' + res.status;
+          const looksPrivate = /temporarily unavailable|not found/i.test(title);
+          state.innerHTML = `${badge} · ${ms} ms · ${(cmRef.live.bytes / 1024).toFixed(1)} KB · ${esc(title || 'no title')}` +
+            (looksPrivate ? ' <span class="cm-pill private">hidden from visitors</span>' : '');
+        } catch (err) {
+          cmRef.live = { ok: false, status: 0, error: String(err && err.message || err) };
+          state.innerHTML = '⚠️ Could not reach the page from this browser: ' + esc(cmRef.live.error) + '. Open the live link to check manually.';
+        }
+      }
+
+      /** Static safety report + AI review, both computed on the server. */
+      async function runReview() {
+        const findingsEl = document.getElementById('cmFindings');
+        const aiEl = document.getElementById('cmAi');
+        const verdictEl = document.getElementById('cmVerdict');
+        if (!cmRef.html) {
+          findingsEl.innerHTML = '<li class="cm-warnl"><span class="dot">⚠</span><span>Stored HTML could not be loaded.</span></li>';
+          aiEl.textContent = 'No content to review.';
+          return;
+        }
+        const { ok, data } = await api('/api/admin/ai-review', {
+          method: 'POST',
+          body: JSON.stringify({ kind: cmRef.type, html: cmRef.html }),
+        });
+        if (!ok || !data.review) {
+          findingsEl.innerHTML = '<li class="cm-warnl"><span class="dot">⚠</span><span>' + esc(data.error || 'Review failed.') + '</span></li>';
+          return;
+        }
+        const review = data.review;
+        const report = data.report || {};
+        verdictEl.className = 'cm-verdict ' + (review.verdict === 'healthy' ? 'healthy' : review.verdict === 'broken' ? 'broken' : 'warn');
+        verdictEl.innerHTML = `<span class="cm-score">${review.score}/100</span><span>${esc(review.summary)}</span>`;
+        findingsEl.innerHTML = review.findings && review.findings.length
+          ? review.findings.map((f) => `<li class="${f.level === 'error' ? 'cm-err' : f.level === 'warn' ? 'cm-warnl' : 'cm-info'}"><span class="dot">${f.level === 'error' ? '⛔' : f.level === 'warn' ? '⚠' : 'ℹ'}</span><span>${esc(f.message)}</span></li>`).join('')
+          : '<li class="cm-muted">No problems found.</li>';
+        const fp = report.fingerprint || {};
+        const liveNow = cmRef.live && cmRef.live.ok
+          ? `The public page answers <b>HTTP ${cmRef.live.status}</b> in ${cmRef.live.ms} ms (${(cmRef.live.bytes / 1024).toFixed(1)} KB).`
+          : cmRef.live && cmRef.live.status
+            ? `The public page answered <b>HTTP ${cmRef.live.status}</b> — visitors cannot see it right now.`
+            : 'The public page could not be reached from this browser.';
+        document.getElementById('cmDiff').innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div>${liveNow}</div>
+            <div>Stored version: <b>${fp.title ? esc(fp.title) : 'no title'}</b> · ${(report.bytes / 1024).toFixed(1)} KB · ${fp.ids ? fp.ids.length : 0} ids · ${fp.textLength || 0} chars of text</div>
+            <div class="cm-muted">Upload a file below and this line becomes a before/after comparison — a drop in text, ids or scripts is reported before anything is saved.</div>
+          </div>`;
+        const stats = report.stats || {};
+        aiEl.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div>${review.notes.map((n) => '<div>' + esc(n) + '</div>').join('')}</div>
+            <div class="cm-muted">${report.bytes ? (report.bytes / 1024).toFixed(1) + ' KB · ' : ''}${stats.scripts || 0} script(s) · ${stats.styles || 0} style block(s) · ${stats.forms || 0} form(s) · ${stats.iframes || 0} iframe(s)</div>
+            ${review.risk.length ? '<div><b>Third-party / risk:</b> ' + esc(review.risk.join(', ')) + '</div>' : '<div class="cm-muted">No third-party code detected.</div>'}
+            <div class="cm-muted" style="font-size:11px;">Checked offline on the server (rule engine + stored-version diff) — no content leaves this site.</div>
+          </div>`;
+      }
+
+      /** Download the exact file that is stored (and currently published). */
+      async function downloadContent(type, id) {
+        const t = type || cmRef.type;
+        const theId = id || cmRef.id;
+        try {
+          const res = await fetch('/api/admin/content/raw?type=' + encodeURIComponent(t) + '&id=' + encodeURIComponent(theId), {
+            headers: token ? { Authorization: 'Bearer ' + token } : {},
+          });
+          if (!res.ok) { toast('Could not download this file.'); return; }
+          const html = await res.text();
+          const slug = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, theId])[1]
+            .replace(/<[^>]+>/g, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'content';
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'singvaza-' + slug + '.html';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+          toast('Downloaded ' + a.download);
+        } catch (err) {
+          toast('Download failed: ' + (err && err.message || err));
+        }
+      }
+
+      /** Push the HTML into the editor so the admin can fix it there. */
+      async function loadIntoEditor() {
+        if (!cmRef.html) await loadStoredHtml();
+        if (cmRef.type === 'page') { toast('Main-site pages are edited by uploading a new file.'); return; }
+        closeContentModal();
+        const list = cmRef.type === 'blog' ? allPosts : allTools;
+        const found = list.findIndex((x) => x.id === cmRef.id);
+        switchTab(cmRef.type === 'blog' ? 'blog' : 'tools');
+        setTimeout(() => {
+          if (cmRef.type === 'blog') editBlog(found >= 0 ? found : cmRef.idx);
+          else editTool(found >= 0 ? found : cmRef.idx);
+        }, 120);
+      }
+
+      /** Flip a tool/article between live and private without touching its content. */
+      async function toggleVisibility(type, id, current) {
+        const next = String(current) === 'hidden' ? 'published' : 'hidden';
+        const { ok, data } = await api('/api/admin/content/visibility', {
+          method: 'POST',
+          body: JSON.stringify({ type, id, visibility: next }),
+        });
+        if (!ok) { toast(data.error || 'Could not change visibility.'); return; }
+        toast(next === 'hidden' ? 'Now private — visitors see a short "unavailable" page.' : 'Published again — live for everyone.');
+        if (type === 'blog') loadBlogPosts(); else loadTools();
+      }
+
+      // --- replacing content with an uploaded file ---
+      function handleUpdateFile(e) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (file) publishUpdate(false, file);
+      }
+
+      async function quickUpdate(e, type, id) {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        cmRef = { type, id, idx: -1, path: '', label: file.name, html: '', live: {} };
+        toast('Checking ' + file.name + ' …');
+        await publishUpdate(false, file);
+      }
+
+      async function publishUpdate(force, pickedFile) {
+        const resultEl = document.getElementById('cmUpdateResult');
+        const input = document.getElementById('cmUpdateFile');
+        const file = pickedFile || (input.files && input.files[0]);
+        if (!file) { toast('Choose an .html file first.'); return; }
+        const html = await file.text();
+        if (!html.trim()) { toast('That file is empty.'); return; }
+
+        // 1. static + version safety check against the content that is already stored
+        const check = await api('/api/admin/content/check', {
+          method: 'POST',
+          body: JSON.stringify({ kind: cmRef.type, html }),
+        });
+        const firstReport = check.ok ? check.data.report : null;
+
+        // 2. save it
+        let save;
+        if (cmRef.type === 'page') {
+          save = await api('/api/admin/pages', {
+            method: 'POST',
+            body: JSON.stringify({ path: cmRef.id, html, force: Boolean(force) }),
+          });
+        } else {
+          const list = cmRef.type === 'blog' ? allPosts : allTools;
+          const item = list.find((x) => x.id === cmRef.id) || {};
+          const payload = {
+            id: cmRef.id,
+            title: item.title || file.name.replace(/\.html?$/i, ''),
+            slug: item.slug || '',
+            category: item.category || (cmRef.type === 'blog' ? 'Guide' : 'Utility Tool'),
+            description: item.description || '',
+            seo_tags: item.seo_tags || '',
+            cover_image: item.cover_image || '/assets/studio-girl-card.jpg',
+            author_name: item.author_name || 'Editorial Team',
+            excerpt: item.excerpt || '',
+            content_format: item.content_format || (/^\s*<!doctype html/i.test(html) ? 'full_html' : 'html'),
+            visibility: item.visibility || 'published',
+            updated_by: 'admin-upload',
+            force: Boolean(force),
+          };
+          if (cmRef.type === 'blog') payload.content = html; else payload.html_code = html;
+          save = await api(cmRef.type === 'blog' ? '/api/blog' : '/api/tools', { method: 'POST', body: JSON.stringify(payload) });
+        }
+
+        if (!save.ok) {
+          const report = (save.data && save.data.report) || firstReport;
+          const blocking = ((report && report.issues) || []).filter((i) => i.level === 'error');
+          resultEl.innerHTML = `
+            <div class="cm-block" style="border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.09);">
+              <div class="cm-block-title" style="color:#f87171;">Not published</div>
+              <div>${esc(save.data.error || 'The upload was rejected.')}</div>
+              ${blocking.length > 1 ? '<ul class="cm-list" style="margin-top:8px;">' + blocking.slice(1).map((b) => '<li class="cm-err"><span class="dot">⛔</span><span>' + esc(b.message) + '</span></li>').join('') + '</ul>' : ''}
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-sm" onclick="AdminApp.loadIntoEditor()">Fix it in the editor</button>
+              <button class="btn btn-sm btn-danger" onclick="AdminApp.publishUpdate(true)">Force publish anyway</button>
+            </div>`;
+          if (cmRef.type !== 'page' && cmRef.idx < 0) {
+            // quick update from a list row: keep a handle so the dialog can still be opened
+            cmRef.idx = (cmRef.type === 'blog' ? allPosts : allTools).findIndex((x) => x.id === cmRef.id);
+          }
+          toast('Upload blocked — see the reasons.');
+          return;
+        }
+
+        const report = (save.data && save.data.report) || firstReport;
+        const warns = ((report && report.issues) || []).filter((i) => i.level === 'warn');
+        resultEl.innerHTML = `
+          <div class="cm-block" style="border-color:rgba(16,185,129,.5);background:rgba(16,185,129,.09);">
+            <div class="cm-block-title" style="color:#34d399;">Published</div>
+            <div>${esc(file.name)} is live${cmRef.type === 'page' ? ' on ' + esc(cmRef.id) : ''}.</div>
+            ${warns.length ? '<ul class="cm-list" style="margin-top:8px;">' + warns.map((w) => '<li class="cm-warnl"><span class="dot">⚠</span><span>' + esc(w.message) + '</span></li>').join('') + '</ul>' : ''}
+          </div>`;
+        toast('✅ Update published.');
+        document.getElementById('cmForceBtn').hidden = true;
+        if (cmRef.type === 'blog') loadBlogPosts();
+        else if (cmRef.type === 'tool') loadTools();
+        else loadPages();
+        if (!document.getElementById('contentModal').hidden) {
+          await loadStoredHtml();
+          await recheckLive();
+          await runReview();
+        }
+      }
+
+      // --- main-site pages (download / upload / rollback) ---
+      async function loadPages() {
+        const { ok, data } = await api('/api/admin/pages');
+        const tbody = document.getElementById('pagesTableBody');
+        if (!tbody) return;
+        if (!ok) { tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);">Could not load pages.</td></tr>'; return; }
+        allPages = data.pages || [];
+        tbody.innerHTML = allPages.length
+          ? allPages.map((p, idx) => `
+            <tr>
+              <td><strong>${esc(p.label)}</strong><div style="font-size:11.5px;color:var(--muted);">${esc(p.path)}</div></td>
+              <td>${p.custom ? '<span class="status-pro">custom upload</span>' : '<span class="status-free">original file</span>'}
+                  <div style="font-size:11px;color:var(--muted);">${p.custom ? (p.bytes / 1024).toFixed(1) + ' KB · ' + esc(String(p.updated_at).slice(0, 16).replace('T', ' ')) : 'no upload yet'}</div></td>
+              <td>${visibilityPill(p.visibility)}</td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn btn-sm" onclick="AdminApp.openContentModal('page', ${idx})">Live check</button>
+                <button class="btn btn-sm" onclick="AdminApp.downloadContent('page', '${esc(p.path)}')">⬇ Download</button>
+                <label class="btn btn-sm" style="cursor:pointer;">Update HTML<input type="file" accept=".html,.htm,text/html" hidden onchange="AdminApp.quickUpdate(event, 'page', '${esc(p.path)}')" /></label>
+                <button class="btn btn-sm" onclick="AdminApp.toggleVisibility('page', '${esc(p.path)}', '${esc(p.visibility || 'published')}')">${p.visibility === 'hidden' ? 'Make private → public' : 'Make private'}</button>
+                ${p.custom ? `<button class="btn btn-sm btn-danger" onclick="AdminApp.resetPage('${esc(p.path)}')">Restore original</button>` : ''}
+              </td>
+            </tr>`).join('')
+          : '<tr><td colspan="4" style="color:var(--muted);">No pages found.</td></tr>';
+      }
+
+      async function resetPage(path) {
+        if (!confirm('Delete the uploaded version and restore the original page file?')) return;
+        const { ok, data } = await api('/api/admin/pages', { method: 'POST', body: JSON.stringify({ path, reset: true }) });
+        toast(ok ? 'Original page restored.' : (data.error || 'Could not restore.'));
+        loadPages();
       }
 
       // ==================== 4. USERS & INBOX ====================
@@ -1465,6 +1908,8 @@
         handleToolHtmlFile, resetToolForm, editTool, saveTool, deleteTool,
         loadUsersAndInbox, renderUsersTable, toggleUserPro, deleteUser, deleteMessage,
         saveSettings,
+        openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
+        toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
       };
     })();
   </script>

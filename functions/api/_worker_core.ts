@@ -1,4 +1,5 @@
 import { builtinPage, builtinResponse } from '../../src/builtin-pages';
+import { analyzeContent, compareVersions, mergeIssues } from '../../src/content-check';
 import { handleSecurityRoute, requiresEntrySession, requireEntrySession, requireAuthChallenge, type SecurityEnv } from '../../src/security';
 
 export interface Env extends SecurityEnv {
@@ -56,6 +57,8 @@ async function ensureSchema(db?: D1Database) {
     )`,
     `ALTER TABLE blog_posts ADD COLUMN content_format TEXT DEFAULT 'html'`,
     `ALTER TABLE blog_posts ADD COLUMN seo_tags TEXT DEFAULT ''`,
+    `ALTER TABLE blog_posts ADD COLUMN visibility TEXT DEFAULT 'published'`,
+    `ALTER TABLE blog_posts ADD COLUMN updated_by TEXT DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS html_tools (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
@@ -70,6 +73,8 @@ async function ensureSchema(db?: D1Database) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
     `ALTER TABLE html_tools ADD COLUMN seo_tags TEXT DEFAULT ''`,
+    `ALTER TABLE html_tools ADD COLUMN visibility TEXT DEFAULT 'published'`,
+    `ALTER TABLE html_tools ADD COLUMN updated_by TEXT DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS site_settings (
       k TEXT PRIMARY KEY,
       v TEXT NOT NULL,
@@ -291,6 +296,131 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+/* The main pages an admin may download, replace and roll back. They are served as
+ * static assets, so an edit lives as a site_settings override that is applied to
+ * the asset on the way out (see applyPageOverride). Nothing is invented here: the
+ * list is the public marketing/policy surface of the site. */
+const EDITABLE_PAGES = [
+  { path: '/', label: 'Home page' },
+  { path: '/about', label: 'About' },
+  { path: '/contact', label: 'Contact' },
+  { path: '/privacy', label: 'Privacy Policy' },
+  { path: '/terms', label: 'Terms & Conditions' },
+  { path: '/refunds', label: 'Refund Policy' },
+];
+
+async function setSetting(db: D1Database, key: string, value: string) {
+  await db.prepare(
+    `INSERT INTO site_settings (k, v, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = CURRENT_TIMESTAMP`
+  ).bind(key, value).run();
+}
+
+/** Read a static asset as text (the page files are not readable through fetch on the edge). */
+async function fetchAssetText(env: Env, assetUrl: string): Promise<string> {
+  try {
+    const request = new Request(assetUrl, { headers: { Accept: 'text/html' } });
+    const res = env.ASSETS
+      ? await env.ASSETS.fetch(request)
+      : await fetch(assetUrl);
+    if (!res || !res.ok) return '';
+    return await res.text();
+  } catch (_) {
+    return '';
+  }
+}
+
+/** Apply an admin-saved page override (and its private switch) to a static HTML response. */
+async function applyPageOverride(path: string, html: string, env: Env, isAdmin = false): Promise<string> {
+  if (!env.DB || !EDITABLE_PAGES.some((p) => p.path === path) || !/<\/body\s*>/i.test(html)) return html;
+  try {
+    const sMap = await getSettingsMap(env.DB);
+    if (!isAdmin && sMap['page_visibility:' + path] === 'hidden') {
+      return renderBlogShellHtml({
+        origin: 'https://singvaza.pages.dev',
+        title: 'Page unavailable — SingVaza',
+        description: 'This page is temporarily unavailable.',
+        canonicalPath: path,
+        bodyHtml: `<div class="card"><h1>Temporarily unavailable</h1><p>This page is being checked and will be back shortly.</p><p><a class="btn" href="/">← Back to Home</a></p></div>`,
+      });
+    }
+    const override = sMap['page_override:' + path];
+    if (!override) return html;
+    let next = override;
+    // Keep the per-visit view counter of the asset when the uploaded page has none.
+    if (!/ping-visit/.test(next)) {
+      const beacon = html.match(/<script>try\{if\(!sessionStorage[\s\S]*?<\/script>/i);
+      if (beacon) next = next.replace(/<\/body\s*>/i, beacon[0] + '</body>');
+    }
+    return next;
+  } catch (_) {
+    return html;
+  }
+}
+
+/** Run the static checks and verify that every same-origin asset really exists. */
+async function analyzeWithAssets(html: string, kind: 'tool' | 'blog' | 'page', env: Env, origin: string) {
+  const report = analyzeContent(html, kind);
+  const missing: string[] = [];
+  for (const ref of report.localRefs) {
+    try {
+      const assetUrl = new URL(ref, origin).toString();
+      const probe = env.ASSETS
+        ? await env.ASSETS.fetch(new Request(assetUrl, { method: 'HEAD' }))
+        : await fetch(assetUrl, { method: 'HEAD' });
+      if (probe && probe.status === 404) missing.push(ref);
+    } catch (_) {
+      // A network hiccup must never block publishing.
+    }
+  }
+  const issues = [...report.issues];
+  if (missing.length) {
+    issues.push({
+      level: 'warn',
+      code: 'missing-assets',
+      message: `${missing.length} local file(s) not found: ${missing.slice(0, 5).join(', ')}`,
+    });
+  }
+  return { ...report, ok: issues.every((i) => i.level !== 'error'), issues };
+}
+
+/**
+ * Offline review. No model is called: the admin asked for an "AI check", and the
+ * honest, free version of that is a rule engine plus the stored-version diff, so
+ * the verdict is instant, private and identical every time. The result reads like
+ * a reviewer's note: what is wrong, where, and how bad.
+ */
+function heuristicReview(report: any, html: string) {
+  const errors = report.issues.filter((i: any) => i.level === 'error');
+  const warns = report.issues.filter((i: any) => i.level === 'warn');
+  const infos = report.issues.filter((i: any) => i.level === 'info');
+  const verdict = errors.length ? 'broken' : warns.length ? 'needs-attention' : 'healthy';
+  const risk: string[] = [];
+  if (report.stats.externalScripts.length) risk.push('external code');
+  if (/\bfetch\s*\(\s*['"]https?:/i.test(html)) risk.push('sends data to another site');
+  if (/\blocalStorage\b|\bindexedDB\b/i.test(html)) risk.push('stores data in the browser');
+  if (/<form[^>]+action=["']https?:/i.test(html)) risk.push('posts a form to another site');
+  if (/\beval\s*\(|new Function\(/i.test(html)) risk.push('runs generated code');
+  const notes: string[] = [];
+  if (!report.stats.scripts) notes.push('No JavaScript: the page is static, so nothing can break at run time.');
+  if (report.stats.forms === 0 && report.stats.scripts > 0) notes.push('Interactive, but without a form.');
+  if (report.fingerprint.headings.length) notes.push(`Main heading: "${report.fingerprint.headings[0]}".`);
+  notes.push(`${report.fingerprint.textLength} characters of readable text, ${report.stats.links} links, ${report.stats.images} images.`);
+  return {
+    verdict,
+    score: Math.max(0, 100 - errors.length * 35 - warns.length * 8 - infos.length * 2),
+    summary: errors.length
+      ? `Not safe to publish: ${errors.length} breaking problem${errors.length === 1 ? '' : 's'}.`
+      : warns.length
+        ? `Publishable, but ${warns.length} point${warns.length === 1 ? '' : 's'} worth fixing.`
+        : 'Looks healthy. Nothing blocking was found.',
+    findings: [...errors, ...warns, ...infos],
+    risk,
+    notes,
+    engine: 'rule-engine',
+  };
 }
 
 async function isValidBlogAdmin(request: Request, env: Env): Promise<boolean> {
@@ -546,8 +676,8 @@ export default {
         if (env.DB) {
           try {
             const [rows, tRows] = await Promise.all([
-              env.DB.prepare('SELECT slug, title, excerpt, updated_at FROM blog_posts ORDER BY updated_at DESC LIMIT 200').all(),
-              env.DB.prepare('SELECT slug, title, description, updated_at FROM html_tools ORDER BY updated_at DESC LIMIT 200').all(),
+              env.DB.prepare("SELECT slug, title, excerpt, updated_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY updated_at DESC LIMIT 200").all(),
+              env.DB.prepare("SELECT slug, title, description, updated_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY updated_at DESC LIMIT 200").all(),
             ]);
             postsList = (rows.results || []) as any[];
             toolsList = (tRows.results || []) as any[];
@@ -603,7 +733,7 @@ export default {
         const beaconTag = `${globalAdSnippet}<script>try{if(!sessionStorage.getItem('sv_v_'+location.pathname)){sessionStorage.setItem('sv_v_'+location.pathname,'1');fetch('/api/ping-visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname})}).catch(()=>{});}}catch(_){}</script>`;
         if (!toolSlug) {
           const rows = env.DB
-            ? await env.DB.prepare('SELECT id, slug, title, category, icon, description, views, created_at FROM html_tools ORDER BY created_at DESC LIMIT 200').all()
+            ? await env.DB.prepare("SELECT id, slug, title, category, icon, description, views, created_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 200").all()
             : { results: [] };
           const list = (rows.results || []) as any[];
           const bodyHtml = `
@@ -635,6 +765,20 @@ export default {
         const tool: any = env.DB
           ? await env.DB.prepare('SELECT * FROM html_tools WHERE slug = ?').bind(toolSlug).first()
           : null;
+        // A tool switched off in the admin panel disappears from the public site,
+        // but stays reachable for the signed-in admin so it can be checked.
+        if (tool && String(tool.visibility || 'published') !== 'published' && !(await isValidBlogAdmin(request, env))) {
+          return new Response(
+            renderBlogShellHtml({
+              origin: url.origin,
+              title: 'Tool Not Available — SingVaza',
+              description: 'This tool is temporarily unavailable.',
+              canonicalPath: '/tools',
+              bodyHtml: `<div class="card"><h1>Tool temporarily unavailable</h1><p>This tool is being checked. Please come back later.</p><p><a class="btn" href="/tools">← View All Tools</a></p></div>`,
+            }),
+            { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+          );
+        }
         if (!tool) {
           return new Response(
             renderBlogShellHtml({
@@ -679,7 +823,7 @@ export default {
         const slugPart = url.pathname.replace(/^\/blog\/?/, '').replace(/\/$/, '').trim();
         if (!slugPart) {
           const rows = env.DB
-            ? await env.DB.prepare('SELECT id, slug, title, category, cover_image, excerpt, author_name, created_at FROM blog_posts ORDER BY created_at DESC LIMIT 100').all()
+            ? await env.DB.prepare("SELECT id, slug, title, category, cover_image, excerpt, author_name, created_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 100").all()
             : { results: [] };
           const list = (rows.results || []) as any[];
           const bodyHtml = `
@@ -712,6 +856,19 @@ export default {
         const post: any = env.DB
           ? await env.DB.prepare('SELECT * FROM blog_posts WHERE slug = ?').bind(slugPart).first()
           : null;
+        // A hidden article is invisible to visitors but readable by the admin.
+        if (post && String(post.visibility || 'published') !== 'published' && !(await isValidBlogAdmin(request, env))) {
+          return new Response(
+            renderBlogShellHtml({
+              origin: url.origin,
+              title: 'Article Unavailable — SingVaza',
+              description: 'This article is temporarily unavailable.',
+              canonicalPath: '/blog',
+              bodyHtml: `<div class="card"><h1>Article temporarily unavailable</h1><p>This article is being checked and will be back shortly.</p><p><a class="btn" href="/blog">← View All Articles</a></p></div>`,
+            }),
+            { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+          );
+        }
         if (!post) {
           return new Response(
             renderBlogShellHtml({
@@ -1025,11 +1182,154 @@ export default {
         return json({ ok: true });
       }
 
+      // ==================== CONTENT HEALTH: CHECK / SAVE / PRIVACY / EXPORT ====================
+      // Every published tool, article and main-site page can be checked here before
+      // it goes live. Nothing is trusted from the client: the admin token is required
+      // and the verdict is recomputed on the server.
+      if (url.pathname === '/api/admin/content/check' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const body: any = await request.json().catch(() => ({}));
+        const kind = (['tool', 'blog', 'page'].includes(String(body.kind)) ? String(body.kind) : 'tool') as 'tool' | 'blog' | 'page';
+        const html = String(body.html || '');
+        if (!html.trim()) return json({ error: 'Nothing to check.' }, 400);
+        const report = await analyzeWithAssets(html, kind, env, url.origin);
+        return json({ report: { ...report, issues: mergeIssues(report.issues, []) } });
+      }
+
+      if (url.pathname === '/api/admin/content/visibility' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        const table = body.type === 'blog' ? 'blog_posts' : (body.type === 'page' ? 'site_pages' : 'html_tools');
+        const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
+        const id = String(body.id || '').trim();
+        if (!id) return json({ error: 'Missing id.' }, 400);
+        if (table === 'site_pages') {
+          await setSetting(env.DB, 'page_visibility:' + id, visibility);
+          return json({ ok: true, visibility });
+        }
+        await env.DB.prepare(`UPDATE ${table} SET visibility = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(visibility, id).run();
+        return json({ ok: true, visibility });
+      }
+
+      if (url.pathname === '/api/admin/content/raw' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const type = url.searchParams.get('type') || 'tool';
+        const id = url.searchParams.get('id') || '';
+        if (!env.DB || !id) return json({ error: 'Missing id.' }, 400);
+        let html = '';
+        let meta: any = null;
+        if (type === 'page') {
+          const sMap = await getSettingsMap(env.DB);
+          html = sMap['page_override:' + id] || '';
+          if (!html) html = await fetchAssetText(env, url.origin + id);
+          meta = { path: id, visibility: sMap['page_visibility:' + id] || 'published' };
+        } else {
+          const table = type === 'blog' ? 'blog_posts' : 'html_tools';
+          const column = type === 'blog' ? 'content' : 'html_code';
+          const row: any = await env.DB.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(id).first();
+          if (!row) return json({ error: 'Not found.' }, 404);
+          html = String(row[column] || '');
+          meta = { slug: row.slug, title: row.title, visibility: row.visibility || 'published' };
+        }
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': 'attachment; filename="singvaza-' + String(meta?.slug || 'content').replace(/[^a-z0-9-]/gi, '-') + '.html"', 'Cache-Control': 'no-store' },
+        });
+      }
+
+      if (url.pathname === '/api/admin/content/export' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const path = url.searchParams.get('path') || '/';
+        if (!EDITABLE_PAGES.some((p) => p.path === path)) return json({ error: 'Not an editable page.' }, 400);
+        const sMap = env.DB ? await getSettingsMap(env.DB) : {};
+        const override = sMap['page_override:' + path];
+        const html = override || await fetchAssetText(env, url.origin + (path === '/' ? '/index.html' : path + '.html'));
+        return new Response(html, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': `attachment; filename="singvaza-page-${path.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'home'}.html"`, 'Cache-Control': 'no-store' },
+        });
+      }
+
+      if (url.pathname === '/api/admin/pages' && request.method === 'GET') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const sMap = env.DB ? await getSettingsMap(env.DB) : {};
+        const pages = EDITABLE_PAGES.map((p) => {
+          const custom = sMap['page_override:' + p.path] || '';
+          return {
+            path: p.path,
+            label: p.label,
+            custom: Boolean(custom),
+            bytes: custom ? new TextEncoder().encode(custom).length : 0,
+            updated_at: sMap['page_override_at:' + p.path] || '',
+            visibility: sMap['page_visibility:' + p.path] || 'published',
+          };
+        });
+        return json({ pages });
+      }
+
+      if (url.pathname === '/api/admin/pages' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        const path = String(body.path || '');
+        if (!EDITABLE_PAGES.some((p) => p.path === path)) return json({ error: 'Not an editable page.' }, 400);
+
+        if (body.reset) {
+          await env.DB.prepare('DELETE FROM site_settings WHERE k IN (?, ?, ?)')
+            .bind('page_override:' + path, 'page_override_at:' + path, 'page_visibility:' + path).run();
+          return json({ ok: true, reset: true });
+        }
+
+        const html = String(body.html || '');
+        if (!html.trim()) return json({ error: 'Nothing to save.' }, 400);
+        const live = (await getSettingsMap(env.DB))['page_override:' + path] || await fetchAssetText(env, url.origin + (path === '/' ? '/index.html' : path + '.html'));
+        const report = await analyzeWithAssets(html, 'page', env, url.origin);
+        const diffIssues = compareVersions(live, html);
+        const issues = mergeIssues(report.issues, diffIssues);
+        const blocking = issues.filter((i) => i.level === 'error');
+        if (blocking.length && body.force !== true) {
+          return json({ error: 'The new page would break: ' + blocking[0].message, report: { ...report, issues } }, 422);
+        }
+        const at = new Date().toISOString();
+        await setSetting(env.DB, 'page_override:' + path, html);
+        await setSetting(env.DB, 'page_override_at:' + path, at);
+        return json({ ok: true, path, savedAt: at, report: { ...report, issues } });
+      }
+
+      if (url.pathname === '/api/admin/ai-review' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const body: any = await request.json().catch(() => ({}));
+        const kind = (['tool', 'blog', 'page'].includes(String(body.kind)) ? String(body.kind) : 'tool') as 'tool' | 'blog' | 'page';
+        const html = String(body.html || '');
+        if (!html.trim()) return json({ error: 'Nothing to review.' }, 400);
+        const report = await analyzeWithAssets(html, kind, env, url.origin);
+        const review = heuristicReview(report, html);
+        return json({ review, report });
+      }
+
       // HTML Web Tools CRUD API (/api/tools)
       if (url.pathname === '/api/tools' && request.method === 'GET') {
         await ensureSchema(env.DB);
         if (!env.DB) return json({ tools: [] });
-        const query = url.searchParams.get('summary') === '1' ? 'SELECT id, slug, title, category, icon, description, seo_tags, created_at FROM html_tools ORDER BY created_at DESC LIMIT 200' : 'SELECT * FROM html_tools ORDER BY created_at DESC LIMIT 200';
+        // The published list is public; only an admin token may read drafts (and
+        // the raw html_code, which is fetched per item by the admin panel).
+        if (url.searchParams.get('admin') === '1') {
+          if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+          const query = url.searchParams.get('summary') === '1'
+            ? 'SELECT id, slug, title, category, icon, description, seo_tags, visibility, created_at, updated_at FROM html_tools ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 200'
+            : 'SELECT * FROM html_tools ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 200';
+          const rows = await env.DB.prepare(query).all();
+          return json({ tools: rows.results || [] });
+        }
+        const query = url.searchParams.get('summary') === '1'
+          ? "SELECT id, slug, title, category, icon, description, seo_tags, created_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 200"
+          : "SELECT id, slug, title, category, icon, description, seo_tags, created_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 200";
         const rows = await env.DB.prepare(query).all();
         return json({ tools: rows.results || [] });
       }
@@ -1055,10 +1355,21 @@ export default {
         const icon = String(body.icon || '⚡').trim().slice(0, 8);
         const description = String(body.description || '').trim().slice(0, 260);
         const seoTags = String(body.seo_tags || '').trim().slice(0, 800);
+        const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
+
+        // ---- safety gate: the new file must be healthy, and an update must not
+        // quietly throw away the content that is already live.
+        const report = await analyzeWithAssets(htmlCode, 'tool', env, url.origin);
+        const existing: any = await env.DB.prepare('SELECT html_code, visibility FROM html_tools WHERE id = ?').bind(id).first();
+        const issues = mergeIssues(report.issues, existing ? compareVersions(String(existing.html_code || ''), htmlCode) : []);
+        const blocking = issues.filter((i) => i.level === 'error');
+        if (blocking.length && body.force !== true) {
+          return json({ error: blocking[0].message, report: { ...report, issues } }, 422);
+        }
 
         await env.DB.prepare(
-          `INSERT INTO html_tools (id, slug, title, category, icon, description, seo_tags, html_code, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `INSERT INTO html_tools (id, slug, title, category, icon, description, seo_tags, html_code, visibility, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON CONFLICT(id) DO UPDATE SET
              slug = excluded.slug,
              title = excluded.title,
@@ -1067,8 +1378,10 @@ export default {
              description = excluded.description,
              seo_tags = excluded.seo_tags,
              html_code = excluded.html_code,
+             visibility = excluded.visibility,
+             updated_by = excluded.updated_by,
              updated_at = CURRENT_TIMESTAMP`
-        ).bind(id, rawSlug, title, category, icon, description, seoTags, htmlCode).run();
+        ).bind(id, rawSlug, title, category, icon, description, seoTags, htmlCode, visibility, String(body.updated_by || 'admin').slice(0, 60)).run();
 
         fetch('https://api.indexnow.org/indexnow', {
           method: 'POST',
@@ -1081,7 +1394,7 @@ export default {
           }),
         }).catch(() => {});
 
-        return json({ ok: true, id, slug: rawSlug, url: `/tools/${rawSlug}` });
+        return json({ ok: true, id, slug: rawSlug, url: `/tools/${rawSlug}`, visibility, report: { ...report, issues } });
       }
 
       if (url.pathname.startsWith('/api/tools/') && request.method === 'DELETE') {
@@ -1096,7 +1409,17 @@ export default {
       if (url.pathname === '/api/blog' && request.method === 'GET') {
         await ensureSchema(env.DB);
         if (!env.DB) return json({ posts: [] });
-        const query = url.searchParams.get('summary') === '1' ? 'SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, created_at FROM blog_posts ORDER BY created_at DESC LIMIT 100' : 'SELECT * FROM blog_posts ORDER BY created_at DESC LIMIT 100';
+        if (url.searchParams.get('admin') === '1') {
+          if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+          const query = url.searchParams.get('summary') === '1'
+            ? 'SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, content_format, visibility, created_at, updated_at FROM blog_posts ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100'
+            : 'SELECT * FROM blog_posts ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100';
+          const rows = await env.DB.prepare(query).all();
+          return json({ posts: rows.results || [] });
+        }
+        const query = url.searchParams.get('summary') === '1'
+          ? "SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, content_format, created_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 100"
+          : "SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, content_format, created_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 100";
         const rows = await env.DB.prepare(query).all();
         return json({ posts: rows.results || [] });
       }
@@ -1132,10 +1455,21 @@ export default {
         const authorName = String(body.author_name || 'Editor').trim().slice(0, 80);
         const contentFormat = String(body.content_format || 'html').trim().slice(0, 20);
         const seoTags = String(body.seo_tags || '').trim().slice(0, 800);
+        const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
+
+        // Same safety gate as the tools: healthy file, and an update may not wipe
+        // the article that is already published.
+        const report = await analyzeWithAssets(content, 'blog', env, url.origin);
+        const existing: any = await env.DB.prepare('SELECT content, visibility FROM blog_posts WHERE id = ?').bind(id).first();
+        const issues = mergeIssues(report.issues, existing ? compareVersions(String(existing.content || ''), content) : []);
+        const blocking = issues.filter((i) => i.level === 'error');
+        if (blocking.length && body.force !== true) {
+          return json({ error: blocking[0].message, report: { ...report, issues } }, 422);
+        }
 
         await env.DB.prepare(
-          `INSERT INTO blog_posts (id, slug, title, category, cover_image, excerpt, seo_tags, content, content_format, author_name, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `INSERT INTO blog_posts (id, slug, title, category, cover_image, excerpt, seo_tags, content, content_format, author_name, visibility, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON CONFLICT(id) DO UPDATE SET
              slug = excluded.slug,
              title = excluded.title,
@@ -1146,8 +1480,10 @@ export default {
              content = excluded.content,
              content_format = excluded.content_format,
              author_name = excluded.author_name,
+             visibility = excluded.visibility,
+             updated_by = excluded.updated_by,
              updated_at = CURRENT_TIMESTAMP`
-        ).bind(id, rawSlug, title, category, coverImage, excerpt, seoTags, content, contentFormat, authorName).run();
+        ).bind(id, rawSlug, title, category, coverImage, excerpt, seoTags, content, contentFormat, authorName, visibility, String(body.updated_by || 'admin').slice(0, 60)).run();
 
         fetch('https://api.indexnow.org/indexnow', {
           method: 'POST',
@@ -1160,7 +1496,7 @@ export default {
           }),
         }).catch(() => {});
 
-        return json({ ok: true, id, slug: rawSlug, url: `/blog/${rawSlug}` });
+        return json({ ok: true, id, slug: rawSlug, url: `/blog/${rawSlug}`, visibility, report: { ...report, issues } });
       }
 
       if (url.pathname.startsWith('/api/blog/') && request.method === 'DELETE') {
@@ -1856,6 +2192,37 @@ export default {
           ).bind(crypto.randomUUID(), name, email, subject, message).run();
         }
         return json({ ok: true, received: true });
+      }
+
+      // Admin-saved page edit, if any: the static file is served, then replaced by
+      // the stored page so uploads/downloads/rollback work without a redeploy.
+      if (env.ASSETS && env.DB && /^\/(index\.html)?$|^\/(about|contact|privacy|terms|refunds)(\.html)?\/?$/.test(cleanPath)) {
+        const quickToken = String(request.headers.get('X-Admin-Token') || '').trim();
+        let isAdmin = false;
+        if (quickToken) {
+          isAdmin = await isValidBlogAdmin(new Request(url.toString(), { headers: { Authorization: 'Bearer ' + quickToken } }), env);
+          if (!isAdmin) return new Response('Unauthorized', { status: 401 });
+        }
+        const pagePath = cleanPath === '/' || cleanPath === '/index.html'
+          ? '/'
+          : '/' + cleanPath.replace(/^\//, '').replace(/\.html$/i, '').replace(/\/$/, '');
+        // Ask the static handler for exactly the requested path: asking for
+        // /index.html makes Pages answer with a 308 back to / and the worker would
+        // bounce the visitor in a redirect loop.
+        const assetReq = new Request(new URL(cleanPath, url).toString(), request);
+        let assetRes = await env.ASSETS.fetch(assetReq);
+        if (assetRes.status >= 300 && assetRes.status < 400) {
+          const location = assetRes.headers.get('Location');
+          if (!location) return assetRes;
+          assetRes = await env.ASSETS.fetch(new Request(new URL(location, url).toString(), request));
+        }
+        if (assetRes.ok && (assetRes.headers.get('Content-Type') || '').includes('text/html')) {
+          const html = await applyPageOverride(pagePath, await assetRes.text(), env, isAdmin);
+          const headers = new Headers(assetRes.headers);
+          headers.delete('Content-Length');
+          return new Response(request.method === 'HEAD' ? null : html, { status: assetRes.status, headers });
+        }
+        return assetRes;
       }
 
       if (env.ASSETS) return env.ASSETS.fetch(request);

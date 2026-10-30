@@ -29,6 +29,28 @@ export const onRequest: PagesFunction<any> = async (context) => {
     return worker.fetch(context.request, context.env);
   }
 
+  // Main-site page uploads (download / replace / private / restore) live in the
+  // Worker, which can rewrite the static asset. Delegate only when an upload or a
+  // private flag actually exists, so the default homepage keeps its own SEO
+  // injection below and nothing changes for sites that never use the feature.
+  if ((context.request.method === 'GET' || context.request.method === 'HEAD') && context.env?.DB) {
+    const pagePath = cleanPath === '/' || cleanPath === '/index.html'
+      ? '/'
+      : ['/about', '/about.html', '/contact', '/contact.html', '/privacy', '/privacy.html', '/terms', '/terms.html', '/refunds', '/refunds.html'].includes(cleanPath)
+        ? '/' + cleanPath.replace(/^\//, '').replace(/\.html$/i, '')
+        : '';
+    if (pagePath) {
+      try {
+        const keys = ['page_override:' + pagePath, 'page_visibility:' + pagePath];
+        const rows = await context.env.DB.prepare('SELECT k, v FROM site_settings WHERE k IN (?, ?)').bind(keys[0], keys[1]).all();
+        const found = ((rows.results || []) as any[]).filter((r) => keys.includes(String(r?.k)));
+        if (found.length) return await worker.fetch(context.request, context.env);
+      } catch (_) {
+        // No settings table yet, or the worker could not answer: use the static page.
+      }
+    }
+  }
+
   // Dynamic Homepage YouTube-Style Title, Description & Tags Injection from /admin Settings!
   if ((cleanPath === '/' || cleanPath === '/index.html') && context.request.method === 'GET' && context.env?.DB) {
     const res = await context.next();
