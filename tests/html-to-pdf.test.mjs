@@ -51,3 +51,12 @@ test('Office files are read in the browser, including the ZIP container', async 
   assert.ok(/ppt\\\/slides\\\/slide/.test(reader), 'pptx support');
   assert.ok(!/fetch\(|XMLHttpRequest|FormData/.test(reader), 'no upload path may exist');
 });
+
+test('on a phone the preview fits the whole sheet, not just its width', () => {
+  // the reported bug: at 390px the preview slot is tall and narrow, so fitting the
+  // width alone cut the bottom of the A4 page off in the preview
+  assert.match(page, /function fitZoom\(\)/, 'there is a fit function');
+  assert.match(page, /byHeight/, 'it measures the height too');
+  assert.match(page, /realW < 900/, 'the phone path is explicit');
+  assert.match(page, /#previewBox\{height:70vh/, 'the preview slot gets the height of a phone screen and a half');
+});
