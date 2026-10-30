@@ -1,8 +1,9 @@
 import { builtinPage, builtinResponse } from '../../src/builtin-pages';
 import { analyzeContent, compareVersions, mergeIssues } from '../../src/content-check';
-import { templateById, templateList } from '../../src/templates';
+import { templateById } from '../../src/templates';
 import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from '../../src/occasions';
 import { HOLIDAYS, activeHoliday, proWindow, decorPayload, upcoming, HOLIDAY_TAG, windowsAround } from '../../src/holidays';
+import { makeRecoveryCode, normalizeRecoveryCode, looksLikeRecoveryCode, isWeakAdminPassword, RECOVERY_COMMANDS, RECOVERY_NOTE } from '../../src/recovery';
 import { buildZip } from '../../src/zip';
 import { insertBeforeBodyClose } from '../../src/html-insert';
 import {
@@ -479,8 +480,13 @@ async function isValidBlogAdmin(request: Request, env: Env): Promise<boolean> {
     const tok = auth.slice(7).trim();
     if (tok) {
       try {
-        const row: any = await env.DB.prepare('SELECT token, expires_at FROM admin_sessions WHERE token = ?').bind(tok).first();
-        if (row && Number(row.expires_at || 0) > Date.now()) return true;
+        const row: any = await env.DB.prepare('SELECT token, username, expires_at FROM admin_sessions WHERE token = ?').bind(tok).first();
+        if (row && Number(row.expires_at || 0) > Date.now()) {
+          // A recovery session is short-lived and may only set a new password: the
+          // full panel stays closed until a real password is entered.
+          if (String(row.username || '').endsWith(':recovery')) return false;
+          return true;
+        }
       } catch (_) {}
     }
   }
@@ -1188,6 +1194,61 @@ export default {
         return json({ ok: true, token, username: expectedUser });
       }
 
+      // Forgot the password? The recovery code from the day it was set opens the panel
+      // instead, and the only thing it may do is set a new password and a new code.
+      if (url.pathname === '/api/admin/recover' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        const code = String(body.code || '');
+        if (!looksLikeRecoveryCode(code)) return json({ error: 'That code does not look right — it is 16 letters and numbers.' }, 400);
+        const s = await getSettingsMap(env.DB);
+        if (!s.admin_recovery_sha256) {
+          return json({ error: 'No recovery code was ever set for this site. Use the terminal steps below instead.' }, 400);
+        }
+        const given = await sha256Hex('recovery:' + normalizeRecoveryCode(code));
+        if (given !== s.admin_recovery_sha256) return json({ error: 'That recovery code is not correct.' }, 401);
+
+        const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
+        const expiresAt = Date.now() + 15 * 60 * 1000; // fifteen minutes, recovery only
+        await env.DB.prepare('INSERT INTO admin_sessions (token, username, expires_at) VALUES (?, ?, ?)')
+          .bind(token, (s.admin_username || 'admin') + ':recovery', expiresAt).run();
+        return json({ ok: true, token, recovery: true, expiresInMinutes: 15 });
+      }
+
+      if (url.pathname === '/api/admin/new-recovery-code' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const s = await getSettingsMap(env.DB);
+        if (!s.admin_pass_sha256) return json({ error: 'Set a password first.' }, 400);
+        const code = makeRecoveryCode();
+        await setSetting(env.DB, 'admin_recovery_sha256', await sha256Hex('recovery:' + normalizeRecoveryCode(code)));
+        return json({ ok: true, code }, 200, { 'Cache-Control': 'no-store' });
+      }
+
+      // The only thing a recovery session may do: set a new password (and get a new
+      // recovery code). It cannot read settings, write content or touch a user.
+      if (url.pathname === '/api/admin/recovery-set-password' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const bearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+        if (!bearer) return json({ error: 'Unauthorized' }, 401);
+        const row: any = await env.DB.prepare('SELECT token, username, expires_at FROM admin_sessions WHERE token = ?').bind(bearer).first();
+        if (!row || !String(row.username || '').endsWith(':recovery') || Number(row.expires_at || 0) <= Date.now()) {
+          return json({ error: 'That recovery session has ended — start again.' }, 401);
+        }
+        const body: any = await request.json().catch(() => ({}));
+        const password = String(body.password || '').trim();
+        const weak = isWeakAdminPassword(password);
+        if (weak.weak) return json({ error: weak.reason || 'Choose a stronger password.' }, 400);
+        await setSetting(env.DB, 'admin_pass_sha256', await sha256Hex('admin_pw:' + password));
+        const code = makeRecoveryCode();
+        await setSetting(env.DB, 'admin_recovery_sha256', await sha256Hex('recovery:' + normalizeRecoveryCode(code)));
+        // The used recovery code dies with the session, and so do any other sessions.
+        await env.DB.prepare('DELETE FROM admin_sessions').run();
+        return json({ ok: true, recoveryCode: code }, 200, { 'Cache-Control': 'no-store' });
+      }
+
       if (url.pathname === '/api/admin/logout' && request.method === 'POST') {
         await ensureSchema(env.DB);
         const auth = String(request.headers.get('Authorization') || '');
@@ -1350,16 +1411,34 @@ export default {
             ).bind(k, val).run();
           }
         }
+        let recoveryCode = '';
         if (body.new_password && String(body.new_password).trim().length >= 5) {
-          const pwHash = await sha256Hex('admin_pw:' + String(body.new_password).trim());
+          const newPassword = String(body.new_password).trim();
+          const weak = isWeakAdminPassword(newPassword);
+          if (weak.weak) return json({ error: weak.reason || 'Choose a stronger password.' }, 400);
+          const pwHash = await sha256Hex('admin_pw:' + newPassword);
           await env.DB.prepare(
             `INSERT INTO site_settings (k, v, updated_at) VALUES ('admin_pass_sha256', ?, CURRENT_TIMESTAMP)
              ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = CURRENT_TIMESTAMP`
           ).bind(pwHash).run();
+          // A new password always comes with a fresh recovery code, shown once.
+          recoveryCode = makeRecoveryCode();
+          await setSetting(env.DB, 'admin_recovery_sha256', await sha256Hex('recovery:' + normalizeRecoveryCode(recoveryCode)));
           const curBearer = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
           await env.DB.prepare('DELETE FROM admin_sessions WHERE token != ?').bind(curBearer).run();
         }
-        return json({ ok: true });
+        return json({ ok: true, recoveryCode: recoveryCode || undefined, notes: recoveryCode ? 'Write the recovery code down now. It is shown once and never again.' : undefined });
+      }
+
+      // The steps for a lost password AND a lost recovery code: shown in the panel and
+      // in ADMIN-RECOVERY.md, so the way out never depends on memory.
+      if (url.pathname === '/api/admin/recovery-info' && request.method === 'GET') {
+        return json({
+          hasRecoveryCode: Boolean((await getSettingsMap(env.DB)).admin_recovery_sha256),
+          commands: RECOVERY_COMMANDS,
+          note: RECOVERY_NOTE,
+          supportEmail: 'support@singvaza.lk',
+        }, 200, { 'Cache-Control': 'no-store' });
       }
 
       if (url.pathname === '/api/admin/diagnostics' && request.method === 'GET') {

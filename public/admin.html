@@ -366,6 +366,36 @@
         Sign In to Console
       </button>
 
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+        <button type="button" id="btnForgot" class="btn" style="width:100%;padding:9px;" onclick="AdminApp.toggleForgot()">
+          Forgot the password?
+        </button>
+
+        <div id="forgotBox" hidden style="margin-top:12px;">
+          <p style="font-size:12px;color:var(--muted);margin:0 0 10px;">
+            Use the <strong>recovery code</strong> you wrote down when you set the password (16 letters and numbers).
+            It opens a small page where you can set a new password — nothing else.
+          </p>
+          <input id="recoverCode" class="input" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"
+                 style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:9px;" />
+          <button type="button" class="btn btn-primary" style="width:100%;padding:9px;" onclick="AdminApp.submitRecovery()">Use recovery code</button>
+          <div id="recoverError" style="display:none;color:#f87171;font-size:12px;margin-top:9px;"></div>
+
+          <details style="margin-top:14px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--muted);">I lost the recovery code too</summary>
+            <div id="lostBoth" style="font-size:11.5px;color:var(--muted);line-height:1.7;margin-top:8px;"></div>
+          </details>
+        </div>
+      </div>
+
+      <div id="resetPanel" hidden style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+        <strong style="display:block;font-size:13px;margin-bottom:8px;">Set a new password</strong>
+        <input id="resetPass" type="password" class="input" placeholder="New password (10+ characters)" autocomplete="new-password" style="margin-bottom:9px;" />
+        <input id="resetPass2" type="password" class="input" placeholder="Repeat the new password" autocomplete="new-password" style="margin-bottom:9px;" />
+        <button type="button" class="btn btn-primary" style="width:100%;padding:9px;" onclick="AdminApp.finishRecovery()">Save and sign in</button>
+        <div id="resetError" style="display:none;color:#f87171;font-size:12px;margin-top:9px;"></div>
+      </div>
+
       <div style="margin-top:16px;text-align:center;font-size:12px;">
         <a href="/">← Back to Live Website</a>
       </div>
@@ -983,6 +1013,15 @@
                   <button type="button" class="btn" onclick="AdminApp.togglePwVisibility('setNewPassword')">Show</button>
                 </div>
               </div>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">
+              At least 10 characters. When you save, a <strong>recovery code</strong> is created at the same time —
+              it is the only way back in if the password is forgotten.
+            </div>
+            <div id="recoveryCodeBox" hidden style="margin-top:10px;border:1px solid rgba(52,211,153,.5);background:rgba(52,211,153,.1);border-radius:10px;padding:12px;">
+              <strong style="display:block;font-size:12.5px;color:#34d399;margin-bottom:6px;">Your new recovery code — write it down now</strong>
+              <div id="recoveryCodeValue" style="font:700 17px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:#f8fafc;word-break:break-all;"></div>
+              <div style="font-size:11.5px;color:var(--muted);margin-top:6px;">Shown once. Keep it somewhere that is not this phone.</div>
+            </div>
             </div>
           </div>
 
@@ -1426,6 +1465,85 @@
           btn.disabled = false;
           btn.textContent = 'Sign In to Console';
         }
+      }
+
+      // ---------- forgot password ----------
+      let recoveryToken = '';
+
+      function toggleForgot() {
+        const box = document.getElementById('forgotBox');
+        box.hidden = !box.hidden;
+        if (!box.hidden) loadLostBoth();
+      }
+
+      async function loadLostBoth() {
+        const box = document.getElementById('lostBoth');
+        if (box.dataset.loaded) return;
+        box.dataset.loaded = '1';
+        try {
+          const res = await fetch('/api/admin/recovery-info');
+          const data = await res.json();
+          box.innerHTML = (data.hasRecoveryCode
+            ? 'A recovery code exists for this site, so the box above works. '
+            : 'No recovery code was ever set. ') +
+            'If it is lost as well, the only way back is you (or whoever owns the Cloudflare account) running these in a terminal:' +
+            (data.commands || []).map((c) => `<code style="display:block;background:#080b12;border:1px solid var(--border);border-radius:6px;padding:6px 8px;margin:6px 0;font-size:11px;word-break:break-all;color:#e2e8f0;">${c.replace(/</g, '&lt;')}</code>`).join('') +
+            `<div style="margin-top:6px;">${data.note || ''}</div>`;
+        } catch (_) {
+          box.textContent = 'The recovery information could not be loaded.';
+        }
+      }
+
+      async function submitRecovery() {
+        const errBox = document.getElementById('recoverError');
+        errBox.style.display = 'none';
+        const code = document.getElementById('recoverCode').value.trim();
+        const { ok, data } = await api('/api/admin/recover', { method: 'POST', body: JSON.stringify({ code }) });
+        if (!ok || !data.token) {
+          errBox.textContent = data.error || 'That code is not correct.';
+          errBox.style.display = 'block';
+          return;
+        }
+        recoveryToken = data.token;
+        document.getElementById('forgotBox').hidden = true;
+        document.getElementById('resetPanel').hidden = false;
+        toast('Code accepted — set a new password now.');
+      }
+
+      async function finishRecovery() {
+        const errBox = document.getElementById('resetError');
+        errBox.style.display = 'none';
+        const pass = document.getElementById('resetPass').value;
+        const again = document.getElementById('resetPass2').value;
+        if (pass !== again) { errBox.textContent = 'The two passwords are not the same.'; errBox.style.display = 'block'; return; }
+        const res = await fetch('/api/admin/recovery-set-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + recoveryToken },
+          body: JSON.stringify({ password: pass }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { errBox.textContent = data.error || 'Could not set the password.'; errBox.style.display = 'block'; return; }
+        document.getElementById('resetPanel').hidden = true;
+        document.getElementById('resetPass').value = '';
+        document.getElementById('resetPass2').value = '';
+        document.getElementById('recoverCode').value = '';
+        recoveryToken = '';
+        showRecoveryCodeOnce(data.recoveryCode);
+        toast('Password changed — sign in with it.');
+        document.getElementById('loginPass').focus();
+      }
+
+      /** The recovery code is shown once, big and copyable. */
+      function showRecoveryCodeOnce(code) {
+        if (!code) return;
+        const box = document.getElementById('forgotBox');
+        box.hidden = false;
+        box.innerHTML = `<div id="newRecoveryBox" style="border:1px solid rgba(52,211,153,.5);background:rgba(52,211,153,.1);border-radius:10px;padding:12px;">
+          <strong style="display:block;font-size:12.5px;color:#34d399;margin-bottom:6px;">Save this recovery code now</strong>
+          <div id="newRecoveryValue" style="font:700 17px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:#f8fafc;margin-bottom:8px;">${code}</div>
+          <div style="font-size:11.5px;color:var(--muted);">It is shown once. Write it on paper or in your phone notes — this is what the
+          "Forgot the password?" button asks for. A new one is made every time you change the password.</div>
+        </div>`;
       }
 
       async function logout(silent = false) {
@@ -2866,7 +2984,13 @@
           return;
         }
         document.getElementById('setNewPassword').value = '';
-        toast('All business & security settings saved live!');
+        if (data.recoveryCode) {
+          document.getElementById('recoveryCodeBox').hidden = false;
+          document.getElementById('recoveryCodeValue').textContent = data.recoveryCode;
+          toast('Saved. Write down the recovery code on screen now.');
+        } else {
+          toast('All business & security settings saved live!');
+        }
       }
 
       document.getElementById('blogSlug').addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
@@ -2877,7 +3001,7 @@
       void token;
 
       return {
-        login, logout, togglePwVisibility, switchTab, loadOverview,
+        login, logout, toggleForgot, submitRecovery, finishRecovery, togglePwVisibility, switchTab, loadOverview,
         autoSlug, setEditorMode, handleBlogHtmlFile, resetBlogForm, editBlog, saveBlogPost, deleteBlog,
         handleToolHtmlFile, resetToolForm, editTool, saveTool, deleteTool,
         loadUsersAndInbox, renderUsersTable, toggleUserPro, deleteUser, deleteMessage,
