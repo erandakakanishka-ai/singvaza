@@ -145,6 +145,6 @@ test('the extra settings are one closed block until their + is pressed', async (
   // Settings is the last tab, so its section runs to the end of the page.
   const settings = admin.slice(admin.indexOf('id="tab-settings"'), admin.indexOf('</main>'));
   assert.match(settings, /accExtraTools/, 'the block lives inside Settings');
-  assert.match(settings, /Seasonal change/, 'together with the seasonal card');
+  assert.match(settings, /Manual greeting/, 'together with the manual greeting card');
   assert.ok(!admin.includes('data-tab="templates"'), 'no separate Templates tab');
 });

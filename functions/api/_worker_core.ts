@@ -2,6 +2,7 @@ import { builtinPage, builtinResponse } from '../../src/builtin-pages';
 import { analyzeContent, compareVersions, mergeIssues } from '../../src/content-check';
 import { templateById, templateList } from '../../src/templates';
 import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from '../../src/occasions';
+import { HOLIDAYS, activeHoliday, proWindow, decorPayload, upcoming, HOLIDAY_TAG, windowsAround } from '../../src/holidays';
 import { buildZip } from '../../src/zip';
 import {
   isDownloadableSiteFile, isPublishableTextFile, MAX_TEXT_FILE_BYTES, MAX_FILES_PER_UPLOAD,
@@ -245,7 +246,7 @@ function renderBlogShellHtml(opts: { origin: string; title: string; description:
       <div style="margin-top:8px;">© 2026 SingVaza</div>
     </footer>
   </div>
-</body>
+${HOLIDAY_TAG}</body>
 </html>`;
 }
 
@@ -389,12 +390,20 @@ async function applyPageOverride(path: string, html: string, env: Env, isAdmin =
     if (rawOccasion && /<body[^>]*>/i.test(page)) {
       try {
         const config = JSON.parse(rawOccasion);
-        const insideDates = isOccasionActive(config);
-        const preview = !insideDates && isOccasionPreview(config, previewRequested, isAdmin || previewRequested);
+        // The automatic holidays come first: on 25 December the Christmas greeting
+        // is the one people should see, not two bars stacked on top of each other.
+        const autoToday = activeHoliday(new Date().toISOString().slice(0, 10));
+        const insideDates = isOccasionActive(config) && !autoToday;
+        const preview = !insideDates && !autoToday && isOccasionPreview(config, previewRequested, isAdmin || previewRequested);
         if ((insideDates || preview) && occasionAppliesTo(config, path)) {
           page = injectOccasionBanner(page, config);
         }
       } catch (_) {}
+    }
+    // Seasonal decoration (see src/holidays.ts): a tiny deferred script, added to
+    // every page the worker serves too. Without a holiday it costs nothing.
+    if (/<\/body\s*>/i.test(page) && !page.includes('/holiday.js')) {
+      page = page.replace(/<\/body\s*>/i, HOLIDAY_TAG + '</body>');
     }
     return page;
   } catch (_) {
@@ -1050,6 +1059,79 @@ export default {
           notice_banner: s.notice_banner || '',
           tools_count: toolsCount,
         });
+      }
+
+      // ==================== HOLIDAYS: AUTOMATIC, DATE-BOUNDED DECORATION ====================
+      // The visitor's own date decides (the browser sends it), so Christmas starts
+      // in Auckland before it starts in Colombo — and ends there first too.
+      if (url.pathname === '/api/holidays/active' && request.method === 'GET') {
+        const requested = String(url.searchParams.get('date') || '').trim();
+        const today = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : new Date().toISOString().slice(0, 10);
+        const previewId = String(url.searchParams.get('preview') || '').trim();
+        if (previewId) {
+          // A preview is for the admin only: it shows a season even on an ordinary day.
+          const settings = await getSettingsMap(env.DB);
+          const until = Number(settings.holiday_preview_until || 0);
+          if (until > Date.now()) {
+            const window = windowsAround(today).find((w) => w.id === previewId && w.endDate >= today)
+              || windowsAround(today).find((w) => w.id === previewId);
+            if (window) return json(decorPayload(window, true), 200, { 'Cache-Control': 'no-store' });
+          }
+        }
+        return json(decorPayload(activeHoliday(today)), 200, { 'Cache-Control': 'no-store' });
+      }
+
+      // Signed-in visitors claim the season's free Pro week (Christmas week, New Year
+      // week). One claim per season per account, and it never shortens a longer pass.
+      if (url.pathname === '/api/holidays/claim-pro' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        const { user, authenticated } = await resolveUser(request, env);
+        if (!authenticated || !user || !env.DB) return json({ error: 'Please sign in first, then claim your free week.' }, 401);
+        // The server's date decides, so a crafted client date cannot open the gift
+        // early; the visitor's date only settles the timezone edge (a visitor whose
+        // Christmas has just started while UTC is still the 24th).
+        const body: any = await request.json().catch(() => ({}));
+        const clientDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.date || '')) ? String(body.date) : '';
+        const serverDate = new Date().toISOString().slice(0, 10);
+        const window = proWindow(serverDate) || (clientDate ? proWindow(clientDate) : null);
+        if (!window) return json({ error: 'There is no free Pro week running today.' }, 400);
+        const claimKey = `pro_claim:${user.id}:${window.id}`;
+        const already: any = await env.DB.prepare('SELECT v FROM site_settings WHERE k = ?').bind(claimKey).first();
+        if (already) {
+          const until = Number(already.v || 0);
+          return json({ ok: true, alreadyClaimed: true, days: window.proDays, proUntil: until });
+        }
+        const currentUntil = Number((user as any).pro_until || 0);
+        const base = Math.max(currentUntil, Date.now());
+        const proUntil = base + window.proDays * 24 * 60 * 60 * 1000;
+        await env.DB.prepare('UPDATE users SET pro_until = ?, plan = ? WHERE id = ?').bind(proUntil, 'pro_global', user.id).run();
+        await setSetting(env.DB, claimKey, String(proUntil));
+        return json({ ok: true, days: window.proDays, proUntil, label: window.proLabel || window.label });
+      }
+
+      // The admin may look at any season for a short while (a preview, not a change):
+      // it paints the decorations for everyone with the preview link and nobody else.
+      if (url.pathname === '/api/admin/holiday-preview' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        const body: any = await request.json().catch(() => ({}));
+        const id = String(body.id || '').trim();
+        if (!id) {
+          await setSetting(env.DB, 'holiday_preview_until', '0');
+          return json({ ok: true, preview: false });
+        }
+        if (!HOLIDAYS.some((h) => h.id === id)) return json({ error: 'Unknown holiday.' }, 404);
+        const until = Date.now() + 2 * 60 * 60 * 1000;
+        await setSetting(env.DB, 'holiday_preview_until', String(until));
+        await setSetting(env.DB, 'holiday_preview_id', id);
+        return json({ ok: true, preview: true, id, until, url: '/?holiday_preview=' + encodeURIComponent(id) });
+      }
+
+      // A reminder for the admin: is today a holiday? (shown in the panel)
+      if (url.pathname === '/api/holidays/today' && request.method === 'GET') {
+        const requested = String(url.searchParams.get('date') || '').trim();
+        const today = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : new Date().toISOString().slice(0, 10);
+        return json({ today, active: decorPayload(activeHoliday(today)), upcoming: upcoming(today, 6) }, 200, { 'Cache-Control': 'no-store' });
       }
 
       // ==================== EXECUTIVE ADMIN PANEL API (/api/admin/* & /api/tools) ====================

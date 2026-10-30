@@ -1,7 +1,7 @@
 {
- "generatedAt": "2026-10-30T05:23:26.059Z",
- "count": 52,
- "bytes": 51777710,
+ "generatedAt": "2026-10-30T06:04:45.058Z",
+ "count": 53,
+ "bytes": 51797170,
  "files": [
   "about.html",
   "admin.html",
@@ -26,6 +26,7 @@
   "google8dc68fc0e32ac33e.html",
   "guard.css",
   "guard.js",
+  "holiday.js",
   "index.html",
   "karaoke-worker.js",
   "llms.txt",

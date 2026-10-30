@@ -819,6 +819,26 @@
 
       <!-- ==================== TAB 5: BUSINESS, AUTH & SECURITY SETTINGS ==================== -->
       <section id="tab-settings" class="panel-tab">
+        <div class="card" id="holidaysCard">
+          <div class="card-title">
+            <span>Holidays — automatic, nothing to switch on</span>
+            <button class="btn btn-sm" type="button" onclick="AdminApp.loadHolidays()">Refresh ↻</button>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
+            On the days below the site decorates itself for the visitor's own date: a greeting bar at the top, falling snow at
+            Christmas, fireworks for the New Year. The layout and colours never change, and it all disappears when the days pass.
+            Christmas week and New Year week also give every signed-in member 7 days of Pro.
+          </p>
+          <div id="holidayNow" class="cm-hint" style="margin-bottom:12px;"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Day</th><th>Dates</th><th style="text-align:right;">Show me</th></tr></thead>
+              <tbody id="holidayList"><tr><td colspan="3" class="cm-muted">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div id="holidayPreviewNote" class="cm-muted" style="margin-top:10px;font-size:12.5px;"></div>
+        </div>
+
         <div class="card" id="siteArchiveCard">
           <div class="card-title">
             <span>Whole site — one file</span>
@@ -1064,15 +1084,15 @@
 
         <div class="card">
           <div class="card-title">
-            <span>Seasonal change — greeting bar for a few days</span>
+            <span>Manual greeting — for days no holiday covers</span>
             <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;">
               <input type="checkbox" id="occEnabled" /> <strong>On</strong>
             </label>
           </div>
           <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
-            This is the safe way to mark a holiday: a slim greeting bar is added to the pages you choose, only between the two dates,
-            and it is removed by itself afterwards. Your design, text and files are never overwritten, and switching it off restores
-            the site exactly as it was. Visitors see the same layout, colours and navigation — nothing feels broken or unfamiliar.
+            Christmas, New Year, Vesak and the other famous days already decorate themselves (the Holidays card above), so this is
+            only for the days they do not cover. A slim bar is added to the pages you choose, only between the two dates, and it removes
+            itself afterwards. It never restyles the site, and on an automatic holiday day it steps aside so visitors never see two bars.
           </p>
 
           <div class="field">
@@ -1443,7 +1463,7 @@
         if (tab === 'blog') loadBlogPosts();
         if (tab === 'tools') loadTools();
         if (tab === 'users') loadUsersAndInbox();
-        if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); loadTemplates(); loadOccasion(); }
+        if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); loadTemplates(); loadOccasion(); loadHolidays(); }
 
         if (tab === 'blog-new' || tab === 'tools-new') window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -2285,6 +2305,37 @@
         loadPages();
       }
 
+      // ==================== HOLIDAYS (automatic) ====================
+      async function loadHolidays() {
+        const now = document.getElementById('holidayNow');
+        const list = document.getElementById('holidayList');
+        if (!now || !list) return;
+        const { ok, data } = await api('/api/holidays/today');
+        if (!ok) { list.innerHTML = '<tr><td colspan="3" class="cm-muted">Could not read the calendar.</td></tr>'; return; }
+        now.innerHTML = data.active && data.active.active
+          ? `Today is <strong>${esc(data.active.label)}</strong> — the decorations are live right now.`
+          : 'No holiday today — the site is exactly as designed.';
+        list.innerHTML = (data.upcoming || []).map((h) => `
+          <tr>
+            <td data-label="Day"><strong>${esc(h.emoji)} ${esc(h.label)}</strong>${h.proDays ? `<div style="font-size:11.5px;color:#34d399;">+ ${h.proDays} days Pro for members</div>` : ''}</td>
+            <td data-label="Dates" style="font-size:12px;">${esc(h.startDate)} → ${esc(h.endDate)}</td>
+            <td style="text-align:right;white-space:nowrap;">
+              <button class="btn btn-sm" onclick="AdminApp.previewHoliday('${esc(h.id)}')">Show me</button>
+            </td>
+          </tr>`).join('') || '<tr><td colspan="3" class="cm-muted">Nothing in the next months.</td></tr>';
+      }
+
+      /** Look at a season now, without waiting for the date and without changing
+       *  anything for visitors: the preview link is personal to this admin. */
+      async function previewHoliday(id) {
+        const { ok, data } = await api('/api/admin/holiday-preview', { method: 'POST', body: JSON.stringify({ id }) });
+        if (!ok) { toast(data.error || 'Could not start the preview.'); return; }
+        const note = document.getElementById('holidayPreviewNote');
+        if (note) note.textContent = 'Preview open for 2 hours: ' + data.url + ' — visitors see nothing different.';
+        window.open(data.url, '_blank', 'noopener');
+        toast('Preview opened in a new tab.');
+      }
+
       // ==================== WHOLE SITE: ONE DOWNLOAD, ONE UPLOAD ====================
       let siteZipStaged = false;
 
@@ -2805,7 +2856,7 @@
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
         toggleAcc,
-        toggleAcc, downloadBuiltin, updateBuiltin,
+        toggleAcc, downloadBuiltin, updateBuiltin, loadHolidays, previewHoliday,
         downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,
         loadTemplates, loadTemplateUploads, downloadTemplate, copyTemplate, uploadTemplate, deleteTemplate, editTemplate,
         saveTemplateAsPage, loadOccasion, applyOccasionPreset, saveOccasion, stopOccasion, previewOccasion,

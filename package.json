@@ -9,7 +9,7 @@
     "db:local": "wrangler d1 execute karomix-db --local --file=./schema.sql",
     "db:remote": "wrangler d1 execute karomix-db --remote --file=./schema.sql",
     "manifest": "node scripts/make-manifest.mjs",
-    "test": "node scripts/make-manifest.mjs && node --test tests/content-safety.test.mjs tests/security.test.mjs tests/seo.test.mjs tests/karaoke-dsp.test.mjs tests/model-route.test.mjs tests/builtin-pages.test.mjs tests/html-to-pdf.test.mjs tests/office-reader.test.mjs tests/office-writer.test.mjs tests/tools-home.test.mjs tests/occasions.test.mjs tests/site-archive.test.mjs tests/templates.test.mjs",
+    "test": "node scripts/make-manifest.mjs && node --test tests/content-safety.test.mjs tests/security.test.mjs tests/seo.test.mjs tests/karaoke-dsp.test.mjs tests/model-route.test.mjs tests/builtin-pages.test.mjs tests/html-to-pdf.test.mjs tests/office-reader.test.mjs tests/office-writer.test.mjs tests/tools-home.test.mjs tests/occasions.test.mjs tests/site-archive.test.mjs tests/templates.test.mjs tests/holidays.test.mjs",
     "test:e2e": "node --test tests/browser.test.mjs tests/vocal-remover.test.mjs tests/redesign.test.mjs",
     "test:integration": "node --test tests/quota-cms.integration.mjs"
   },

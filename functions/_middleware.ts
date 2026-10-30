@@ -1,6 +1,8 @@
 import { builtinPage, builtinResponse } from '../src/builtin-pages';
 import worker from './api/_worker_core';
 
+const request_HEAD = (request: Request) => request.method === 'HEAD';
+
 export const onRequest: PagesFunction<any> = async (context) => {
   const url = new URL(context.request.url);
   let cleanPath = url.pathname;
@@ -77,6 +79,29 @@ export const onRequest: PagesFunction<any> = async (context) => {
     }
   }
 
+  // Seasonal decoration: a tiny script on every page. It asks the server whether
+  // today is a holiday USING THE VISITOR'S DATE, so "Happy Christmas" appears when
+  // it is Christmas where the visitor is. It adds a greeting bar and snow on top of
+  // the page and never touches the layout; with no holiday it does nothing at all.
+  const isHomePath = cleanPath === '/' || cleanPath === '/index.html';
+  if ((context.request.method === 'GET' || context.request.method === 'HEAD') && !isHomePath && !cleanPath.startsWith('/api/') && !cleanPath.startsWith('/model/')) {
+    const res = await context.next();
+    const type = res.headers.get('Content-Type') || '';
+    if (!res.ok || !type.includes('text/html') || cleanPath === '/admin' || cleanPath.startsWith('/admin')) return res;
+    try {
+      let html = await res.text();
+      if (!html.includes('/holiday.js') && /<\/body>/i.test(html)) {
+        html = html.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>');
+      }
+      const headers = new Headers(res.headers);
+      headers.delete('Content-Length');
+      headers.delete('ETag');
+      return new Response(request_HEAD(context.request) ? null : html, { status: res.status, headers });
+    } catch (_) {
+      return res;
+    }
+  }
+
   // Dynamic Homepage YouTube-Style Title, Description & Tags Injection from /admin Settings!
   if ((cleanPath === '/' || cleanPath === '/index.html') && context.request.method === 'GET' && context.env?.DB) {
     const res = await context.next();
@@ -100,9 +125,26 @@ export const onRequest: PagesFunction<any> = async (context) => {
         if (map.seo_home_tags) {
           html = html.replace(/<meta name="keywords" content="[^"]*"\s*\/?>/i, `<meta name="keywords" content="${esc(map.seo_home_tags)}" />`);
         }
-        return new Response(html, { status: res.status, headers: res.headers });
+        if (!html.includes('/holiday.js') && /<\/body>/i.test(html)) {
+          html = html.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>');
+        }
+        const outHeaders = new Headers(res.headers);
+        outHeaders.delete('Content-Length');
+        outHeaders.delete('ETag');
+        return new Response(html, { status: res.status, headers: outHeaders });
       }
     } catch (_) {}
+    if (context.request.method === 'GET') {
+      // No SEO overrides: still add the seasonal tag once.
+      try {
+        const page = await res.clone().text();
+        if (page.includes('/holiday.js') || !/<\/body>/i.test(page)) return res;
+        const headers = new Headers(res.headers);
+        headers.delete('Content-Length');
+        headers.delete('ETag');
+        return new Response(page.replace(/<\/body>/i, '<script src="/holiday.js?v=1" defer></script></body>'), { status: res.status, headers });
+      } catch (_) {}
+    }
     return res;
   }
 
