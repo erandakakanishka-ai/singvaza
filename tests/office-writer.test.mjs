@@ -60,7 +60,10 @@ test('the HTML to PDF page exposes the Office downloads', async () => {
     assert.ok(page.includes('id="' + id + '"'), 'missing button ' + id);
   }
   assert.ok(page.includes('/office-writer.js'), 'the writer is loaded');
-  assert.ok(page.includes('width=1180'), 'phones get the full desktop canvas, like onlineviewer.net');
+  // the old fixed 1180px canvas shrank the whole tool on a phone and cut the
+  // buttons in half; a phone now gets its own one-part-at-a-time layout
+  assert.ok(page.includes('name="viewport" content="width=device-width'), 'the phone decides the scale');
+  assert.ok(!page.includes('width=1180'), 'no forced desktop canvas on a phone');
   for (const id of ['railEditor', 'railPreview', 'railTools', 'dragEditor', 'dragTools']) {
     assert.ok(page.includes('id="' + id + '"'), 'missing drag/rail control ' + id);
   }
@@ -72,6 +75,6 @@ test('the HTML to PDF page exposes the Office downloads', async () => {
     assert.ok(page.includes('id="' + id + '"'), 'one-tap panel toggle ' + id);
   }
   assert.ok(page.includes('/tour.js'), 'the shared guided tour is loaded');
-  assert.ok(/\.app\{display:flex!important;width:1180px/.test(page), 'the canvas stays a fixed desktop width, so no panel can lock the page');
+  assert.ok(/@media \(max-width:820px\)/.test(page) && /flex-wrap:wrap/.test(page), 'on a phone the parts stack and the page scrolls, so nothing is locked out of reach');
 
 });

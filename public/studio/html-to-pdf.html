@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1180" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>HTML / Code to PDF — live editor and preview, A4 / A5 / Letter | SingVaza</title>
 <meta name="description" content="Turn HTML, Markdown or source code into a clean PDF in your browser. Pick A4, A5, Letter, Legal or A3, portrait or landscape, printable margins or a plain PDF, page numbers and syntax colours. Nothing is uploaded." />
 <meta name="color-scheme" content="dark" />
@@ -124,6 +124,21 @@ textarea#src{flex:1;min-width:0;height:100%;min-height:150px;resize:none;border:
 details.more{margin:2px 0 8px}details.more>summary{cursor:pointer;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--cyan);font-weight:800;margin:6px 0}
 .warn{display:none;margin-top:6px;font-size:11px;color:#fcd34d;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:6px 8px}
 .footnote{margin-top:22px;font-size:11.5px;color:#5b6b86;line-height:1.6}
+
+/* ---- phones: one part at a time instead of a shrunken desktop ---- */
+@media (max-width:820px){
+  html,body{height:auto;overflow:visible}
+  .app{display:flex!important;flex-wrap:wrap;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;min-height:0}
+  .app>.pane{flex:1 1 100%!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;max-height:70vh;overflow:auto!important}
+  .app>.pane-tools{max-height:none;overflow:visible!important}
+  .pane .pane-body{display:block;height:auto;min-height:0}
+  .pane-editor .editorwrap{min-height:320px;height:60vh}
+  .pane-preview #previewBox{max-height:60vh;overflow:auto}
+  .drag,.rail-vertical,.drag-grip{display:none!important}
+  .pane.collapsed{max-width:none!important;min-width:0!important}
+  .tabbar-right{display:none}
+  .previewbar{position:sticky;top:0;z-index:4}
+}
 </style>
 </head>
 <body>
