@@ -74,3 +74,17 @@ test('page layout can see paragraphs inside a wrapper', () => {
   assert.match(engineSrc, /flattenBlocks\(clone\)/, 'it runs before the page plan is made');
   assert.match(engineSrc, /while \(el\.firstChild\) parent\.insertBefore\(el\.firstChild, el\)/, 'wrappers are replaced by their children');
 });
+
+test("a pasted page's CSS never reaches the tool, so the tool cannot go dark", () => {
+  // the reported bug: importing a file recoloured the editor — the file's own
+  // :root/body rules replaced the tool palette (--ink), so labels printed in near
+  // black on a near-black panel
+  const paste = '<style>:root{--ink:#1d2730}body{background:#e6eaed}</style><p>Hello</p>';
+  const clean = E.sanitizeHtml(paste);
+  assert.ok(!/<style/i.test(clean), 'the style block is dropped');
+  assert.ok(!/--ink/.test(clean), 'its colours cannot leak');
+  assert.match(clean, /Hello/, 'the content stays');
+  assert.ok(!/<link/i.test(E.sanitizeHtml('<link rel="stylesheet" href="x.css"><p>ok</p>')), 'no external stylesheet either');
+  // the tool's own colours are still applied to the printed page
+  assert.match(E.bodyCss({ fontFamily: () => ({ value: 'sans' }), fontSize: () => ({ value: '11' }), lineHeight: () => ({ value: '1.55' }), margin: () => ({ value: '18' }), mode: () => 'pdf' }, false), /color:#111/);
+});

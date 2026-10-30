@@ -331,7 +331,11 @@
     return root;
   }
   function sanitizeHtml(html) {
-    return html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+    // A pasted page's <style> must never reach the live preview: its `:root` and
+    // `body` rules hijack this tool's own palette (--ink, --line, the page
+    // background), which turns the buttons and labels dark-on-dark.
+    return html.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<link[^>]*>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
       .replace(/<object[\s\S]*?<\/object>/gi, '').replace(/<embed[^>]*>/gi, '')
       .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '').replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
       .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '').replace(/javascript:/gi, '');
