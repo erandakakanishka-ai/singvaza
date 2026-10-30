@@ -2,6 +2,11 @@ import { builtinPage, builtinResponse } from './builtin-pages';
 import { analyzeContent, compareVersions, mergeIssues } from './content-check';
 import { templateById, templateList } from './templates';
 import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from './occasions';
+import { buildZip } from './zip';
+import {
+  isDownloadableSiteFile, isPublishableTextFile, MAX_TEXT_FILE_BYTES, MAX_FILES_PER_UPLOAD,
+  liveKey, undoKey, stageKey, normalizeSitePath, pagePathForFile, summarizeChanges, contentTypeFor,
+} from './site-archive';
 import { handleSecurityRoute, requiresEntrySession, requireEntrySession, requireAuthChallenge, type SecurityEnv } from './security';
 
 export interface Env extends SecurityEnv {
@@ -476,6 +481,28 @@ async function isValidBlogAdmin(request: Request, env: Env): Promise<boolean> {
   if (env.BLOG_ADMIN_CODE && code === env.BLOG_ADMIN_CODE) return true;
   const hashed = await sha256Hex('admin:' + code);
   return hashed === DEFAULT_ADMIN_SHA256;
+}
+
+/** Forgets the short-lived cache the middleware keeps of replaced files, so a
+ *  publish or an undo is visible on the next request. */
+async function bustOverridesCache(url: URL): Promise<void> {
+  try {
+    const cache = (globalThis as any).caches?.default;
+    if (cache) await cache.delete(new Request(new URL('/__sv_live_overrides', url).toString()));
+  } catch (_) {}
+}
+
+/** Every static file of the site, as written by scripts/make-manifest.mjs.
+ *  Read from the assets themselves so the list can never drift from what ships. */
+async function readManifest(env: Env): Promise<string[]> {
+  try {
+    const res = await env.ASSETS?.fetch(new Request('https://singvaza.pages.dev/site-manifest.json'));
+    if (!res || !res.ok) return [];
+    const data: any = await res.json();
+    return Array.isArray(data.files) ? data.files.map((f: any) => String(f)) : [];
+  } catch (_) {
+    return [];
+  }
 }
 
 /** Short-lived signature for an occasion preview link: HMAC over the expiry. */
@@ -1268,6 +1295,154 @@ export default {
         result.ok = problems.length === 0;
         result.problems = problems;
         return json(result, 200, { 'Cache-Control': 'no-store' });
+      }
+
+      // ==================== THE WHOLE STATIC SITE, IN ONE FILE ====================
+      // One click: list every static file, fetch each one, pack one .zip in the
+      // browser. The updated copy comes back as a .zip, is compared file by file,
+      // and only what changed is published — with a one-click undo.
+      if (url.pathname === '/api/admin/site-archive' && request.method === 'GET') {
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.ASSETS) return json({ error: 'The static files are not available here.' }, 500);
+        const wanted = url.searchParams.get('path');
+        if (wanted) {
+          const clean = wanted.replace(/^\/+/, '');
+          if (!isDownloadableSiteFile(clean)) return json({ error: 'That file is not part of the download.' }, 403);
+          const res = await env.ASSETS.fetch(new Request(new URL('/' + clean, url).toString()));
+          if (!res.ok) return json({ error: 'File not found.' }, 404);
+          return new Response(res.body, {
+            headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/octet-stream', 'Cache-Control': 'no-store' },
+          });
+        }
+        const list = await readManifest(env);
+        return json({ files: list.filter(isDownloadableSiteFile), count: list.filter(isDownloadableSiteFile).length }, 200, { 'Cache-Control': 'no-store' });
+      }
+
+      if (url.pathname === '/api/admin/site-archive' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const search = url.searchParams;
+        const action = search.get('action') || 'stage';
+
+        if (action === 'undo') {
+          const changed: any[] = JSON.parse((await getSettingsMap(env.DB)).live_last_change || '[]');
+          let restored = 0;
+          let removed = 0;
+          for (const item of changed) {
+            const path = String(item.path || '');
+            if (!path) continue;
+            const pagePath = pagePathForFile(path);
+            const prev = (await getSettingsMap(env.DB))[undoKey(path)];
+            if (prev === '' || (prev === undefined && !pagePath)) {
+              await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind(pagePath ? 'page_override:' + pagePath : liveKey(path)).run();
+              removed += 1;
+            } else if (prev !== undefined) {
+              await setSetting(env.DB, pagePath ? 'page_override:' + pagePath : liveKey(path), prev);
+              restored += 1;
+            }
+            await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind(undoKey(path)).run();
+          }
+          const beforeUndo: string[] = JSON.parse((await getSettingsMap(env.DB)).live_overrides_list || '[]');
+          const stillLive: string[] = [];
+          for (const path of beforeUndo) {
+            const row: any = await env.DB.prepare('SELECT k FROM site_settings WHERE k = ?').bind(liveKey(path)).first();
+            if (row) stillLive.push(path);
+          }
+          await setSetting(env.DB, 'live_overrides_list', JSON.stringify(stillLive));
+          await bustOverridesCache(url);
+          await setSetting(env.DB, 'live_last_change', '[]');
+          return json({ ok: true, restored, removed });
+        }
+
+        const body: any = await request.json().catch(() => ({}));
+        const files: { path: string; content: string }[] = Array.isArray(body.files) ? body.files : [];
+
+        if (action === 'stage') {
+          if (!files.length) return json({ error: 'The zip did not contain any readable text file.' }, 400);
+          if (files.length > MAX_FILES_PER_UPLOAD) return json({ error: `Too many files at once (${files.length}). Send up to ${MAX_FILES_PER_UPLOAD}.` }, 400);
+          const current = await getSettingsMap(env.DB);
+          const currentText: Record<string, string> = {};
+          const staging: { path: string; content: string }[] = [];
+          const rejected: { path: string; reason: string }[] = [];
+          for (const file of files) {
+            const path = normalizeSitePath(String(file.path || ''));
+            const content = String(file.content ?? '');
+            if (!path) { rejected.push({ path: String(file.path || ''), reason: 'No file name.' }); continue; }
+            if (!isPublishableTextFile(path)) { rejected.push({ path, reason: 'Only text files can be published from a zip (images and audio stay as they are).' }); continue; }
+            if (new TextEncoder().encode(content).length > MAX_TEXT_FILE_BYTES) { rejected.push({ path, reason: 'This file is too big (over 512 KB).' }); continue; }
+            if (path.toLowerCase() === 'admin.html') { rejected.push({ path, reason: 'The admin panel is never replaced from a zip.' }); continue; }
+            const pagePath = pagePathForFile(path);
+            if (pagePath) {
+              const report = await analyzeWithAssets(content, 'page', env, url.origin);
+              const blocking = report.issues.filter((i) => i.level === 'error');
+              if (blocking.length) { rejected.push({ path, reason: blocking[0].message }); continue; }
+            }
+            if (current[liveKey(path)] !== undefined) currentText[path] = current[liveKey(path)];
+            staging.push({ path, content });
+          }
+          // Compare with what is live right now (stored copy first, then the file).
+          for (const file of staging) {
+            if (currentText[file.path] !== undefined) continue;
+            const pagePath = pagePathForFile(file.path);
+            const stored = current[pagePath ? 'page_override:' + pagePath : liveKey(file.path)];
+            if (stored !== undefined) {
+              currentText[file.path] = stored;
+            } else {
+              const asset = await env.ASSETS?.fetch(new Request(new URL('/' + file.path, url).toString()));
+              currentText[file.path] = asset && asset.ok ? await asset.text() : '';
+            }
+            await setSetting(env.DB, stageKey(file.path), currentText[file.path]);
+          }
+          // Keep the comparison base for the publish step.
+          await setSetting(env.DB, 'zip_stage_items', JSON.stringify(staging.map((f) => f.path)));
+          const summary = summarizeChanges(staging, currentText);
+          const changed = summary.filter((f) => f.status !== 'same');
+          if (changed.length) await setSetting(env.DB, 'zip_stage_contents', JSON.stringify(staging));
+          return json({
+            ok: true,
+            summary,
+            changed: changed.length,
+            same: summary.length - changed.length,
+            rejected,
+            note: 'Nothing has been published yet. Review the list, then press Publish.',
+          });
+        }
+
+        if (action === 'publish') {
+          const staged: { path: string; content: string }[] = JSON.parse((await getSettingsMap(env.DB)).zip_stage_contents || '[]');
+          if (!staged.length) return json({ error: 'There is nothing staged to publish.' }, 400);
+          const previous = await getSettingsMap(env.DB);
+          const changedList: any[] = [];
+          for (const file of staged) {
+            const before = previous[stageKey(file.path)];
+            if (before === file.content) continue;
+            const pagePath = pagePathForFile(file.path);
+            if (pagePath) {
+              // '' means "there was nothing here before", so undo deletes it again.
+              const hadPage = previous['page_override:' + pagePath];
+              await setSetting(env.DB, undoKey(file.path), hadPage ?? '');
+              await setSetting(env.DB, 'page_override:' + pagePath, file.content);
+            } else {
+              await setSetting(env.DB, undoKey(file.path), before ?? '');
+              await setSetting(env.DB, liveKey(file.path), file.content);
+            }
+            changedList.push({ path: file.path, bytes: new TextEncoder().encode(file.content).length });
+            await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind(stageKey(file.path)).run();
+          }
+          await setSetting(env.DB, 'live_last_change', JSON.stringify(changedList));
+          {
+            const prevList: string[] = JSON.parse(previous.live_overrides_list || '[]');
+            const next = Array.from(new Set([...prevList, ...changedList.map((f: any) => f.path)]));
+            await setSetting(env.DB, 'live_overrides_list', JSON.stringify(next));
+            await bustOverridesCache(url);
+          }
+          await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind('zip_stage_contents').run();
+          await env.DB.prepare('DELETE FROM site_settings WHERE k = ?').bind('zip_stage_items').run();
+          return json({ ok: true, published: changedList.length, files: changedList, undoHint: 'Undo is available until the next upload.' });
+        }
+
+        return json({ error: 'Unknown action.' }, 400);
       }
 
       // ==================== STATIC HTML TEMPLATES (download / upload) ====================
@@ -2459,6 +2634,23 @@ export default {
           return new Response(request.method === 'HEAD' ? null : html, { status: assetRes.status, headers });
         }
         return assetRes;
+      }
+
+      // A file published from an uploaded zip (or an updated copy of one) is served
+      // here instead of the built-in asset. Only an exact stored row can match, so
+      // nothing else changes.
+      if (env.DB && (request.method === 'GET' || request.method === 'HEAD')) {
+        const relPath = cleanPath.replace(/^\/+/, '');
+        if (relPath && !relPath.includes('..') && !relPath.startsWith('api/')) {
+          try {
+            const row: any = await env.DB.prepare('SELECT v FROM site_settings WHERE k = ?').bind('live_override:' + relPath).first();
+            if (row && typeof row.v === 'string') {
+              return new Response(request.method === 'HEAD' ? null : row.v, {
+                headers: { 'Content-Type': contentTypeFor(relPath), 'Cache-Control': 'no-cache' },
+              });
+            }
+          } catch (_) {}
+        }
       }
 
       if (env.ASSETS) return env.ASSETS.fetch(request);

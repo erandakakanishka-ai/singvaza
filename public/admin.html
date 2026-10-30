@@ -422,13 +422,6 @@
             </span>
           </button>
 
-          <button class="nav-btn" data-tab="templates" onclick="AdminApp.switchTab('templates')">
-            <span class="nav-btn-left">
-              <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-              <span>Templates &amp; Occasions</span>
-            </span>
-          </button>
-
           <button class="nav-btn" data-tab="users" onclick="AdminApp.switchTab('users')">
             <span class="nav-btn-left">
               <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -469,7 +462,6 @@
       <button class="btn btn-sm nav-mob" data-tab="tools" onclick="AdminApp.switchTab('tools')">Web Tools</button>
       <button class="btn btn-sm nav-mob" data-tab="blog-new" onclick="AdminApp.newBlog()">＋ Article</button>
       <button class="btn btn-sm nav-mob" data-tab="tools-new" onclick="AdminApp.newTool()">＋ Tool</button>
-      <button class="btn btn-sm nav-mob" data-tab="templates" onclick="AdminApp.switchTab('templates')">Templates</button>
       <button class="btn btn-sm nav-mob" data-tab="users" onclick="AdminApp.switchTab('users')">Users & Inbox</button>
       <button class="btn btn-sm nav-mob" data-tab="settings" onclick="AdminApp.switchTab('settings')">Settings</button>
     </div>
@@ -816,6 +808,36 @@
 
       <!-- ==================== TAB 5: BUSINESS, AUTH & SECURITY SETTINGS ==================== -->
       <section id="tab-settings" class="panel-tab">
+        <div class="card" id="siteArchiveCard">
+          <div class="card-title">
+            <span>Whole site — one file</span>
+            <button class="btn btn-primary btn-sm" type="button" onclick="AdminApp.downloadWholeSite()">⬇ Download the whole site</button>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 6px;">
+            One click. You get a single <code>.zip</code> with every static file — all pages, styles, scripts, images and the studio tools.
+            Give that one file to the AI and ask for the changes. Nothing is uploaded to make the download.
+          </p>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px;">
+            <strong>Tools and articles are not inside it.</strong> They live in the database, not in files, so they are changed in the
+            <em>Web Tools</em> and <em>HTML Blog</em> tabs — one file at a time. Everything else is in the zip.
+          </p>
+          <div class="cm-hint" id="siteDownloadState" style="margin-bottom:12px;"></div>
+
+          <div class="card-title" style="margin-top:16px;"><span>Bring the updated zip back</span></div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">
+            Upload the zip the AI gave you. I read it, compare every file with what is live now, and show you the list.
+            <strong>Nothing goes live until you press Publish</strong>, and Undo is there if it looks wrong.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label class="btn btn-sm" style="cursor:pointer;">Upload updated .zip
+              <input type="file" id="siteZipInput" accept=".zip,application/zip" hidden onchange="AdminApp.uploadSiteZip(event)" />
+            </label>
+            <button class="btn btn-sm" type="button" onclick="AdminApp.publishSiteZip()" id="siteZipPublishBtn" hidden>Publish these changes</button>
+            <button class="btn btn-sm btn-danger" type="button" onclick="AdminApp.undoSiteZip()" id="siteZipUndoBtn" hidden>Undo last publish</button>
+          </div>
+          <div id="siteZipResult" class="cm-muted" style="margin-top:10px;font-size:12.5px;"></div>
+        </div>
+
         <div class="page-head">
           <div>
             <h1>Business Info, Integrations & Security</h1>
@@ -990,18 +1012,11 @@
         </div>
       </section>
 
-      <!-- ==================== TAB 6: TEMPLATES & SEASONAL CHANGES ==================== -->
-      <section id="tab-templates" class="panel-tab">
-        <div class="page-head">
-          <div>
-            <h1>Templates &amp; Seasonal Changes</h1>
-            <p>Start from a ready-made <code>.html</code> file, keep your own ones here, and change the site for a holiday without touching the design.</p>
-          </div>
-          <button class="btn btn-sm" onclick="AdminApp.loadTemplates()">Refresh ↻</button>
-        </div>
-
         <div class="card">
-          <div class="card-title"><span>Static HTML templates — download to start</span></div>
+          <div class="card-title">
+            <span>Static HTML templates — download to start</span>
+            <button class="btn btn-sm" type="button" onclick="AdminApp.loadTemplates()">Refresh ↻</button>
+          </div>
           <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;">
             Every template is one self-contained file: no library, no external request. Download it, edit it on your phone or PC,
             then upload it back here (or straight into a page, a tool or an article).
@@ -1095,7 +1110,6 @@
           </div>
           <div id="occStatus" class="cm-muted" style="margin-top:10px;"></div>
         </div>
-      </section>
 
     </main>
   </div>
@@ -1190,6 +1204,8 @@
     .tpl-tags{display:flex;gap:5px;flex-wrap:wrap;}
     .tpl-tags span{font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--cyan,#38bdf8);border:1px solid rgba(56,189,248,.35);border-radius:99px;padding:1px 6px;}
     .tpl-actions{display:flex;gap:6px;flex-wrap:wrap;}
+    /* A class with display:inline-flex must never beat the hidden attribute. */
+    [hidden]{display:none !important;}
     .btn-more{padding:4px 9px;font-weight:800;letter-spacing:.04em;}
     .row-menu{position:fixed;z-index:10000;min-width:190px;background:#131a28;border:1px solid var(--border-strong,rgba(148,163,184,.35));border-radius:11px;padding:6px;box-shadow:0 18px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:2px;}
     .row-menu[hidden]{display:none;}
@@ -1274,6 +1290,13 @@
       function esc(s) {
         return String(s ?? '')
           .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      // Auth header for plain fetch() calls (downloads and uploads are not JSON).
+      function authHeaders(extra = {}) {
+        const headers = { ...extra };
+        if (token) headers.Authorization = 'Bearer ' + token;
+        return headers;
       }
 
       async function api(path, opts = {}) {
@@ -1366,8 +1389,8 @@
         if (tab === 'blog') loadBlogPosts();
         if (tab === 'tools') loadTools();
         if (tab === 'users') loadUsersAndInbox();
-        if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); }
-        if (tab === 'templates') { loadTemplates(); loadOccasion(); }
+        if (tab === 'settings') { loadSettings(); loadPages(); loadDiagnostics(); loadTemplates(); loadOccasion(); }
+
         if (tab === 'blog-new' || tab === 'tools-new') window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
@@ -1576,7 +1599,7 @@
                 <p>Articles are only listed after you write one or upload its HTML. The public <a href="/blog" target="_blank" rel="noopener">/blog</a> page shows the same thing: nothing published so far.</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
                   <button class="btn btn-sm btn-primary" onclick="AdminApp.switchTab('blog-new')">＋ Article</button>
-                  <button class="btn btn-sm" onclick="AdminApp.switchTab('templates')">Use a template</button>
+                  <button class="btn btn-sm" onclick="AdminApp.switchTab('settings')">Use a template</button>
                 </div>
               </div>
             </td></tr>`;
@@ -1713,7 +1736,7 @@
                 <p class="cm-muted">Nothing is seasonal or hidden on purpose — no layout change is ever applied to your live pages.</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
                   <button class="btn btn-sm btn-primary" onclick="AdminApp.switchTab('tools-new')">＋ New tool</button>
-                  <button class="btn btn-sm" onclick="AdminApp.switchTab('templates')">Use a template</button>
+                  <button class="btn btn-sm" onclick="AdminApp.switchTab('settings')">Use a template</button>
                 </div>
               </div>
             </td></tr>`;
@@ -2157,6 +2180,178 @@
         loadPages();
       }
 
+      // ==================== WHOLE SITE: ONE DOWNLOAD, ONE UPLOAD ====================
+      let siteZipStaged = false;
+
+      async function downloadWholeSite() {
+        const state = document.getElementById('siteDownloadState');
+        const say = (text, tone) => {
+          if (!state) return;
+          state.textContent = text;
+          state.style.color = tone === 'bad' ? '#f87171' : tone === 'ok' ? '#34d399' : '';
+        };
+        if (window.__svSiteDownloading) return;
+        window.__svSiteDownloading = true;
+        try {
+          say('Collecting the file list…');
+          const listRes = await fetch('/api/admin/site-archive?list=1', { headers: authHeaders() });
+          if (!listRes.ok) throw new Error('The file list could not be read.');
+          const list = await listRes.json();
+          const files = list.files || [];
+          const parts = [];
+          let done = 0;
+          for (const f of files) {
+            const res = await fetch('/' + f, { cache: 'no-store' });
+            if (!res.ok) throw new Error('Could not read ' + f);
+            parts.push(new Uint8Array(await res.arrayBuffer()));
+            done += 1;
+            if (done % 5 === 0) say(`Downloading ${done} of ${files.length} files…`);
+          }
+          say('Packing one file…');
+          const zip = buildZipInBrowser(files, parts);
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+          a.download = 'singvaza-site-' + new Date().toISOString().slice(0, 10) + '.zip';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+          say(`Downloaded ${a.download} — ${files.length} files. Give this one file to the AI.`, 'ok');
+        } catch (err) {
+          say((err && err.message) || 'The download failed.', 'bad');
+        } finally {
+          window.__svSiteDownloading = false;
+        }
+      }
+
+      /** A plain, uncompressed zip: the assets are already compressed, and this keeps
+       *  the download dependency-free and instant on a phone. */
+      function buildZipInBrowser(names, parts) {
+        const enc = new TextEncoder();
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i += 1) {
+          let c = i;
+          for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          table[i] = c >>> 0;
+        }
+        const crc32 = (data) => {
+          let crc = 0xffffffff;
+          for (let i = 0; i < data.length; i += 1) crc = table[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+          return (crc ^ 0xffffffff) >>> 0;
+        };
+        const now = new Date();
+        const time = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+        const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+        const chunks = [];
+        const central = [];
+        let offset = 0;
+        names.forEach((name, i) => {
+          const data = parts[i];
+          const nameBytes = enc.encode(name);
+          const crc = crc32(data);
+          const size = data.length;
+          const local = new Uint8Array(30 + nameBytes.length);
+          const lv = new DataView(local.buffer);
+          lv.setUint32(0, 0x04034b50, true); lv.setUint16(4, 20, true); lv.setUint16(6, 0x0800, true);
+          lv.setUint16(8, 0, true); lv.setUint16(10, time, true); lv.setUint16(12, date, true);
+          lv.setUint32(14, crc, true); lv.setUint32(18, size, true); lv.setUint32(22, size, true);
+          lv.setUint16(26, nameBytes.length, true); lv.setUint16(28, 0, true);
+          local.set(nameBytes, 30);
+          chunks.push(local, data);
+          const dir = new Uint8Array(46 + nameBytes.length);
+          const dv = new DataView(dir.buffer);
+          dv.setUint32(0, 0x02014b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 20, true);
+          dv.setUint16(8, 0x0800, true); dv.setUint16(10, 0, true); dv.setUint16(12, time, true);
+          dv.setUint16(14, date, true); dv.setUint32(16, crc, true); dv.setUint32(20, size, true);
+          dv.setUint32(24, size, true); dv.setUint16(28, nameBytes.length, true); dv.setUint32(42, offset, true);
+          dir.set(nameBytes, 46);
+          central.push(dir);
+          offset += local.length + size;
+        });
+        const centralSize = central.reduce((n, c) => n + c.length, 0);
+        const end = new Uint8Array(22);
+        const ev = new DataView(end.buffer);
+        ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, names.length, true); ev.setUint16(10, names.length, true);
+        ev.setUint32(12, centralSize, true); ev.setUint32(16, offset, true);
+        const all = chunks.concat(central, [end]);
+        const out = new Uint8Array(all.reduce((n, c) => n + c.length, 0));
+        let at = 0;
+        for (const part of all) { out.set(part, at); at += part.length; }
+        return out;
+      }
+
+      async function uploadSiteZip(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        const box = document.getElementById('siteZipResult');
+        if (!file) return;
+        box.textContent = 'Reading the zip…';
+        try {
+          if (!window.JSZip) {
+            await new Promise((resolve, reject) => {
+              const s = document.createElement('script');
+              s.src = '/vendor/jszip.min.js';
+              s.onload = resolve;
+              s.onerror = () => reject(new Error('The zip reader could not be loaded.'));
+              document.head.appendChild(s);
+            });
+          }
+          const zip = await window.JSZip.loadAsync(file);
+          const files = [];
+          const skipped = [];
+          const entries = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+          for (const name of entries) {
+            const lower = name.toLowerCase();
+            if (/^(__MACOSX|\.)/.test(name)) continue;
+            if (!/\.(html?|css|m?js|json|txt|xml|webmanifest|svg)$/.test(lower)) { skipped.push(name); continue; }
+            if (lower.endsWith('admin.html')) { skipped.push(name); continue; }
+            const content = await zip.files[name].async('string');
+            files.push({ path: name, content });
+          }
+          if (!files.length) { box.textContent = 'No text files were found in that zip.'; return; }
+          box.textContent = `Comparing ${files.length} file(s) with what is live…`;
+          const { ok, data } = await api('/api/admin/site-archive?action=stage', { method: 'POST', body: JSON.stringify({ files }) });
+          if (!ok) { box.textContent = data.error || 'The zip could not be read.'; return; }
+          const rows = (data.summary || []).map((f) => {
+            const tone = f.status === 'same' ? '#94a3b8' : f.status === 'new' ? '#34d399' : '#fbbf24';
+            const label = f.status === 'same' ? 'no change' : f.status === 'new' ? 'new file' : 'changed';
+            return `<div style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid rgba(148,163,184,.15);padding:4px 0;">
+              <code style="font-size:11.5px;word-break:break-all;">${esc(f.path)}</code>
+              <span style="color:${tone};white-space:nowrap;font-size:11.5px;">${label}</span></div>`;
+          }).join('');
+          const rejected = (data.rejected || []).map((r) => `<div style="color:#f87171;font-size:11.5px;padding:3px 0;">✕ <code>${esc(r.path)}</code> — ${esc(r.reason)}</div>`).join('');
+          box.innerHTML = `<strong>${data.changed} file(s) to publish, ${data.same} unchanged.</strong>
+            ${skipped.length ? `<div class="cm-muted" style="margin:4px 0;">Skipped ${skipped.length} file(s) that are not text or not allowed (images, audio, the admin panel).</div>` : ''}
+            ${rejected}
+            <div style="margin:8px 0;">${rows}</div>
+            <div>${data.changed ? 'Press <strong>Publish these changes</strong> when the list looks right.' : 'Everything in the zip matches the live site — nothing to publish.'}</div>`;
+          siteZipStaged = data.changed > 0;
+          document.getElementById('siteZipPublishBtn').hidden = !siteZipStaged;
+          document.getElementById('siteZipPublishBtn').textContent = `Publish ${data.changed} change(s)`;
+        } catch (err) {
+          box.textContent = (err && err.message) || 'The zip could not be read.';
+        }
+      }
+
+      async function publishSiteZip() {
+        const box = document.getElementById('siteZipResult');
+        const { ok, data } = await api('/api/admin/site-archive?action=publish', { method: 'POST', body: JSON.stringify({}) });
+        if (!ok) { box.textContent = data.error || 'Could not publish.'; return; }
+        siteZipStaged = false;
+        document.getElementById('siteZipPublishBtn').hidden = true;
+        document.getElementById('siteZipUndoBtn').hidden = false;
+        box.innerHTML = `<strong style="color:#34d399;">Published ${data.published} file(s).</strong> Open the site to check, then press Undo if anything looks wrong.`;
+        toast('Published ' + data.published + ' file(s).');
+      }
+
+      async function undoSiteZip() {
+        const box = document.getElementById('siteZipResult');
+        if (!confirm('Put the previous version back?')) return;
+        const { ok, data } = await api('/api/admin/site-archive?action=undo', { method: 'POST', body: JSON.stringify({}) });
+        if (!ok) { box.textContent = data.error || 'Could not undo.'; return; }
+        document.getElementById('siteZipUndoBtn').hidden = true;
+        box.innerHTML = `<strong style="color:#34d399;">Done — ${data.restored} file(s) put back, ${data.removed} removed again.</strong>`;
+        toast('Previous version restored.');
+      }
+
       // ==================== TEMPLATES & SEASONAL CHANGES ====================
       let builtinTemplates = [];
 
@@ -2198,7 +2393,7 @@
 
       async function downloadTemplate(id, upload) {
         const url = upload ? '/api/admin/templates/export?id=' + encodeURIComponent(id) : '/api/admin/templates?id=' + encodeURIComponent(id);
-        const res = await fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+        const res = await fetch(url, { headers: authHeaders() });
         if (!res.ok) { toast('Could not download the template.'); return; }
         const html = await res.text();
         const name = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [, id])[1].replace(/<[^>]+>/g, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || id;
@@ -2504,6 +2699,7 @@
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
+        downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,
         loadTemplates, loadTemplateUploads, downloadTemplate, copyTemplate, uploadTemplate, deleteTemplate, editTemplate,
         saveTemplateAsPage, loadOccasion, applyOccasionPreset, saveOccasion, stopOccasion, previewOccasion,
       };

@@ -51,6 +51,32 @@ export const onRequest: PagesFunction<any> = async (context) => {
     }
   }
 
+  // A static file that was replaced by an upload (the "whole site" zip) is served by
+  // the Worker instead of the built-in asset. The list of replaced files is kept in
+  // one setting and cached at the edge for a minute, so an ordinary asset request
+  // costs nothing when the feature has never been used.
+  if ((context.request.method === 'GET' || context.request.method === 'HEAD') && !cleanPath.startsWith('/api/') && /\.[a-z0-9]+$/i.test(cleanPath) && context.env?.DB) {
+    const rel = cleanPath.replace(/^\/+/, '');
+    try {
+      const cache = (globalThis as any).caches?.default;
+      const key = new Request(new URL('/__sv_live_overrides', url).toString());
+      let list: string[] | null = null;
+      const hit = cache ? await cache.match(key) : null;
+      if (hit) {
+        list = await hit.json() as string[];
+      } else {
+        const row: any = await context.env.DB.prepare('SELECT v FROM site_settings WHERE k = ?').bind('live_overrides_list').first();
+        list = JSON.parse(String(row?.v || '[]'));
+        if (cache) {
+          await cache.put(key, new Response(JSON.stringify(list), { headers: { 'Cache-Control': 'max-age=60', 'Content-Type': 'application/json' } }));
+        }
+      }
+      if (Array.isArray(list) && list.includes(rel)) return worker.fetch(context.request, context.env);
+    } catch (_) {
+      // No table, no cache binding, or bad JSON: serve the built-in asset.
+    }
+  }
+
   // Dynamic Homepage YouTube-Style Title, Description & Tags Injection from /admin Settings!
   if ((cleanPath === '/' || cleanPath === '/index.html') && context.request.method === 'GET' && context.env?.DB) {
     const res = await context.next();

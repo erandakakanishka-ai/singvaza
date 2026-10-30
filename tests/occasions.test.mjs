@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 
-/* Two promises to the operator, pinned here:
- *   1. a template can be downloaded, edited and uploaded back without losing anything,
- *   2. a seasonal greeting appears ONLY inside its own dates, is additive, and
- *      disappears by itself — the layout of the site never changes. */
+/* The operator's rule for a seasonal change: it must never redesign the site.
+ * One bar, only inside its dates, only on the pages chosen, switched off or
+ * expired by itself. */
 
 async function load(entry) {
   const out = await build({
@@ -16,40 +15,8 @@ async function load(entry) {
   return import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
 }
 
-const templates = await load('src/templates.ts');
 const occasionSrc = await readFile(new URL('../src/occasions.ts', import.meta.url), 'utf8');
 const workerSrc = await readFile(new URL('../src/worker.ts', import.meta.url), 'utf8');
-
-test('every built-in template is downloadable HTML', () => {
-  const list = templates.templateList();
-  assert.ok(list.length >= 4, 'at least four starter templates');
-  for (const t of list) {
-    const full = templates.templateById(t.id);
-    assert.ok(typeof t.bytes === 'number' && t.bytes > 200, `${t.id} has HTML`);
-    assert.ok(full, `${t.id} is reachable by id`);
-    if (t.downloadable) {
-      assert.match(full.html, /^<!DOCTYPE html>/i, `${t.id} is a full document`);
-      assert.match(full.html, /<title>[^<]+<\/title>/i, `${t.id} has a title`);
-    }
-  }
-  assert.ok(templates.DOWNLOADABLE_TEMPLATES.length >= 2, 'at least two downloadable files');
-});
-
-test('templates ship no external dependency', () => {
-  for (const t of templates.templateList()) {
-    const { html } = templates.templateById(t.id);
-    assert.doesNotMatch(html, /<(script|link)[^>]+(src|href)=["']https?:/i, `${t.id} must not load a CDN file`);
-    assert.doesNotMatch(html, /@import\s+url\(["']?https?:/i, `${t.id} must not import remote CSS`);
-  }
-});
-
-test('a download can be uploaded back unchanged (round trip)', () => {
-  for (const t of templates.DOWNLOADABLE_TEMPLATES) {
-    assert.equal(templates.templateById(t.id).html, t.html, `${t.id} download is stable`);
-    assert.ok(JSON.stringify({ html: t.html }).includes('<!DOCTYPE html>'), `${t.id} keeps its doctype`);
-  }
-  assert.equal(templates.templateById('does-not-exist'), undefined);
-});
 
 test('an occasion is active only inside its own dates', async () => {
   const { isOccasionActive } = await load('src/occasions.ts');
