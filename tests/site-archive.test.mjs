@@ -148,3 +148,17 @@ test('the extra settings are one closed block until their + is pressed', async (
   assert.match(settings, /Manual greeting/, 'together with the manual greeting card');
   assert.ok(!admin.includes('data-tab="templates"'), 'no separate Templates tab');
 });
+
+test('the admin panel asks for the password every time it is opened', async () => {
+  const admin = await readFile(new URL('../public/admin.html', import.meta.url), 'utf8');
+  // the token lives in this tab only, so closing the tab ends the session
+  assert.match(admin, /sessionStorage\.setItem\(TOKEN_KEY, token\)/, 'the token is per tab');
+  assert.match(admin, /sessionStorage\.getItem\(TOKEN_KEY\)/, 'and read from there');
+  assert.doesNotMatch(admin, /localStorage\.setItem\(TOKEN_KEY/, 'never in persistent storage');
+  assert.match(admin, /localStorage\.removeItem\(LEGACY_TOKEN_KEY\)/, 'an old saved token is cleared');
+  // no automatic resume: the page always starts at the password screen
+  assert.match(admin, /void token;/, 'there is no silent re-entry');
+  assert.doesNotMatch(admin, /if \(token\) \{\s*enterConsole\(\);/, 'and no console without a password');
+  // signing out clears the password field and marks a fresh login
+  assert.match(admin, /loginScreen'\)\.classList\.add\('fresh'\)/, 'sign out returns to a clean form');
+});

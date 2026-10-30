@@ -3774,7 +3774,7 @@ const App = (() => {
     // Deferred non-blocking analytics beacon (skips logged-in Admin owner + once per session tab)
     setTimeout(() => {
       const pKey = 'sv_v_' + (window.location.pathname || '/');
-      if (!localStorage.getItem('singvaza_admin_token') && !sessionStorage.getItem(pKey)) {
+      if (!sessionStorage.getItem('singvaza_admin_token') && !localStorage.getItem('singvaza_admin_token') && !sessionStorage.getItem(pKey)) {
         sessionStorage.setItem(pKey, '1');
         fetch('/api/ping-visit', {
           method: 'POST',

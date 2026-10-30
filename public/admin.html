@@ -360,6 +360,7 @@
       </div>
 
       <div id="loginError" style="display:none;color:#f87171;font-size:12.5px;margin-bottom:12px;"></div>
+      <div style="color:var(--muted);font-size:11.5px;margin-bottom:12px;">For your safety the password is asked again every time the panel is opened, and signing out ends the session on this device.</div>
 
       <button type="submit" id="btnLoginSubmit" class="btn btn-primary" style="width:100%;padding:10px;">
         Sign In to Console
@@ -1335,8 +1336,13 @@
   <script src="/vendor/quill.min.js"></script>
   <script>
     const AdminApp = (() => {
+      // The admin token is kept in sessionStorage, never in localStorage: closing
+      // the tab (or the phone locking the browser away) ends the session, and the
+      // next visit to /admin always starts at the password screen.
       const TOKEN_KEY = 'singvaza_admin_token';
-      let token = localStorage.getItem(TOKEN_KEY) || '';
+      const LEGACY_TOKEN_KEY = 'singvaza_admin_token';
+      try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {}
+      let token = sessionStorage.getItem(TOKEN_KEY) || '';
       let quill = null;
       let editorMode = 'visual';
       let chartInstance = null;
@@ -1413,7 +1419,7 @@
             return;
           }
           token = data.token;
-          localStorage.setItem(TOKEN_KEY, token);
+          sessionStorage.setItem(TOKEN_KEY, token);
           document.getElementById('sidebarAdminName').textContent = '@' + (data.username || username);
           enterConsole();
         } finally {
@@ -1427,7 +1433,9 @@
           await fetch('/api/admin/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
         }
         token = '';
-        localStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(TOKEN_KEY);
+        document.getElementById('loginScreen').classList.add('fresh');
+        document.getElementById('loginPass').value = '';
         document.getElementById('adminShell').classList.remove('active');
         document.getElementById('loginScreen').style.display = 'flex';
       }
@@ -2864,9 +2872,9 @@
       document.getElementById('blogSlug').addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
       document.getElementById('toolSlug').addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
 
-      if (token) {
-        enterConsole();
-      }
+      // Always start at the password screen. A session that survived a refresh is
+      // resumed only by entering the password again (see login()).
+      void token;
 
       return {
         login, logout, togglePwVisibility, switchTab, loadOverview,

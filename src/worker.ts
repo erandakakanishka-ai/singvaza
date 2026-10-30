@@ -816,7 +816,7 @@ export default {
           ? ((sMapAd.adsense_client_id ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${escapeHtml(sMapAd.adsense_client_id)}" crossorigin="anonymous"></script>` : '') + (sMapAd.custom_ad_code || ''))
           : '';
         const toolSlug = cleanPath.replace(/^\/tools\/?/, '').replace(/\/$/, '').trim();
-        const beaconTag = `${globalAdSnippet}<script>try{if(!sessionStorage.getItem('sv_v_'+location.pathname)){sessionStorage.setItem('sv_v_'+location.pathname,'1');fetch('/api/ping-visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname})}).catch(()=>{});}}catch(_){}</script>`;
+        const beaconTag = `${globalAdSnippet}<script>try{if(!sessionStorage.getItem('singvaza_admin_token')&&!localStorage.getItem('singvaza_admin_token')&&!sessionStorage.getItem('sv_v_'+location.pathname)){sessionStorage.setItem('sv_v_'+location.pathname,'1');fetch('/api/ping-visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname})}).catch(()=>{});}}catch(_){}</script>`;
         if (!toolSlug) {
           const rows = env.DB
             ? await env.DB.prepare("SELECT id, slug, title, category, icon, description, views, created_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 200").all()
@@ -907,7 +907,7 @@ export default {
         const globalAdSnippet = sMapAd.ads_enabled === 'true'
           ? ((sMapAd.adsense_client_id ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${escapeHtml(sMapAd.adsense_client_id)}" crossorigin="anonymous"></script>` : '') + (sMapAd.custom_ad_code || ''))
           : '';
-        const beaconTag = `${globalAdSnippet}<script>try{if(!localStorage.getItem('singvaza_admin_token')&&!sessionStorage.getItem('sv_v_'+location.pathname)){sessionStorage.setItem('sv_v_'+location.pathname,'1');fetch('/api/ping-visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname})}).catch(()=>{});}}catch(_){}</script>`;
+        const beaconTag = `${globalAdSnippet}<script>try{if(!sessionStorage.getItem('singvaza_admin_token')&&!localStorage.getItem('singvaza_admin_token')&&!sessionStorage.getItem('sv_v_'+location.pathname)){sessionStorage.setItem('sv_v_'+location.pathname,'1');fetch('/api/ping-visit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:location.pathname})}).catch(()=>{});}}catch(_){}</script>`;
         const slugPart = url.pathname.replace(/^\/blog\/?/, '').replace(/\/$/, '').trim();
         if (!slugPart) {
           const rows = env.DB
