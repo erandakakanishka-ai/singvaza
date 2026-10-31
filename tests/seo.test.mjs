@@ -37,3 +37,16 @@ test('the Pages middleware still honors and escapes the admin-editable D1 descri
   assert.ok(rendered.includes('<meta name="description" content="A future tools &amp; &quot;guides&quot; description" />'));
   assert.ok(!rendered.includes(`<meta name="description" content="${expected}"`));
 });
+
+test('an address that does not exist answers 404, not the homepage', async () => {
+  // Cloudflare Pages falls back to the homepage with a 200 for any unknown path, so
+  // Google could crawl endless made-up addresses that all repeat our title.
+  const middleware = await readFile(new URL('../functions/_middleware.ts', import.meta.url), 'utf8');
+  assert.match(middleware, /function notFoundPage\(/, 'there is an honest 404 page');
+  assert.match(middleware, /status: 404/, 'with a real 404 status');
+  assert.match(middleware, /name="robots" content="noindex"/, 'and it is kept out of the index');
+  assert.match(middleware, /async function isMissingPage\(/, 'a missing page is recognised');
+  assert.match(middleware, /a === b/, 'by comparing the answer with the homepage itself');
+  assert.match(middleware, /isMissingPage\(context, res, url, cleanPath\)/, 'the check runs before the holiday script is added');
+  assert.match(middleware, /isMissingPage\(context, response, url, cleanPath\)/, 'and on the general path too');
+});

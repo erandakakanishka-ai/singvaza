@@ -4,6 +4,49 @@ import worker from './api/_worker_core';
 
 const request_HEAD = (request: Request) => request.method === 'HEAD';
 
+/* Cloudflare Pages answers a missing page with the homepage and a 200. Google then
+ * sees every made-up address as a real page that repeats our title, which buries the
+ * real pages. Known pages keep their own response; anything else becomes a real 404. */
+/** A real file on the site (page, image, stylesheet, feed…) not already handled above. */
+/* Cloudflare Pages answers an unknown address with a copy of the homepage and status
+ * 200. The honest test is a comparison: same bytes as "/" means the page does not
+ * exist. Titles are not used — every real page also ends in "SingVaza". */
+async function isMissingPage(context: any, res: Response, url: URL, cleanPath: string): Promise<boolean> {
+  if (cleanPath === '/' || cleanPath === '/index.html') return false;
+  const type = res.headers.get('Content-Type') || '';
+  if (!type.includes('text/html')) return false;
+  try {
+    const home = await context.next(new Request(new URL('/', url).toString(), context.request));
+    if (!home.ok) return false;
+    const a = (await res.clone().text()).replace(/\s+/g, ' ').trim();
+    const b = (await home.text()).replace(/\s+/g, ' ').trim();
+    return a === b;
+  } catch (_) {
+    return false;
+  }
+}
+function rootAsset(path: string): boolean {
+  return /\.(html?|js|css|png|jpe?g|webp|svg|ico|json|txt|xml|webmanifest|mp3|wav|pdf|woff2?)$/i.test(path)
+    || path === '/' || path === '/index.html';
+}
+function notFoundPage(method: string): Response {
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Page not found — SingVaza</title>
+<link rel="stylesheet" href="/styles.css" /></head>
+<body style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center">
+<main style="max-width:420px">
+<h1 style="font-size:26px;margin:0 0 8px">Page not found</h1>
+<p style="color:#a3a3a3;margin:0 0 18px">This address does not exist on SingVaza.</p>
+<p><a class="btn btn-amber" href="/">Go to the home page</a></p>
+</main></body></html>`;
+  return new Response(method === 'HEAD' ? null : html, {
+    status: 404,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex' },
+  });
+}
+
 export const onRequest: PagesFunction<any> = async (context) => {
   const url = new URL(context.request.url);
   let cleanPath = url.pathname;
@@ -89,6 +132,7 @@ export const onRequest: PagesFunction<any> = async (context) => {
     const res = await context.next();
     const type = res.headers.get('Content-Type') || '';
     if (!res.ok || !type.includes('text/html') || cleanPath === '/admin' || cleanPath.startsWith('/admin')) return res;
+    if (await isMissingPage(context, res, url, cleanPath)) return notFoundPage(context.request.method);
     try {
       let html = await res.text();
       // Never insert by regex: a page may contain '</body>' inside a script.
@@ -146,5 +190,10 @@ export const onRequest: PagesFunction<any> = async (context) => {
     return res;
   }
 
-  return context.next();
+  const response = await context.next();
+  // the static layer could not find a file and fell back to the homepage
+  if (response.status === 200 && (await isMissingPage(context, response, url, cleanPath))) {
+    return notFoundPage(context.request.method);
+  }
+  return response;
 };
