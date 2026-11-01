@@ -1,0 +1,48 @@
+{
+  "posts": [
+    {
+      "slug": "clayface-review-dc-body-horror",
+      "title": "Clayface review: DC finally made something that isn't a superhero film",
+      "category": "Film Review",
+      "cover_image": "/images/blog/clayface-review-cover.jpg",
+      "excerpt": "18-rated, small and mean — DC's third film under James Gunn is a body-horror story about an actor who loses his face. No spoilers, and a straight verdict.",
+      "seo_tags": "clayface review, clayface 2026, dc universe, tom rhys harries, naomi ackie, body horror, film review",
+      "author_name": "Editorial Team",
+      "created_at": "2026-11-01",
+      "file": "clayface-review.html"
+    },
+    {
+      "slug": "ramayana-rise-of-a-legend-preview",
+      "title": "Ramayana: Rise of a Legend — what is confirmed, what is only talk, before 5 November",
+      "category": "Film News",
+      "cover_image": "/images/blog/ramayana-preview-cover.jpg",
+      "excerpt": "Four lakh tickets in a day, an IMAX rollout and a Rs 4,000-crore rumour. Here is what the makers have actually confirmed about the biggest film of the year.",
+      "seo_tags": "ramayana rise of a legend, ranbir kapoor, yash, sai pallavi, nitish tiwari, ramayana part 1, film news",
+      "author_name": "Editorial Team",
+      "created_at": "2026-11-01",
+      "file": "ramayana-preview.html"
+    },
+    {
+      "slug": "godzilla-minus-zero-preview",
+      "title": "Godzilla Minus Zero is out this week — and it is the safest bet of the month",
+      "category": "Film Preview",
+      "cover_image": "/images/blog/godzilla-preview-cover.jpg",
+      "excerpt": "The Oscar-winning team is back with a 1949-set sequel, filmed for IMAX and sitting at 96% on Rotten Tomatoes. Release dates, cast, and what we do not know yet.",
+      "seo_tags": "godzilla minus zero, takashi yamazaki, godzilla minus one sequel, film preview, imax 2026",
+      "author_name": "Editorial Team",
+      "created_at": "2026-11-01",
+      "file": "godzilla-preview.html"
+    },
+    {
+      "slug": "amitabh-bachchan-health-rumours",
+      "title": "Amitabh Bachchan, 84: the health rumours, the truth, and the film he might do next",
+      "category": "Actor News",
+      "cover_image": "/images/blog/amitabh-news.jpg",
+      "excerpt": "He answered the rumours himself. What is confirmed, what is only talk, and the one report you should stop forwarding on WhatsApp.",
+      "seo_tags": "amitabh bachchan, amitabh health news, texla, aishwarya rajinikanth, actor news",
+      "author_name": "Editorial Team",
+      "created_at": "2026-11-01",
+      "file": "actor-news-amitabh.html"
+    }
+  ]
+}

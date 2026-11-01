@@ -182,7 +182,9 @@ export function analyzeContent(html: string, kind: 'tool' | 'blog' | 'page' = 't
     if (!/<html[\s>]/i.test(raw)) add('error', 'no-html-tag', 'A tool must be a full HTML document (missing <html>).');
     if (!/<head[\s>]/i.test(raw)) add('warn', 'no-head', 'No <head> section, so SEO tags cannot be inserted.');
   }
-  if (kind === 'blog' && !/<html[\s>]/i.test(raw) && /<h1[\s>]/i.test(raw) === false) {
+  // A body-only article gets its heading from the page template (the saved title is
+  // the <h1>), so only a full HTML document is expected to carry its own.
+  if (kind === 'blog' && /<html[\s>]/i.test(raw) && /<h1[\s>]/i.test(raw) === false) {
     add('warn', 'no-heading', 'No <h1> found — the article has no main heading.');
   }
   if (kind === 'blog') issues.push(...filmReviewIssues(raw));
