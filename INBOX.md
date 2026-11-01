@@ -32,14 +32,40 @@ It is kept in the repo so it survives any new session; the last line is the newe
 
 ## Queue
 
-| Date | Slug | Title | Kind | Publish time (UTC) |
-| --- | --- | --- | --- | --- |
-| 2026-11-01 | `other-mommy-review-2026` | Other Mommy review: 17% on Rotten Tomatoes and I still could not look away | Film Review (18+) | 14:30 |
-| 2026-11-01 | `verity-review-anne-hathaway` | Verity review: critics called it trash, audiences made it a $163 million hit | Film Review (18+) | 19:00 |
-| 2026-11-02 | `ramayana-rise-of-a-legend-preview` | Ramayana: Rise of a Legend — what is confirmed, what is only talk, before 5 November | Film News | 14:30 |
-| 2026-11-02 | `clayface-review-dc-body-horror` | Clayface review: DC finally made something that isn't a superhero film | Film Review (18+) | 19:00 |
-| 2026-11-03 | `godzilla-minus-zero-preview` | Godzilla Minus Zero is out this week — and it is the safest bet of the month | Film Preview | 14:30 |
-| 2026-11-03 | `amitabh-bachchan-health-rumours` | Amitabh Bachchan, 84: the health rumours, the truth, and the film he might do next | Actor News | 19:00 |
+| Date | Slug | Title | Kind | Publish time (UTC) | State |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-01 | `other-mommy-review-2026` | Other Mommy review — 18+ | Film Review | 14:30 | **scheduled, in the database** |
+| 2026-11-01 | `verity-review-anne-hathaway` | Verity review — 18+ | Film Review | 19:00 | **scheduled, in the database** |
+| 2026-11-02 | `ramayana-rise-of-a-legend-preview` | Ramayana preview | Film News | 14:30 | **scheduled, in the database** |
+| 2026-11-02 | `clayface-review-dc-body-horror` | Clayface review — 18+ | Film Review | 19:00 | **scheduled, in the database** |
+| 2026-11-03 | `godzilla-minus-zero-preview` | Godzilla Minus Zero preview | Film Preview | 14:30 | **scheduled, in the database** |
+| 2026-11-03 | `amitabh-bachchan-health-rumours` | Amitabh Bachchan actor news | Actor News | 19:00 | **scheduled, in the database** |
+
+Verified on 1 Nov 03:50 UTC: the six slugs live in the blog table with their times, and every
+one of them answers **404 to a visitor and is absent from `/blog` and `sitemap.xml`** until its
+moment — that is the scheduling working, not a bug.
+
+## Publishing without the owner (the daily path)
+
+The owner created a **publisher key** (Admin → Blog → *Let the writing agent publish by itself*).
+It is stored only as a hash on the site; the plain value is in the chat that created it. Use it
+like this:
+
+```
+POST https://singvaza.pages.dev/api/blog
+X-Publisher-Key: <the key from the chat>
+User-Agent: Mozilla/5.0 (Android 13; Mobile; rv:120.0) Gecko/120.0 Firefox/120.0
+Content-Type: application/json
+{ "slug", "title", "category", "cover_image", "excerpt", "seo_tags",
+  "author_name", "content", "content_format":"html", "visibility":"published",
+  "publish_at":"2026-11-04 14:30:00" }
+```
+
+- **The User-Agent matters.** With a default Python/Node agent, Cloudflare answers
+  `403 error code: 1010` before the request ever reaches the site.
+- The key **adds** articles only: it cannot replace a live article, delete one, touch tools,
+  open settings or change the password. Revoking it in the panel kills it instantly.
+- `publish_at` is UTC. Two slots a day: `14:30` and `19:00`.
 
 ## Ideas for the next two days (verify before writing)
 
