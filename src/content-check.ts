@@ -111,6 +111,56 @@ function externalScripts(html: string): string[] {
   return dedupe(found);
 }
 
+/* Film writing has two extra rules the site keeps on purpose:
+ *   1. a plot summary must be original wording — a copied synopsis is someone else's
+ *      copyright and Google treats it as duplicate content;
+ *   2. a spoiler must be announced before it is shown.
+ * These are warnings, not errors: the writer decides, but the panel says it out loud. */
+const FAMOUS_WORDS: Array<[string, string]> = [
+  ['the film follows', 'a phrase copied from a plot synopsis'],
+  ['the story follows', 'a phrase copied from a plot synopsis'],
+  ['things take a turn', 'a phrase copied from a plot synopsis'],
+  ['all hell breaks loose', 'a phrase copied from a plot synopsis'],
+  ['read more on wikipedia', 'a pointer to another site instead of your own words'],
+  ['according to wikipedia', 'a pointer to another site instead of your own words'],
+  ['(c) wikipedia', 'copied text'],
+  ['all rights reserved', 'copied text'],
+];
+const PIRATE_HOSTS = /(1337x|thepiratebay|piratebay|yts\.|yify|rarbg|torrentz|kickass|tamilrockers|filmyzilla|vegamovies|movierulz|9xmovies|katmovie|t\.me\/|telegram\.me\/|filmrips)/i;
+
+export function filmReviewIssues(html: string): ContentIssue[] {
+  const raw = String(html || '');
+  const text = stripTags(raw).toLowerCase();
+  if (!text) return [];
+  const issues: ContentIssue[] = [];
+  const add = (level: IssueLevel, code: string, message: string) => issues.push({ level, code, message });
+
+  for (const [phrase, why] of FAMOUS_WORDS) {
+    if (text.includes(phrase)) add('warn', 'copied-synopsis', `"${phrase}" looks like ${why}. Write the story in your own words.`);
+  }
+  if (PIRATE_HOSTS.test(raw)) {
+    add('error', 'pirate-link', 'A pirate/streaming-rip host is linked (torrent, Telegram channel or "watch free" site). Remove it — the page cannot be published with it.');
+  }
+
+  // a spoiler must be announced: the words "spoiler" have to come before the reveal
+  const spoilerAt = text.indexOf('spoiler');
+  const revealAt = Math.min(
+    ...[text.indexOf('ending explained'), text.indexOf('plot twist'), text.indexOf('dies at the end'), text.indexOf('in the end,')].filter((i) => i >= 0),
+  );
+  if (Number.isFinite(revealAt) && (spoilerAt < 0 || spoilerAt > revealAt)) {
+    add('warn', 'spoiler-not-marked', 'The plot twist or ending is revealed before any "Spoiler" warning. Add ⚠️ Spoiler before that section, or take it out.');
+  }
+
+  const hasBody = text.length > 600;
+  if (hasBody && !/rating|stars|\/10|\/5|★|\bscore\b/i.test(text)) {
+    add('info', 'no-rating', 'No score found. A rating (7.5/10 or ★★★★☆) is what makes a review searchable and clickable.');
+  }
+  if (hasBody && !/netflix|prime video|viu|peo tv|cinema|hall|in theatres|ott/i.test(text)) {
+    add('info', 'no-where-to-watch', 'No "where to watch" line. Say where it can be watched legally (cinema, Netflix, Prime, ViU).');
+  }
+  return issues;
+}
+
 export function analyzeContent(html: string, kind: 'tool' | 'blog' | 'page' = 'tool'): ContentReport {
   const raw = String(html || '');
   const issues: ContentIssue[] = [];
@@ -135,6 +185,7 @@ export function analyzeContent(html: string, kind: 'tool' | 'blog' | 'page' = 't
   if (kind === 'blog' && !/<html[\s>]/i.test(raw) && /<h1[\s>]/i.test(raw) === false) {
     add('warn', 'no-heading', 'No <h1> found — the article has no main heading.');
   }
+  if (kind === 'blog') issues.push(...filmReviewIssues(raw));
 
   const openScripts = count(raw, /<script\b/gi);
   const closeScripts = count(raw, /<\/script>/gi);

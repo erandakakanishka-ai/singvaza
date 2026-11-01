@@ -25,10 +25,6 @@ async function isMissingPage(context: any, res: Response, url: URL, cleanPath: s
     return false;
   }
 }
-function rootAsset(path: string): boolean {
-  return /\.(html?|js|css|png|jpe?g|webp|svg|ico|json|txt|xml|webmanifest|mp3|wav|pdf|woff2?)$/i.test(path)
-    || path === '/' || path === '/index.html';
-}
 function notFoundPage(method: string): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -1,6 +1,6 @@
 import { builtinPage, builtinResponse } from '../../src/builtin-pages';
 import { analyzeContent, compareVersions, mergeIssues } from '../../src/content-check';
-import { templateById } from '../../src/templates';
+import { templateById, templateList } from '../../src/templates';
 import { occasionPresets, isOccasionActive, isOccasionPreview, occasionAppliesTo, injectOccasionBanner } from '../../src/occasions';
 import { HOLIDAYS, activeHoliday, proWindow, decorPayload, upcoming, HOLIDAY_TAG, windowsAround } from '../../src/holidays';
 import { makeRecoveryCode, normalizeRecoveryCode, looksLikeRecoveryCode, isWeakAdminPassword, RECOVERY_COMMANDS, RECOVERY_NOTE } from '../../src/recovery';
