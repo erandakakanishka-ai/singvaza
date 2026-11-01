@@ -2186,6 +2186,21 @@ export default {
         return json({ ok: true, id, slug: rawSlug, url: `/blog/${rawSlug}`, visibility, report: { ...report, issues } });
       }
 
+      // One button to empty the blog. Everything is typed back to confirm, and the
+      // answer says exactly how many articles went.
+      if (url.pathname === '/api/admin/blog-clear' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        if (String(body.confirm || '').trim().toUpperCase() !== 'DELETE') {
+          return json({ error: 'Type DELETE in the box to confirm.' }, 400);
+        }
+        const count: any = await env.DB.prepare('SELECT COUNT(*) AS c FROM blog_posts').first();
+        await env.DB.prepare('DELETE FROM blog_posts').run();
+        return json({ ok: true, deleted: Number(count?.c || 0) });
+      }
+
       if (url.pathname.startsWith('/api/blog/') && request.method === 'DELETE') {
         await ensureSchema(env.DB);
         if (!(await isValidBlogAdmin(request, env))) {

@@ -603,6 +603,11 @@
             <span>Published articles</span>
             <span class="table-card-note" id="blogListNote">—</span>
           </div>
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="clearBlogConfirm" type="text" class="input" placeholder="Type DELETE to confirm" style="max-width:220px;" />
+            <button class="btn btn-sm" style="border-color:rgba(239,68,68,.5);color:#fca5a5;" onclick="AdminApp.clearBlog()">Delete every article</button>
+            <span style="font-size:12px;color:var(--muted);">The articles stay in the site file (content/film) so they can be put back.</span>
+          </div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Article</th><th>Status</th><th>Updated</th><th style="text-align:right;">Live · Download · Update</th></tr></thead>
@@ -1799,6 +1804,17 @@
         document.getElementById('blogEditorHeading').textContent = 'New Article';
         document.getElementById('blogEditorPageTitle').textContent = 'New Article';
         setEditorMode('visual');
+      }
+
+      async function clearBlog() {
+        const typed = document.getElementById('clearBlogConfirm').value.trim();
+        if (typed.toUpperCase() !== 'DELETE') { toast('Type DELETE in the box first.'); return; }
+        if (!confirm('Delete every article? The blog page will say no articles yet.')) return;
+        const { ok, data } = await api('/api/admin/blog-clear', { method: 'POST', body: JSON.stringify({ confirm: typed }) });
+        if (!ok) { toast(data.error || 'Could not clear the blog.'); return; }
+        document.getElementById('clearBlogConfirm').value = '';
+        toast(data.deleted + ' article(s) deleted.');
+        loadBlogPosts();
       }
 
       async function createPublisherKey() {
@@ -3062,7 +3078,7 @@
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
-        createPublisherKey, revokePublisherKey,
+        createPublisherKey, revokePublisherKey, clearBlog,
         toggleAcc,
         toggleAcc, downloadBuiltin, updateBuiltin, loadHolidays, previewHoliday, makeHolidayLinks,
         downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,

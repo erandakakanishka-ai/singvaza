@@ -57,3 +57,12 @@ test('the save route owns publishAt, and the visibility switch does not', () => 
   assert.doesNotMatch(visibilityRoute, /const publishAt/, 'the visibility switch does not');
   assert.equal((worker.match(/const publishAt = normalizePublishAt/g) || []).length, 1, 'defined exactly once');
 });
+
+test('emptying the blog needs the owner login and a typed DELETE', () => {
+  const route = (worker.split("'/api/admin/blog-clear'")[1] || '').slice(0, 900);
+  assert.match(route, /isValidBlogAdmin\(request, env\)/, 'the owner login is required');
+  assert.match(route, /\.toUpperCase\(\) !== 'DELETE'/, 'the word DELETE must be typed');
+  assert.match(route, /DELETE FROM blog_posts\b/, 'it really clears the table');
+  assert.match(admin, /AdminApp\.clearBlog\(\)/, 'there is a button');
+  assert.match(admin, /Type DELETE to confirm/, 'the confirmation is explained');
+});
