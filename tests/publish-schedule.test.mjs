@@ -47,3 +47,13 @@ test('the handover note lists the standing orders and the queue', async () => {
   assert.match(inbox, /No Sri Lankan film topics/, 'the audience rule is written down');
   assert.match(inbox, /\| Date \| Slug \|/, 'there is a queue');
 });
+
+test('the save route owns publishAt, and the visibility switch does not', () => {
+  // A const dropped into the wrong route once crashed every publish with a 500.
+  const posts = worker.split("url.pathname === '/api/blog' && request.method === 'POST'")[1] || '';
+  const body = posts.slice(0, posts.indexOf("url.pathname.startsWith('/api/blog/')"));
+  assert.match(body, /const publishAt = normalizePublishAt\(body\.publish_at\);/, 'the article route defines it');
+  const visibilityRoute = (worker.split("url.pathname === '/api/admin/visibility'")[1] || '').slice(0, 1200);
+  assert.doesNotMatch(visibilityRoute, /const publishAt/, 'the visibility switch does not');
+  assert.equal((worker.match(/const publishAt = normalizePublishAt/g) || []).length, 1, 'defined exactly once');
+});

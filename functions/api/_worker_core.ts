@@ -1879,8 +1879,6 @@ export default {
         const body: any = await request.json().catch(() => ({}));
         const table = body.type === 'blog' ? 'blog_posts' : (body.type === 'page' ? 'site_pages' : 'html_tools');
         const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
-        // '' means "show it the moment it is saved".
-        const publishAt = normalizePublishAt(body.publish_at);
         const id = String(body.id || '').trim();
         if (!id) return json({ error: 'Missing id.' }, 400);
         if (table === 'site_pages') {
@@ -2138,6 +2136,8 @@ export default {
         const contentFormat = String(body.content_format || 'html').trim().slice(0, 20);
         const seoTags = String(body.seo_tags || '').trim().slice(0, 800);
         const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
+        // When the article should appear. '' means the moment it is saved.
+        const publishAt = normalizePublishAt(body.publish_at);
 
         // Same safety gate as the tools: healthy file, and an update may not wipe
         // the article that is already published.
