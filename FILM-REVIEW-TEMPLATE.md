@@ -96,6 +96,16 @@ Tags: <name>, film news, sri lanka
 
 ---
 
+## Where the picture goes (the rule that keeps the page up)
+
+- Use a **press still or the official poster**, saved under `public/images/blog/`.
+- Write the credit under it: `Photo: Warner Bros. Pictures`.
+- **Do not** use a stolen paparazzi photo, a private picture, or anything sexual. Suspense
+  and dread hold an audience; a picture that humiliates a real person gets the page taken
+  down and the Facebook page reported. That costs more readers than it ever brings.
+- 18+ films are worth extra coverage — say the rating out loud, describe the dread, never
+  the nudity.
+
 ## Publishing + Facebook
 
 1. Save the article in the panel. A blog post is added to `sitemap.xml` and announced to

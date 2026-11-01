@@ -71,6 +71,11 @@ async function ensureSchema(db?: D1Database) {
     `ALTER TABLE blog_posts ADD COLUMN seo_tags TEXT DEFAULT ''`,
     `ALTER TABLE blog_posts ADD COLUMN visibility TEXT DEFAULT 'published'`,
     `ALTER TABLE blog_posts ADD COLUMN updated_by TEXT DEFAULT ''`,
+    // When a finished article should appear. Empty = as soon as it is saved, so
+    // every article already in the database keeps behaving exactly as before.
+    // Stored as a UTC timestamp ('YYYY-MM-DD HH:MM:SS') and compared with SQLite's
+    // CURRENT_TIMESTAMP, which is UTC too.
+    `ALTER TABLE blog_posts ADD COLUMN publish_at TEXT DEFAULT ''`,
     `CREATE TABLE IF NOT EXISTS html_tools (
       id TEXT PRIMARY KEY,
       slug TEXT UNIQUE NOT NULL,
@@ -534,6 +539,23 @@ async function occasionPreviewSignature(payload: string, secret: string): Promis
   return Array.from(sig).slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** A saved article is visible when it is published and its scheduled time has
+ *  passed. An empty publish_at means "now", so old rows are unaffected. */
+const BLOG_VISIBLE = "COALESCE(visibility, 'published') = 'published' AND (publish_at IS NULL OR publish_at = '' OR publish_at <= CURRENT_TIMESTAMP)";
+
+function normalizePublishAt(raw: any): string {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  // datetime-local from the phone ("2026-11-01T19:30") — treated as UTC so the
+  // admin can type the time they want the readers to see it.
+  const iso = v.replace('T', ' ').replace(/Z$/, '');
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(iso);
+  if (m) return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6] || '00'}`;
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (d) return `${d[1]}-${d[2]}-${d[3]} 00:00:00`;
+  return '';
+}
+
 async function getSettingsMap(db?: D1Database): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   if (!db) return map;
@@ -768,7 +790,7 @@ export default {
         if (env.DB) {
           try {
             const [rows, tRows] = await Promise.all([
-              env.DB.prepare("SELECT slug, title, excerpt, updated_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY updated_at DESC LIMIT 200").all(),
+              env.DB.prepare(`SELECT slug, title, excerpt, updated_at FROM blog_posts WHERE ${BLOG_VISIBLE} ORDER BY updated_at DESC LIMIT 200`).all(),
               env.DB.prepare("SELECT slug, title, description, updated_at FROM html_tools WHERE COALESCE(visibility, 'published') = 'published' ORDER BY updated_at DESC LIMIT 200").all(),
             ]);
             postsList = (rows.results || []) as any[];
@@ -924,7 +946,7 @@ export default {
         const slugPart = url.pathname.replace(/^\/blog\/?/, '').replace(/\/$/, '').trim();
         if (!slugPart) {
           const rows = env.DB
-            ? await env.DB.prepare("SELECT id, slug, title, category, cover_image, excerpt, author_name, created_at FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published' ORDER BY created_at DESC LIMIT 100").all()
+            ? await env.DB.prepare(`SELECT id, slug, title, category, cover_image, excerpt, author_name, created_at FROM blog_posts WHERE ${BLOG_VISIBLE} ORDER BY created_at DESC LIMIT 100`).all()
             : { results: [] };
           const list = (rows.results || []) as any[];
           const bodyHtml = `
@@ -957,8 +979,11 @@ export default {
         const post: any = env.DB
           ? await env.DB.prepare('SELECT * FROM blog_posts WHERE slug = ?').bind(slugPart).first()
           : null;
-        // A hidden article is invisible to visitors but readable by the admin.
-        if (post && String(post.visibility || 'published') !== 'published' && !(await isValidBlogAdmin(request, env))) {
+        const scheduled = post && String(post.publish_at || '').trim() !== ''
+          && String(post.publish_at) > new Date().toISOString().replace('T', ' ').slice(0, 19);
+        // A hidden article is invisible to visitors but readable by the admin, and
+        // so is one whose publishing time has not arrived yet.
+        if (post && (String(post.visibility || 'published') !== 'published' || scheduled) && !(await isValidBlogAdmin(request, env))) {
           return new Response(
             renderBlogShellHtml({
               origin: url.origin,
@@ -1470,7 +1495,7 @@ export default {
               env.DB.prepare('SELECT COUNT(*) AS c FROM html_tools').first(),
               env.DB.prepare("SELECT COUNT(*) AS c FROM html_tools WHERE COALESCE(visibility, 'published') = 'published'").first(),
               env.DB.prepare('SELECT COUNT(*) AS c FROM blog_posts').first(),
-              env.DB.prepare("SELECT COUNT(*) AS c FROM blog_posts WHERE COALESCE(visibility, 'published') = 'published'").first(),
+              env.DB.prepare(`SELECT COUNT(*) AS c FROM blog_posts WHERE ${BLOG_VISIBLE}`).first(),
             ]);
             result.counts = {
               tools: Number((tools as any)?.c || 0),
@@ -1797,6 +1822,8 @@ export default {
         const body: any = await request.json().catch(() => ({}));
         const table = body.type === 'blog' ? 'blog_posts' : (body.type === 'page' ? 'site_pages' : 'html_tools');
         const visibility = body.visibility === 'hidden' ? 'hidden' : 'published';
+        // '' means "show it the moment it is saved".
+        const publishAt = normalizePublishAt(body.publish_at);
         const id = String(body.id || '').trim();
         if (!id) return json({ error: 'Missing id.' }, 400);
         if (table === 'site_pages') {
@@ -1972,6 +1999,7 @@ export default {
              seo_tags = excluded.seo_tags,
              html_code = excluded.html_code,
              visibility = excluded.visibility,
+             publish_at = excluded.publish_at,
              updated_by = excluded.updated_by,
              updated_at = CURRENT_TIMESTAMP`
         ).bind(id, rawSlug, title, category, icon, description, seoTags, htmlCode, visibility, String(body.updated_by || 'admin').slice(0, 60)).run();
@@ -2005,7 +2033,7 @@ export default {
         if (url.searchParams.get('admin') === '1') {
           if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
           const query = url.searchParams.get('summary') === '1'
-            ? 'SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, content_format, visibility, created_at, updated_at FROM blog_posts ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100'
+            ? 'SELECT id, slug, title, category, cover_image, excerpt, seo_tags, author_name, content_format, visibility, publish_at, created_at, updated_at FROM blog_posts ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100'
             : 'SELECT * FROM blog_posts ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 100';
           const rows = await env.DB.prepare(query).all();
           return json({ posts: rows.results || [] });
@@ -2061,8 +2089,8 @@ export default {
         }
 
         await env.DB.prepare(
-          `INSERT INTO blog_posts (id, slug, title, category, cover_image, excerpt, seo_tags, content, content_format, author_name, visibility, updated_by, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `INSERT INTO blog_posts (id, slug, title, category, cover_image, excerpt, seo_tags, content, content_format, author_name, visibility, publish_at, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON CONFLICT(id) DO UPDATE SET
              slug = excluded.slug,
              title = excluded.title,
@@ -2076,7 +2104,7 @@ export default {
              visibility = excluded.visibility,
              updated_by = excluded.updated_by,
              updated_at = CURRENT_TIMESTAMP`
-        ).bind(id, rawSlug, title, category, coverImage, excerpt, seoTags, content, contentFormat, authorName, visibility, String(body.updated_by || 'admin').slice(0, 60)).run();
+        ).bind(id, rawSlug, title, category, coverImage, excerpt, seoTags, content, contentFormat, authorName, visibility, publishAt, String(body.updated_by || 'admin').slice(0, 60)).run();
 
         fetch('https://api.indexnow.org/indexnow', {
           method: 'POST',

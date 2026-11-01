@@ -91,3 +91,51 @@ The words themselves are in `content/film/index.json` as well, in case you want 
 All six images live in `public/images/blog/`. They are press stills and posters used for
 review and news coverage, credited under each picture. If a studio ever asks for one to come
 down, replace the file with the same name and nothing else in the article has to change.
+
+---
+
+## 5. Other Mommy — review (18+)
+
+- **Title:** `Other Mommy review: 17% on Rotten Tomatoes and I still could not look away`
+- **Category:** `Film Review`
+- **Slug:** `other-mommy-review-2026`
+- **Publish time (UTC):** `2026-11-01 14:30` — leave the box empty if you want it live now
+- **Cover:** `/images/blog/other-mommy-cover.jpg`
+- **Tags:** `other mommy review, other mommy 2026, jessica chastain, rob savage, horror 2026, r rated horror`
+- **Summary:** `Jessica Chastain plays a mother — and the thing wearing her face. A 93-minute, R-rated nightmare that critics hated, audiences queued for, and nobody forgets. No spoilers, score inside.`
+
+**Facebook caption**
+
+> 17% on Rotten Tomatoes. Number one at the box office. One scene that had a full hall hiding under their jackets. Other Mommy is a bad film that works — review, no spoilers, 18+ only. 😶
+> 👉 [link]
+
+---
+
+## 6. Verity — review (18+)
+
+- **Title:** `Verity review: critics called it trash, audiences made it a $163 million hit`
+- **Category:** `Film Review`
+- **Slug:** `verity-review-anne-hathaway`
+- **Publish time (UTC):** `2026-11-01 19:00`
+- **Cover:** `/images/blog/verity-cover.jpg`
+- **Tags:** `verity review, verity 2026, anne hathaway, dakota johnson, colleen hoover, psychological thriller`
+- **Summary:** `Anne Hathaway is the best thing in the year's most-watched thriller — an R-rated Colleen Hoover adaptation that is camp, sexy and far too polite. No spoilers.`
+
+**Facebook caption**
+
+> 31% from critics. $163 million from people like us. Anne Hathaway is having the time of her life, and that is reason enough — my no-spoiler review of Verity. 🍷
+> 👉 [link]
+
+---
+
+## Scheduling for readers abroad (read this once)
+
+The *Publish time* box in the panel takes **UTC**. Two slots cover most of the world:
+
+| Box | Sri Lanka time | Who is awake |
+| --- | --- | --- |
+| `14:30` | 20:00 | Europe evening, India prime time |
+| `19:00` | 00:30 (next day) | UK evening, US afternoon |
+
+One article per slot. The panel then says *"Saved. It appears by itself at … UTC"* — you
+do not have to be at the phone at that time.

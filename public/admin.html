@@ -659,6 +659,12 @@
           </div>
 
           <div class="field">
+            <label>Publish time — leave empty to go live the moment you press Save</label>
+            <input id="blogPublishAt" type="datetime-local" class="input" />
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Times are in <strong>UTC</strong> (Sri Lanka is UTC+5:30, so 14:00 UTC = 19:30 here). 18:30–20:30 UTC is afternoon/evening in Europe and America — the time people abroad are actually reading.</div>
+          </div>
+
+          <div class="field">
             <label>Short Summary / SEO Description (Shown under Google Search Link)</label>
             <input id="blogExcerpt" type="text" class="input" placeholder="Short summary shown on Google Search and blog cards..." />
           </div>
@@ -1769,6 +1775,7 @@
         document.getElementById('blogHtmlTextarea').value = '';
         if (quill) quill.root.innerHTML = '';
         document.getElementById('blogPrivate').checked = false;
+        document.getElementById('blogPublishAt').value = '';
         document.getElementById('blogEditorHeading').textContent = 'New Article';
         document.getElementById('blogEditorPageTitle').textContent = 'New Article';
         setEditorMode('visual');
@@ -1780,8 +1787,12 @@
         allPosts = data.posts || [];
         document.getElementById('badgePosts').textContent = allPosts.length;
         const privateCount = allPosts.filter((x) => String(x.visibility || 'published') === 'hidden').length;
+        const scheduledCount = allPosts.filter((x) => {
+          const t = String(x.publish_at || '').trim();
+          return t && t > new Date().toISOString().replace('T', ' ').slice(0, 19);
+        }).length;
         document.getElementById('blogListNote').textContent = allPosts.length
-          ? `${allPosts.length} total · ${allPosts.length - privateCount} live · ${privateCount} private`
+          ? `${allPosts.length} total · ${allPosts.length - privateCount - scheduledCount} live · ${scheduledCount} waiting for their time · ${privateCount} private`
           : 'Nothing published yet';
         const tbody = document.getElementById('blogListBody');
         tbody.innerHTML = allPosts.length
@@ -1824,6 +1835,7 @@
         document.getElementById('blogAuthor').value = p.author_name || 'Editorial Team';
         document.getElementById('blogExcerpt').value = p.excerpt || '';
         document.getElementById('blogSeoTags').value = p.seo_tags || '';
+        document.getElementById('blogPublishAt').value = String(p.publish_at || '').replace(' ', 'T').slice(0, 16);
         document.getElementById('blogPrivate').checked = String(p.visibility || 'published') === 'hidden';
         document.getElementById('blogHtmlTextarea').value = p.content || '';
         document.getElementById('blogEditorHeading').textContent = 'Editing: ' + p.title;
@@ -1848,6 +1860,7 @@
           category: document.getElementById('blogCategory').value.trim(),
           content_format: document.getElementById('blogFormatSelect').value,
           cover_image: document.getElementById('blogCover').value.trim(),
+          publish_at: document.getElementById('blogPublishAt').value.trim(),
           author_name: document.getElementById('blogAuthor').value.trim(),
           excerpt: document.getElementById('blogExcerpt').value.trim(),
           seo_tags: document.getElementById('blogSeoTags').value.trim(),
@@ -1860,7 +1873,8 @@
           toast(data.error || 'Could not publish article.');
           return;
         }
-        toast('Article live at ' + data.url);
+        const when = document.getElementById('blogPublishAt').value.trim();
+        toast(when ? 'Saved. It appears by itself at ' + when.replace('T', ' ') + ' UTC.' : 'Article live at ' + data.url);
         resetBlogForm();
         loadBlogPosts();
         switchTab('blog');
