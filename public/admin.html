@@ -578,6 +578,26 @@
           </div>
         </div>
 
+        <div class="table-card" id="publishKeyCard">
+          <div class="table-card-head">
+            <span>Let the writing agent publish by itself</span>
+            <span class="table-card-note">only articles — nothing else</span>
+          </div>
+          <div style="padding:14px 16px;">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 10px;">
+              Create one key, give it to the agent (in the chat), and from then on it can add and
+              schedule articles with one tick — it can never delete an article, touch your tools,
+              change your password or open your settings. Revoke it any time; the old key dies
+              immediately. Articles still only appear at the time you set.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="AdminApp.createPublisherKey()">Create a key</button>
+              <button class="btn btn-sm" onclick="AdminApp.revokePublisherKey()">Revoke it</button>
+            </div>
+            <div id="publisherKeyOut" style="margin-top:10px;font-size:13px;word-break:break-all;"></div>
+          </div>
+        </div>
+
         <div class="table-card">
           <div class="table-card-head">
             <span>Published articles</span>
@@ -1779,6 +1799,25 @@
         document.getElementById('blogEditorHeading').textContent = 'New Article';
         document.getElementById('blogEditorPageTitle').textContent = 'New Article';
         setEditorMode('visual');
+      }
+
+      async function createPublisherKey() {
+        if (!confirm('Create a new publishing key? Any older key stops working.')) return;
+        const { ok, data } = await api('/api/admin/publisher-key', { method: 'POST', body: '{}' });
+        if (!ok) { toast(data.error || 'Could not create a key.'); return; }
+        document.getElementById('publisherKeyOut').innerHTML =
+          '<div style="color:var(--amber);font-weight:700;margin-bottom:6px;">Copy this now — it is shown only once</div>' +
+          '<code style="display:block;background:#0b1120;border:1px solid var(--border);border-radius:8px;padding:8px;user-select:all;">' + data.key + '</code>' +
+          '<div style="color:var(--muted);margin-top:6px;">Paste it into the chat. The agent can then add articles and schedule them, and nothing else.</div>';
+        toast('Key created.');
+      }
+
+      async function revokePublisherKey() {
+        if (!confirm('Revoke the publishing key? The agent can no longer publish until you make a new one.')) return;
+        const { ok, data } = await api('/api/admin/publisher-key', { method: 'POST', body: JSON.stringify({ revoke: true }) });
+        if (!ok) { toast(data.error || 'Could not revoke it.'); return; }
+        document.getElementById('publisherKeyOut').innerHTML = '<span style="color:var(--muted);">No key is active. The agent cannot publish.</span>';
+        toast('Key revoked.');
       }
 
       async function loadBlogPosts() {
@@ -3023,6 +3062,7 @@
         openContentModal, closeContentModal, recheckLive, runReview, downloadContent, loadIntoEditor,
         toggleVisibility, handleUpdateFile, quickUpdate, publishUpdate, loadPages, resetPage,
         newBlog, newTool, loadDiagnostics, toggleRowMenu, rowMenuAction,
+        createPublisherKey, revokePublisherKey,
         toggleAcc,
         toggleAcc, downloadBuiltin, updateBuiltin, loadHolidays, previewHoliday, makeHolidayLinks,
         downloadWholeSite, uploadSiteZip, publishSiteZip, undoSiteZip,

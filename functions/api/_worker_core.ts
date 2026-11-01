@@ -556,6 +556,42 @@ function normalizePublishAt(raw: any): string {
   return '';
 }
 
+/** What a login is allowed to do. The editing login has everything; a "publisher"
+ *  login (used by the daily writing agent) may only add and schedule articles. */
+type AdminScope = 'full' | 'publisher';
+
+async function adminScope(request: Request, env: Env): Promise<AdminScope | null> {
+  const auth = String(request.headers.get('Authorization') || '').trim();
+  if (auth.startsWith('Bearer ') && env.DB) {
+    const tok = auth.slice(7).trim();
+    if (tok) {
+      try {
+        const row: any = await env.DB.prepare('SELECT token, username, expires_at FROM admin_sessions WHERE token = ?').bind(tok).first();
+        if (row && Number(row.expires_at || 0) > Date.now()) {
+          const user = String(row.username || '');
+          if (user.endsWith(':recovery')) return null;
+          return user.endsWith(':publisher') ? 'publisher' : 'full';
+        }
+      } catch (_) {}
+    }
+  }
+  const code = String(request.headers.get('X-Admin-Code') || '').trim();
+  if (!code) return null;
+  if (env.BLOG_ADMIN_CODE && code === env.BLOG_ADMIN_CODE) return 'full';
+  const hashed = await sha256Hex('admin:' + code);
+  return hashed === DEFAULT_ADMIN_SHA256 ? 'full' : null;
+}
+
+/** The publisher key is stored only as a hash. Rotating it (in the panel) makes
+ *  every old key useless immediately. */
+async function isValidPublisherKey(request: Request, env: Env): Promise<boolean> {
+  const key = String(request.headers.get('X-Publisher-Key') || '').trim();
+  if (!key || key.length < 20 || !env.DB) return false;
+  const s = await getSettingsMap(env.DB);
+  if (!s.publisher_key_sha256) return false;
+  return (await sha256Hex('publisher:' + key)) === s.publisher_key_sha256;
+}
+
 async function getSettingsMap(db?: D1Database): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   if (!db) return map;
@@ -1223,7 +1259,7 @@ export default {
         const token = crypto.randomUUID() + crypto.randomUUID().replace(/-/g, '');
         const expiresAt = Date.now() + THIRTY_DAYS_MS;
         await env.DB.prepare('INSERT INTO admin_sessions (token, username, expires_at) VALUES (?, ?, ?)').bind(token, expectedUser, expiresAt).run();
-        return json({ ok: true, token, username: expectedUser });
+        return json({ ok: true, token, username: expectedUser, scope: 'full', canPublish: !!s.publisher_key_sha256 });
       }
 
       // Forgot the password? The recovery code from the day it was set opens the panel
@@ -1246,6 +1282,27 @@ export default {
         await env.DB.prepare('INSERT INTO admin_sessions (token, username, expires_at) VALUES (?, ?, ?)')
           .bind(token, (s.admin_username || 'admin') + ':recovery', expiresAt).run();
         return json({ ok: true, token, recovery: true, expiresInMinutes: 15 });
+      }
+
+      // One click: a key the daily writing agent uses to add articles. Shown once,
+      // stored as a hash, revocable at any moment.
+      if (url.pathname === '/api/admin/publisher-key' && request.method === 'POST') {
+        await ensureSchema(env.DB);
+        if (!(await isValidBlogAdmin(request, env))) return json({ error: 'Unauthorized' }, 401);
+        if (!env.DB) return json({ error: 'Database unavailable' }, 500);
+        const body: any = await request.json().catch(() => ({}));
+        if (body.revoke === true) {
+          await env.DB.prepare("DELETE FROM site_settings WHERE k = 'publisher_key_sha256'").run();
+          return json({ ok: true, revoked: true });
+        }
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        const key = 'svpub_' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+        await env.DB.prepare(
+          `INSERT INTO site_settings (k, v, updated_at) VALUES ('publisher_key_sha256', ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = CURRENT_TIMESTAMP`
+        ).bind(await sha256Hex('publisher:' + key)).run();
+        return json({ ok: true, key, note: 'Copy it now — it is shown only this once.' });
       }
 
       if (url.pathname === '/api/admin/new-recovery-code' && request.method === 'POST') {
@@ -2052,7 +2109,11 @@ export default {
 
       if (url.pathname === '/api/blog' && request.method === 'POST') {
         await ensureSchema(env.DB);
-        if (!(await isValidBlogAdmin(request, env))) {
+        // Two doors: the site owner's own login, and the single publisher key that
+        // is allowed to add articles and nothing else (no delete, no settings, no
+        // tools, no password change).
+        const viaPublisherKey = !(await isValidBlogAdmin(request, env)) && (await isValidPublisherKey(request, env));
+        if (!viaPublisherKey && !(await isValidBlogAdmin(request, env))) {
           return json({ error: 'Invalid admin passcode.' }, 401);
         }
         if (!env.DB) return json({ error: 'Database unavailable' }, 500);
@@ -2082,6 +2143,11 @@ export default {
         // the article that is already published.
         const report = await analyzeWithAssets(content, 'blog', env, url.origin);
         const existing: any = await env.DB.prepare('SELECT content, visibility FROM blog_posts WHERE id = ?').bind(id).first();
+        // The publisher key adds new articles. It can never overwrite one that is
+        // already live — that stays the owner's decision alone.
+        if (viaPublisherKey && existing) {
+          return json({ error: 'That article already exists. Only the site owner can replace a live article.' }, 403);
+        }
         const issues = mergeIssues(report.issues, existing ? compareVersions(String(existing.content || ''), content) : []);
         const blocking = issues.filter((i) => i.level === 'error');
         if (blocking.length && body.force !== true) {
